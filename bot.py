@@ -4,7 +4,12 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from google_api import get_gsheet_data
 import os
 
-bot = Bot(token=os.getenv("BOT_TOKEN"), parse_mode=ParseMode.MARKDOWN)
+from aiogram.client.default import DefaultBotProperties
+
+bot = Bot(
+    token=os.getenv("BOT_TOKEN"),
+    default=DefaultBotProperties(parse_mode=ParseMode.MARKDOWN)
+)
 dp = Dispatcher(storage=MemoryStorage())
 
 @dp.message()

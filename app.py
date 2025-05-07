@@ -32,7 +32,7 @@ async def telegram_webhook(request: Request):
 @app.post("/telegram-search")
 async def telegram_search(request: Request):
     data = await request.json()
-    print("🔍 Отримано запит із WebApp:", data)  # <--- додай це
+    print("🔍 Отримано запит із WebApp:", data)
 
     user_id = data.get("user_id")
     query = data.get("query", "").lower()
@@ -42,6 +42,11 @@ async def telegram_search(request: Request):
         return {"error": "Missing data"}
 
     films = get_gsheet_data()
+
+    # ✅ ДОДАЙ ЦЕ — повна перевірка:
+    print(f"⏱ Всього фільмів у таблиці: {len(films)}")
+    print(f"⏱ Шукаємо фільм за запитом: {query}")
+
     for film in films:
         if query in film.get("Назва", "").lower():
             title = film.get("Назва", "Без назви")
@@ -49,13 +54,17 @@ async def telegram_search(request: Request):
             file_id = film.get("file_id")
 
             caption = f"*🎬 {title}*\n{desc}"
-            print(f"✅ Надсилаємо фільм '{title}' користувачу {user_id}")
+
+            # ✅ ДОДАЙ ЦЕ — що саме надсилається:
+            print(f"✅ Надсилаємо '{title}' | file_id: {file_id}")
+
             if file_id:
                 await bot.send_video(chat_id=user_id, video=file_id, caption=caption, parse_mode="Markdown")
             else:
                 await bot.send_message(chat_id=user_id, text=caption, parse_mode="Markdown")
             return {"ok": True}
 
+    print(f"❌ Фільм не знайдено за запитом: {query}")
     await bot.send_message(chat_id=user_id, text="Фільм не знайдено 😢")
-    print(f"❌ Не знайдено: {query}")
     return {"ok": True}
+

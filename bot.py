@@ -4,11 +4,8 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from google_api import get_gsheet_data
 import os
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
-from aiogram import F, Router
-from aiogram.types import Message
+from aiogram import F
 from aiogram.filters import Command
-
-
 from aiogram.client.default import DefaultBotProperties
 
 bot = Bot(
@@ -24,7 +21,6 @@ webapp_keyboard = InlineKeyboardMarkup(inline_keyboard=[
     )]
 ])
 
-
 @dp.message(Command("start"))
 async def start_handler(message: types.Message):
     await message.answer(
@@ -37,8 +33,6 @@ async def get_file_id(message: types.Message):
     file_id = message.video.file_id
     await message.answer(f"`file_id` збережено:\n<code>{file_id}</code>", parse_mode="HTML")
 
-
-
 @dp.message()
 async def search_film(message: types.Message):
     films = get_gsheet_data()
@@ -48,10 +42,13 @@ async def search_film(message: types.Message):
         if query in film["Назва"].lower():
             name = film.get("Назва", "Без назви")
             desc = film.get("Опис", "Без опису")
-            link = film.get("Посилання", "")
+            file_id = film.get("file_id")
 
-            text = f"*🎬 {name}*\n{desc}\n[Дивитись]({link})"
-            await message.answer(text)
+            caption = f"*🎬 {name}*\n{desc}"
+            if file_id:
+                await message.answer_video(file_id, caption=caption, parse_mode="Markdown")
+            else:
+                await message.answer(caption, parse_mode="Markdown")
             return
 
     await message.answer("Фільм не знайдено 😢")

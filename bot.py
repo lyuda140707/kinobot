@@ -25,6 +25,18 @@ webapp_keyboard = InlineKeyboardMarkup(inline_keyboard=[
     )]
 ])
 
+
+@dp.message(Command("webapp"))
+async def send_webapp(message: types.Message):
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(
+            text="🎬 Відкрити WebApp",
+            web_app=WebAppInfo(url="https://lyuda140707.github.io/kinobot-webapp/")
+        )]
+    ])
+    await message.answer("Ось кнопка для відкриття WebApp:", reply_markup=keyboard)
+
+
 @dp.message(Command("start"))
 async def start_handler(message: types.Message):
     if message.text and len(message.text.split()) > 1:

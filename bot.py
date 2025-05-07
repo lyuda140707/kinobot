@@ -65,7 +65,11 @@ async def get_file_id(message: types.Message):
 @dp.message()
 async def search_film(message: types.Message):
     films = get_gsheet_data()
-    query = message.text.lower()
+    if not message.text:
+    return
+
+query = message.text.lower()
+
 
     for film in films:
         if query in film["Назва"].lower():

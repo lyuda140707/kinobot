@@ -88,22 +88,3 @@ async def search_film(message: types.Message):
 
     await message.answer("Фільм не знайдено 😢")
 
-
-
-    for film in films:
-        if query in film["Назва"].lower():
-            name = film.get("Назва", "Без назви")
-            desc = film.get("Опис", "Без опису")
-            file_id = film.get("file_id")
-
-            caption = f"*🎬 {name}*\n{desc}"
-            print(f"✅ Надсилаємо фільм: {name}")
-            print(f"🎞 file_id: {file_id}")
-
-            if file_id:
-                await message.answer_video(file_id, caption=caption, parse_mode="Markdown")
-            else:
-                await message.answer(caption, parse_mode="Markdown")
-            return
-
-    await message.answer("Фільм не знайдено 😢")

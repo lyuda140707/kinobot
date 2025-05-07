@@ -33,13 +33,18 @@ async def start_handler(message: types.Message):
         query = None
 
     if query:
+        print(f"🔍 Отримано запит: {query}")
         films = get_gsheet_data()
         for film in films:
-            if query.lower() in film["Назва"].lower():
+            if query.lower() in film.get("Назва", "").lower() or query.lower() in film.get("Опис", "").lower():
                 name = film["Назва"]
                 desc = film["Опис"]
                 file_id = film.get("file_id")
                 caption = f"*🎬 {name}*\n{desc}"
+
+                print(f"✅ Надсилаємо фільм: {name}")
+                print(f"🎞 file_id: {file_id}")
+
                 if file_id:
                     await message.answer_video(file_id, caption=caption, parse_mode="Markdown")
                 else:
@@ -52,12 +57,10 @@ async def start_handler(message: types.Message):
             reply_markup=webapp_keyboard
         )
 
-
 @dp.message(F.video)
 async def get_file_id(message: types.Message):
     file_id = message.video.file_id
     await message.answer(f"🎥 file_id:\n<code>{file_id}</code>", parse_mode="HTML")
-
 
 @dp.message()
 async def search_film(message: types.Message):
@@ -71,6 +74,9 @@ async def search_film(message: types.Message):
             file_id = film.get("file_id")
 
             caption = f"*🎬 {name}*\n{desc}"
+            print(f"✅ Надсилаємо фільм: {name}")
+            print(f"🎞 file_id: {file_id}")
+
             if file_id:
                 await message.answer_video(file_id, caption=caption, parse_mode="Markdown")
             else:

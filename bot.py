@@ -3,6 +3,8 @@ from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
 from google_api import get_gsheet_data
 import os
+from dotenv import load_dotenv
+load_dotenv()
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from aiogram import F
 from aiogram.filters import Command

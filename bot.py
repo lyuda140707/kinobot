@@ -7,6 +7,8 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from aiogram import F
 from aiogram.filters import Command
 from aiogram.client.default import DefaultBotProperties
+import logging
+logging.basicConfig(level=logging.INFO)
 
 bot = Bot(
     token=os.getenv("BOT_TOKEN"),

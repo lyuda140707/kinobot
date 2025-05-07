@@ -27,9 +27,12 @@ webapp_keyboard = InlineKeyboardMarkup(inline_keyboard=[
 
 @dp.message(Command("start"))
 async def start_handler(message: types.Message):
-    query = message.get_args()
+    if message.text and len(message.text.split()) > 1:
+        query = message.text.split(maxsplit=1)[1]
+    else:
+        query = None
+
     if query:
-        # Пошук фільму
         films = get_gsheet_data()
         for film in films:
             if query.lower() in film["Назва"].lower():

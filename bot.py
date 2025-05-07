@@ -27,10 +27,28 @@ webapp_keyboard = InlineKeyboardMarkup(inline_keyboard=[
 
 @dp.message(Command("start"))
 async def start_handler(message: types.Message):
-    await message.answer(
-        "Привіт! Натисни кнопку нижче, щоб відкрити кіно-застосунок:",
-        reply_markup=webapp_keyboard
-    )
+    query = message.get_args()
+    if query:
+        # Пошук фільму
+        films = get_gsheet_data()
+        for film in films:
+            if query.lower() in film["Назва"].lower():
+                name = film["Назва"]
+                desc = film["Опис"]
+                file_id = film.get("file_id")
+                caption = f"*🎬 {name}*\n{desc}"
+                if file_id:
+                    await message.answer_video(file_id, caption=caption, parse_mode="Markdown")
+                else:
+                    await message.answer(caption, parse_mode="Markdown")
+                return
+        await message.answer("Фільм не знайдено 😢")
+    else:
+        await message.answer(
+            "Привіт! Натисни кнопку нижче, щоб відкрити кіно-застосунок:",
+            reply_markup=webapp_keyboard
+        )
+
 
 @dp.message(F.video)
 async def get_file_id(message: types.Message):

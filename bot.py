@@ -31,7 +31,8 @@ async def start_handler(message: types.Message):
 @dp.message(F.video)
 async def get_file_id(message: types.Message):
     file_id = message.video.file_id
-    await message.answer(f"`file_id` збережено:\n<code>{file_id}</code>", parse_mode="HTML")
+    await message.answer(f"🎥 file_id збережено:\n<code>{file_id}</code>", parse_mode="HTML")
+
 
 @dp.message()
 async def search_film(message: types.Message):

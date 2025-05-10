@@ -55,8 +55,7 @@ async def search_in_bot(request: Request):
     if not user_id or not query:
         return {"found": False}
 
-    # 🆕 ЗБЕРЕГТИ СТАТИСТИКУ
-    save_statistics(user_id)
+    save_statistics(user_id)  # 🆕 Додаємо користувача в статистику
 
     films = get_gsheet_data()
 

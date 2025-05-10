@@ -4,8 +4,10 @@ from aiogram import types
 from bot import dp, bot
 from google_api import get_gsheet_data
 import os
-from fastapi import FastAPI, Request
 import requests
+import gspread
+import os
+import json
 
 
 app = FastAPI()
@@ -66,5 +68,12 @@ async def search_in_bot(request: Request):
                 return {"found": False}
 
     return {"found": False}
+
+def connect_to_sheet(sheet_name: str):
+    credentials_json = os.getenv("GOOGLE_SHEETS_CREDENTIALS_JSON")
+    credentials = json.loads(credentials_json)
+    gc = gspread.service_account_from_dict(credentials)
+    sheet = gc.open(sheet_name).sheet1
+    return sheet
 
 

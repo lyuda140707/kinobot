@@ -4,9 +4,26 @@ from aiogram import types
 from bot import dp, bot
 from google_api import get_gsheet_data
 import os
+from fastapi import FastAPI, Request
+import requests
+
 
 app = FastAPI()
 
+@app.post("/request-film")
+async def request_film(req: Request):
+    data = await req.json()
+    user_id = data.get('user_id')
+    film_name = data.get('film_name')
+    
+    if user_id and film_name:
+        message = f"🎬 Користувач {user_id} хоче додати фільм: {film_name}"
+        requests.post(f"https://api.telegram.org/bot7749808687:AAGQ2TuCvI5T-HfRFP7GxWAsXsCi15Heqek/sendMessage", data={
+            "chat_id": "7205633024",
+            "text": message
+        })
+    return {"ok": True}
+    
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # або вкажи конкретне джерело, якщо треба безпечно

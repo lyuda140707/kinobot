@@ -2,11 +2,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, Request
 from aiogram import types
 from bot import dp, bot
-from google_api import get_gsheet_data, save_statistics  # імпорт обох функцій
+from google_api import get_gsheet_data
 import os
+from fastapi import FastAPI, Request
 import requests
-import gspread
-import json
+
 
 app = FastAPI()
 
@@ -26,11 +26,12 @@ async def request_film(req: Request):
     
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # або вкажи конкретне джерело
+    allow_origins=["*"],  # або вкажи конкретне джерело, якщо треба безпечно
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 @app.on_event("startup")
 async def on_startup():
@@ -45,7 +46,6 @@ async def telegram_webhook(request: Request):
     await dp.feed_update(bot, update)
     return {"ok": True}
 
-# ✅ ОНОВЛЕНА функція тільки одна:
 @app.post("/search-in-bot")
 async def search_in_bot(request: Request):
     data = await request.json()
@@ -54,8 +54,6 @@ async def search_in_bot(request: Request):
 
     if not user_id or not query:
         return {"found": False}
-
-    save_statistics(user_id)  # 🆕 Додаємо користувача в статистику
 
     films = get_gsheet_data()
 
@@ -68,3 +66,4 @@ async def search_in_bot(request: Request):
                 return {"found": False}
 
     return {"found": False}
+

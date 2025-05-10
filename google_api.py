@@ -13,8 +13,11 @@ def connect_to_sheet(sheet_name: str):
     creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
     client = gspread.authorize(creds)
 
-    sheet = client.open(sheet_name).sheet1
-    return sheet
+    sheet_id = os.getenv("SHEET_ID")  # Отримуємо ID таблиці
+    file = client.open_by_key(sheet_id)  # Відкриваємо таблицю за ID
+    worksheet = file.worksheet(sheet_name)  # Відкриваємо аркуш за назвою (наприклад "Statistics")
+    return worksheet
+
 
 # Отримати дані з головної таблиці (фільми)
 def get_gsheet_data():

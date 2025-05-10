@@ -19,6 +19,7 @@ def connect_to_sheet(sheet_name: str):
     return worksheet
 
 
+
 # Отримати дані з головної таблиці (фільми)
 def get_gsheet_data():
     creds_json = os.getenv("GOOGLE_SHEETS_CREDENTIALS_JSON")

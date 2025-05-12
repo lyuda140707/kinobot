@@ -41,6 +41,7 @@ back_to_menu_keyboard = InlineKeyboardMarkup(
 async def start_handler(message: types.Message):
     await message.answer("Привіт! Натисни кнопку нижче, щоб відкрити кіно-застосунок:", reply_markup=webapp_keyboard)
 
+
 @dp.message(Command("webapp"))
 async def send_webapp(message: types.Message):
     await message.answer("Ось кнопка для відкриття WebApp:", reply_markup=webapp_keyboard)

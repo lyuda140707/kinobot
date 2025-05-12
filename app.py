@@ -2,13 +2,15 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from aiogram import types
-from bot import dp, bot, back_to_menu_keyboard
-from google_api import get_gsheet_data
+from bot import dp, bot
 import os
 import asyncio
 import requests
+import logging
 
-# Оголошуємо FastAPI один раз
+# Налаштовуємо логування
+logging.basicConfig(level=logging.INFO)
+
 app = FastAPI()
 
 @app.post("/send-video")
@@ -17,16 +19,22 @@ async def send_video(request: Request):
     user_id = data.get("user_id")
     file_id = data.get("file_id")
 
+    # Логування отриманих даних
+    logging.info(f"Отримано user_id: {user_id}, file_id: {file_id}")
+
     if not user_id or not file_id:
+        logging.error("Немає user_id або file_id")
         return {"success": False}
 
     try:
-        # Надсилаємо фільм
+        # Надсилаємо відео
         message = await bot.send_video(
             chat_id=user_id,
             video=file_id,
             caption="🎬 Приємного перегляду! 🍿"
         )
+
+        logging.info(f"Відео надіслано користувачу {user_id} з file_id {file_id}")
 
         # Кнопка для перегляду фільму
         back_to_video_keyboard = InlineKeyboardMarkup(
@@ -40,18 +48,6 @@ async def send_video(request: Request):
             ]
         )
 
-        # Кнопка для повернення до каталогу фільмів
-        return_to_catalog_keyboard = InlineKeyboardMarkup(
-            inline_keyboard=[
-                [
-                    InlineKeyboardButton(
-                        text="🎥 Відкрити каталог фільмів",  # Текст кнопки
-                        web_app=WebAppInfo(url="https://lyuda140707.github.io/kinobot-webapp/")  # Посилання на каталог
-                    )
-                ]
-            ]
-        )
-
         # Повідомлення з кнопкою
         await bot.send_message(
             chat_id=user_id,
@@ -59,23 +55,12 @@ async def send_video(request: Request):
             reply_markup=back_to_video_keyboard
         )
 
-        # Додатково — кнопка для переходу до каталогу фільмів
-        await bot.send_message(
-            chat_id=user_id,
-            text="💬 Щоб переглядати більше фільмів, натисніть на кнопку нижче!",
-            reply_markup=return_to_catalog_keyboard
-        )
-
-        # Встановлюємо час на видалення відео (24 години)
-        await asyncio.sleep(86400)  # 24 години = 86400 секунд
-
-        # Видаляємо відео через 24 години
-        await bot.delete_message(chat_id=user_id, message_id=message.message_id)
-
         return {"success": True}
 
     except Exception as e:
+        logging.error(f"Помилка при відправці відео: {str(e)}")
         return {"success": False, "error": str(e)}
+
 
 @app.post("/search-in-bot")
 async def search_in_bot(request: Request):

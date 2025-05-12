@@ -27,9 +27,8 @@ async def send_video(request: Request):
         return {"success": False}
 
     try:
-        # Отримуємо username бота
-        bot_info = await bot.get_me()
-        bot_username = bot_info.username  # Отримуємо username
+        # Вручну вказуємо username бота
+        bot_username = "UAKinoTochka_bot"  # Введіть ваш реальний username
 
         # Надсилаємо фільм
         message = await bot.send_video(

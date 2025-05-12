@@ -19,12 +19,8 @@ async def send_video(request: Request):
     user_id = data.get("user_id")
     file_id = data.get("file_id")
 
-    # Логування отриманих даних
-    logging.info(f"Отримано user_id: {user_id}, file_id: {file_id}")
-
     if not user_id or not file_id:
-        logging.error("Немає user_id або file_id")
-        return {"success": False}
+        return {"success": False, "error": "user_id або file_id відсутні"}
 
     try:
         # Вручну вказуємо username бота
@@ -82,8 +78,6 @@ async def send_video(request: Request):
     except Exception as e:
         logging.error(f"Помилка при відправці відео: {str(e)}")
         return {"success": False, "error": str(e)}
-
-
 
 
 

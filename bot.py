@@ -70,14 +70,10 @@ async def handle_video_request(message: types.Message):
         logging.info(f"Отримано відео з file_id: {file_id}")
         await message.answer(f"🎥 Ваше відео надіслано, file_id: {file_id}")
 
-    else:
-        logging.warning("Отримано не текстове повідомлення без відео.")
-        await message.answer("Це не текст або відео. Спробуйте надіслати коректне повідомлення.")
-
-
-
 @dp.message(F.video)
 async def get_file_id(message: types.Message):
     file_id = message.video.file_id
     await message.answer(f"🎥 file_id:\n<code>{file_id}</code>", parse_mode="HTML")
+
+
 

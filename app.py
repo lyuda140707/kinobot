@@ -35,38 +35,19 @@ async def send_video(request: Request):
 
         logging.info(f"Відео надіслано користувачу {user_id} з file_id {file_id}")
 
-        # Кнопка для повернення в каталог фільмів у Telegram
-        back_to_video_keyboard = InlineKeyboardMarkup(
-            inline_keyboard=[
-                [
-                    InlineKeyboardButton(
-                        text="🎥 Відкрити каталог фільмів",  # Текст кнопки
-                        web_app=WebAppInfo(url="https://lyuda140707.github.io/kinobot-webapp/")  # Посилання на каталог
-                    )
-                ]
-            ]
-        )
-
-        # Повідомлення з кнопкою для переходу до каталогу фільмів в Telegram
-        await bot.send_message(
-            chat_id=user_id,
-            text="✅ Ваш фільм надіслано! Перегляньте його, натискаючи кнопку нижче:",
-            reply_markup=back_to_video_keyboard
-        )
-
-        # Заміна кнопки "Переглянути фільм" на "Гаразд", яка перенаправить в Telegram
+        # Кнопка для переходу в Telegram з WebApp
         back_to_video_webapp_keyboard = InlineKeyboardMarkup(
             inline_keyboard=[
                 [
                     InlineKeyboardButton(
-                        text="Гаразд",  # Текст кнопки
+                        text="Переглянути фільм",  # Текст кнопки
                         url=f"t.me/{bot_username}?start={user_id}_{file_id}"  # Посилання для переходу в Telegram
                     )
                 ]
             ]
         )
 
-        # Повідомлення для WebApp
+        # Повідомлення для WebApp з кнопкою для переходу в Telegram
         await bot.send_message(
             chat_id=user_id,
             text="✨ Фільм надіслано вам у Telegram! Натисніть нижче, щоб переглянути фільм:",
@@ -78,6 +59,7 @@ async def send_video(request: Request):
     except Exception as e:
         logging.error(f"Помилка при відправці відео: {str(e)}")
         return {"success": False, "error": str(e)}
+
 
 @app.post("/search-in-bot")
 async def search_in_bot(request: Request):

@@ -27,7 +27,11 @@ async def send_video(request: Request):
         return {"success": False}
 
     try:
-        # Надсилаємо відео
+        # Отримуємо username бота
+        bot_info = await bot.get_me()
+        bot_username = bot_info.username  # Отримуємо username
+
+        # Надсилаємо фільм
         message = await bot.send_video(
             chat_id=user_id,
             video=file_id,
@@ -42,7 +46,7 @@ async def send_video(request: Request):
                 [
                     InlineKeyboardButton(
                         text="Переглянути фільм",  # Текст кнопки
-                        url=f"t.me/{bot.username}?start={user_id}_{file_id}"  # Посилання для переходу в бот
+                        url=f"t.me/{bot_username}?start={user_id}_{file_id}"  # Посилання для переходу в бот
                     )
                 ]
             ]

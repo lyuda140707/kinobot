@@ -10,7 +10,13 @@ from aiogram import F
 from aiogram.filters import Command
 from aiogram.client.default import DefaultBotProperties
 import logging
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+import asyncio
 logging.basicConfig(level=logging.INFO)
+
+app = FastAPI()
+
 
 bot = Bot(
     token=os.getenv("BOT_TOKEN"),
@@ -99,4 +105,31 @@ async def search_film(message: types.Message):
             return
 
     await message.answer("Фільм не знайдено 😢")
+
+@app.post("/send-video")
+async def send_video(request: Request):
+    data = await request.json()
+    user_id = data.get("user_id")
+    file_id = data.get("file_id")
+
+    if not user_id or not file_id:
+        return JSONResponse(content={"success": False, "error": "Missing user_id or file_id"}, status_code=400)
+
+    try:
+        await bot.send_video(chat_id=user_id, video=file_id, parse_mode="Markdown")
+        return {"success": True}
+    except Exception as e:
+        print(f"Помилка надсилання відео: {e}")
+        return JSONResponse(content={"success": False, "error": str(e)}, status_code=500)
+
+async def main():
+    await dp.start_polling(bot)
+
+if __name__ == "__main__":
+    import uvicorn
+    loop = asyncio.get_event_loop()
+    loop.create_task(main())
+    uvicorn.run(app, host="0.0.0.0", port=10000)
+
+
 

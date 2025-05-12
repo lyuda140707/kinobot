@@ -39,7 +39,7 @@ async def send_video(request: Request):
 
         logging.info(f"Відео надіслано користувачу {user_id} з file_id {file_id}")
 
-        # Кнопка для переходу до WebApp
+        # Кнопка для повернення в каталог фільмів у Telegram
         back_to_video_keyboard = InlineKeyboardMarkup(
             inline_keyboard=[
                 [
@@ -51,14 +51,14 @@ async def send_video(request: Request):
             ]
         )
 
-        # Повідомлення з кнопкою для переходу до каталогу фільмів
+        # Повідомлення з кнопкою для переходу до каталогу фільмів в Telegram
         await bot.send_message(
             chat_id=user_id,
             text="✅ Ваш фільм надіслано! Перегляньте його, натискаючи кнопку нижче:",
             reply_markup=back_to_video_keyboard
         )
 
-        # Повідомлення для WebApp із кнопкою для перегляду фільму
+        # Кнопка для переходу до WebApp з кнопкою "Переглянути фільм"
         back_to_video_webapp_keyboard = InlineKeyboardMarkup(
             inline_keyboard=[
                 [
@@ -82,6 +82,7 @@ async def send_video(request: Request):
     except Exception as e:
         logging.error(f"Помилка при відправці відео: {str(e)}")
         return {"success": False, "error": str(e)}
+
 
 
 

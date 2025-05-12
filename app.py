@@ -128,17 +128,26 @@ async def telegram_webhook(request: Request):
     try:
         # Отримуємо дані з webhook
         data = await request.json()
-        
+
+        # Логування отриманих даних
+        logging.info(f"Отримані дані з webhook: {data}")
+
+        # Перевірка, чи є необхідні поля в даних
+        if not data.get("update_id") or not data.get("message"):
+            logging.error("Немає необхідних даних в оновленні")
+            return {"success": False, "error": "Невірний формат даних"}
+
         # Створюємо оновлення з отриманих даних
         update = types.Update(**data)
-        
+
         # Відправляємо в dispatcher для обробки
         await dp.feed_update(bot, update)
         return {"ok": True}
-    
+
     except Exception as e:
         logging.error(f"Помилка при обробці webhook: {str(e)}")
         return {"success": False, "error": str(e)}
+
 
 
 @app.on_event("startup")

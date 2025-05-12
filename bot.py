@@ -45,6 +45,19 @@ async def start_handler(message: types.Message):
 @dp.message(Command("webapp"))
 async def send_webapp(message: types.Message):
     await message.answer("Ось кнопка для відкриття WebApp:", reply_markup=webapp_keyboard)
+    
+@dp.message(Command())
+async def handle_video_request(message: types.Message):
+    # Отримуємо параметри з URL (user_id і file_id)
+    command, user_id, file_id = message.text.split("_")
+
+    # Якщо все коректно — надсилаємо фільм
+    if user_id and file_id:
+        await bot.send_video(
+            chat_id=user_id,
+            video=file_id,
+            caption="🎬 Ось ваш фільм! Насолоджуйтесь переглядом! 🍿"
+        )
 
 @dp.message(F.video)
 async def get_file_id(message: types.Message):

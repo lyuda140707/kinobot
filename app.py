@@ -54,12 +54,12 @@ async def send_video(request: Request):
             reply_markup=back_to_video_keyboard
         )
 
-        # Кнопка для переходу до WebApp з кнопкою "Переглянути фільм"
-        back_to_video_webapp_keyboard = InlineKeyboardMarkup(
+        # Кнопка "Гаразд", яка перенаправляє до фільму в Telegram
+        back_to_telegram_keyboard = InlineKeyboardMarkup(
             inline_keyboard=[
                 [
                     InlineKeyboardButton(
-                        text="Переглянути фільм",  # Текст кнопки
+                        text="Гаразд",  # Текст кнопки
                         url=f"t.me/{bot_username}?start={user_id}_{file_id}"  # Посилання для переходу в Telegram
                     )
                 ]
@@ -70,7 +70,7 @@ async def send_video(request: Request):
         await bot.send_message(
             chat_id=user_id,
             text="✨ Фільм надіслано вам у Telegram! Натисніть нижче, щоб переглянути фільм:",
-            reply_markup=back_to_video_webapp_keyboard
+            reply_markup=back_to_telegram_keyboard
         )
 
         return {"success": True}

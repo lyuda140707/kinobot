@@ -19,7 +19,7 @@ bot = Bot(
 )
 dp = Dispatcher(storage=MemoryStorage())
 
-webapp_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+webapp_keyboard = InlineKeyboardMarkup(inline_keyboard=[  # Кнопка для WebApp
     [InlineKeyboardButton(
         text="🎬 Відкрити кіно-застосунок",
         web_app=WebAppInfo(url="https://lyuda140707.github.io/kinobot-webapp/")
@@ -27,7 +27,7 @@ webapp_keyboard = InlineKeyboardMarkup(inline_keyboard=[
 ])
 
 back_to_menu_keyboard = InlineKeyboardMarkup(
-    inline_keyboard=[
+    inline_keyboard=[  # Кнопка для повернення в каталог
         [
             InlineKeyboardButton(
                 text="🎥 Відкрити каталог фільмів",
@@ -45,7 +45,7 @@ async def start_handler(message: types.Message):
 async def send_webapp(message: types.Message):
     await message.answer("Ось кнопка для відкриття WebApp:", reply_markup=webapp_keyboard)
 
-@dp.message()
+@dp.message(Command())
 async def handle_video_request(message: types.Message):
     # Отримуємо параметри з URL (user_id і file_id)
     command, user_id, file_id = message.text.split("_")

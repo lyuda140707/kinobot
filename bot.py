@@ -5,11 +5,12 @@ from google_api import get_gsheet_data
 import os
 from dotenv import load_dotenv
 load_dotenv()
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram import F
 from aiogram.filters import Command
 from aiogram.client.default import DefaultBotProperties
 import logging
+
 logging.basicConfig(level=logging.INFO)
 
 bot = Bot(
@@ -36,8 +37,6 @@ back_to_menu_keyboard = InlineKeyboardMarkup(
     ]
 )
 
-
-# Тільки ХЕНДЛЕРИ, без FastAPI
 @dp.message(Command("start"))
 async def start_handler(message: types.Message):
     await message.answer("Привіт! Натисни кнопку нижче, щоб відкрити кіно-застосунок:", reply_markup=webapp_keyboard)
@@ -45,7 +44,7 @@ async def start_handler(message: types.Message):
 @dp.message(Command("webapp"))
 async def send_webapp(message: types.Message):
     await message.answer("Ось кнопка для відкриття WebApp:", reply_markup=webapp_keyboard)
-    
+
 @dp.message(Command())
 async def handle_video_request(message: types.Message):
     # Отримуємо параметри з URL (user_id і file_id)

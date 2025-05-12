@@ -25,6 +25,18 @@ webapp_keyboard = InlineKeyboardMarkup(inline_keyboard=[
     )]
 ])
 
+back_to_menu_keyboard = InlineKeyboardMarkup(
+    inline_keyboard=[
+        [
+            InlineKeyboardButton(
+                text="🎥 Відкрити каталог фільмів",
+                web_app=WebAppInfo(url="https://lyuda140707.github.io/kinobot-webapp/")
+            )
+        ]
+    ]
+)
+
+
 # Тільки ХЕНДЛЕРИ, без FastAPI
 @dp.message(Command("start"))
 async def start_handler(message: types.Message):

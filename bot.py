@@ -74,6 +74,3 @@ async def handle_video_request(message: types.Message):
 async def get_file_id(message: types.Message):
     file_id = message.video.file_id
     await message.answer(f"🎥 file_id:\n<code>{file_id}</code>", parse_mode="HTML")
-
-
-

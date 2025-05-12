@@ -45,18 +45,28 @@ async def start_handler(message: types.Message):
 async def send_webapp(message: types.Message):
     await message.answer("Ось кнопка для відкриття WebApp:", reply_markup=webapp_keyboard)
 
-@dp.message()  # Замінили на обробку всіх повідомлень
+@dp.message()
 async def handle_video_request(message: types.Message):
-    # Отримуємо параметри з URL (user_id і file_id)
-    command, user_id, file_id = message.text.split("_")
+    # Перевірка, чи є текст в повідомленні
+    if message.text:
+        # Отримуємо параметри з URL (user_id і file_id)
+        command, user_id, file_id = message.text.split("_")
 
-    # Якщо все коректно — надсилаємо фільм
-    if user_id and file_id:
-        await bot.send_video(
-            chat_id=user_id,
-            video=file_id,
-            caption="🎬 Ось ваш фільм! Насолоджуйтесь переглядом! 🍿"
-        )
+        # Якщо все коректно — надсилаємо фільм
+        if user_id and file_id:
+            await bot.send_video(
+                chat_id=user_id,
+                video=file_id,
+                caption="🎬 Ось ваш фільм! Насолоджуйтесь переглядом! 🍿"
+            )
+    else:
+        # Якщо повідомлення не містить тексту, перевіряємо, чи це відео
+        if message.video:
+            file_id = message.video.file_id
+            # Обробка відео без використання тексту
+            logging.info(f"Отримано відео з file_id: {file_id}")
+            await message.answer(f"🎥 Відео надіслано, file_id: {file_id}")
+
 
 @dp.message(F.video)
 async def get_file_id(message: types.Message):

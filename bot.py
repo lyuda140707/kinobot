@@ -45,7 +45,7 @@ async def start_handler(message: types.Message):
 async def send_webapp(message: types.Message):
     await message.answer("Ось кнопка для відкриття WebApp:", reply_markup=webapp_keyboard)
 
-@dp.message(Command())
+@dp.message()  # Замінили на обробку всіх повідомлень
 async def handle_video_request(message: types.Message):
     # Отримуємо параметри з URL (user_id і file_id)
     command, user_id, file_id = message.text.split("_")
@@ -62,3 +62,4 @@ async def handle_video_request(message: types.Message):
 async def get_file_id(message: types.Message):
     file_id = message.video.file_id
     await message.answer(f"🎥 file_id:\n<code>{file_id}</code>", parse_mode="HTML")
+

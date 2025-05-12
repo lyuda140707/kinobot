@@ -11,8 +11,6 @@ import requests
 # Оголошуємо FastAPI один раз
 app = FastAPI()
 
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-
 @app.post("/send-video")
 async def send_video(request: Request):
     data = await request.json()
@@ -24,7 +22,7 @@ async def send_video(request: Request):
 
     try:
         # Надсилаємо фільм
-        await bot.send_video(
+        message = await bot.send_video(
             chat_id=user_id,
             video=file_id,
             caption="🎬 Приємного перегляду! 🍿"
@@ -42,7 +40,17 @@ async def send_video(request: Request):
             ]
         )
 
-        
+        # Кнопка для повернення до каталогу фільмів
+        return_to_catalog_keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text="🎥 Відкрити каталог фільмів",  # Текст кнопки
+                        web_app=WebAppInfo(url="https://lyuda140707.github.io/kinobot-webapp/")  # Посилання на каталог
+                    )
+                ]
+            ]
+        )
 
         # Повідомлення з кнопкою
         await bot.send_message(
@@ -51,11 +59,23 @@ async def send_video(request: Request):
             reply_markup=back_to_video_keyboard
         )
 
+        # Додатково — кнопка для переходу до каталогу фільмів
+        await bot.send_message(
+            chat_id=user_id,
+            text="💬 Щоб переглядати більше фільмів, натисніть на кнопку нижче!",
+            reply_markup=return_to_catalog_keyboard
+        )
+
+        # Встановлюємо час на видалення відео (24 години)
+        await asyncio.sleep(86400)  # 24 години = 86400 секунд
+
+        # Видаляємо відео через 24 години
+        await bot.delete_message(chat_id=user_id, message_id=message.message_id)
+
         return {"success": True}
 
     except Exception as e:
         return {"success": False, "error": str(e)}
-
 
 @app.post("/search-in-bot")
 async def search_in_bot(request: Request):

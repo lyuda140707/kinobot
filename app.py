@@ -23,17 +23,12 @@ async def send_video(request: Request):
         return {"success": False, "error": "user_id або file_id відсутні"}
 
     try:
-        # Вручну вказуємо username бота
-        bot_username = "UAKinoTochka_bot"  # Введіть ваш реальний username
-
         # Надсилаємо фільм
         message = await bot.send_video(
             chat_id=user_id,
             video=file_id,
             caption="🎬 Приємного перегляду! 🍿"
         )
-
-        logging.info(f"Відео надіслано користувачу {user_id} з file_id {file_id}")
 
         # Кнопка для переходу в Telegram з WebApp
         back_to_video_webapp_keyboard = InlineKeyboardMarkup(
@@ -59,6 +54,7 @@ async def send_video(request: Request):
     except Exception as e:
         logging.error(f"Помилка при відправці відео: {str(e)}")
         return {"success": False, "error": str(e)}
+
 
 
 @app.post("/search-in-bot")

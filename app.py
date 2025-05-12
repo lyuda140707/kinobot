@@ -20,23 +20,37 @@ async def send_video(request: Request):
         return {"success": False}
 
     try:
+        # Надсилаємо фільм
         await bot.send_video(
             chat_id=user_id,
             video=file_id,
             caption="🎬 Приємного перегляду! 🍿"
         )
+
+        # Кнопка для перегляду фільму
+        back_to_video_keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text="Переглянути фільм",  # Текст кнопки
+                        url=f"t.me/{bot.username}?start={user_id}_{file_id}"  # Посилання для переходу в бот
+                    )
+                ]
+            ]
+        )
+
+        # Повідомлення з кнопкою
         await bot.send_message(
             chat_id=user_id,
-            text=(
-                "✨ Хочете подивитись ще щось цікаве?\n\n"
-                "Натисніть кнопку нижче і обирайте новий фільм 🎬🍿"
-            ),
-            reply_markup=back_to_menu_keyboard
+            text="✅ Ваш фільм надіслано! Перегляньте його, натискаючи кнопку нижче:",
+            reply_markup=back_to_video_keyboard
         )
+
         return {"success": True}
 
     except Exception as e:
         return {"success": False, "error": str(e)}
+
 
 @app.post("/search-in-bot")
 async def search_in_bot(request: Request):

@@ -125,10 +125,21 @@ async def request_film(request: Request):
 
 @app.post("/webhook")
 async def telegram_webhook(request: Request):
-    data = await request.json()
-    update = types.Update(**data)
-    await dp.feed_update(bot, update)
-    return {"ok": True}
+    try:
+        # Отримуємо дані з webhook
+        data = await request.json()
+        
+        # Створюємо оновлення з отриманих даних
+        update = types.Update(**data)
+        
+        # Відправляємо в dispatcher для обробки
+        await dp.feed_update(bot, update)
+        return {"ok": True}
+    
+    except Exception as e:
+        logging.error(f"Помилка при обробці webhook: {str(e)}")
+        return {"success": False, "error": str(e)}
+
 
 @app.on_event("startup")
 async def startup():

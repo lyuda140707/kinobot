@@ -42,17 +42,7 @@ async def send_video(request: Request):
             ]
         )
 
-        # Повідомлення з кнопкою
-        await bot.send_message(
-            chat_id=user_id,
-            text="✅ Ваш фільм надіслано! Перегляньте його, натискаючи кнопку нижче:",
-            reply_markup=back_to_video_keyboard
-        )
-
-        return {"success": True}
-
-    except Exception as e:
-        return {"success": False, "error": str(e)}
+        
 
         # Повідомлення з кнопкою
         await bot.send_message(

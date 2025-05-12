@@ -79,8 +79,6 @@ async def send_video(request: Request):
         logging.error(f"Помилка при відправці відео: {str(e)}")
         return {"success": False, "error": str(e)}
 
-
-
 @app.post("/search-in-bot")
 async def search_in_bot(request: Request):
     data = await request.json()
@@ -141,8 +139,6 @@ async def telegram_webhook(request: Request):
     except Exception as e:
         logging.error(f"Помилка при обробці webhook: {str(e)}")
         return {"success": False, "error": str(e)}
-
-
 
 @app.on_event("startup")
 async def startup():

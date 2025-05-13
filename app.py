@@ -76,36 +76,40 @@ async def send_film(request: Request):
             found_film = film
             break
 
-    if found_film:
-        keyboard = InlineKeyboardMarkup(
-            inline_keyboard=[
-                [InlineKeyboardButton(
-                    text="🎥 Обрати інший фільм 📚",
-                    web_app=WebAppInfo(url="https://lyuda140707.github.io/kinobot-webapp/")
-                )]
-            ]
-        )
-
-        sent_message = await bot.send_video(
-            chat_id=user_id,
-            video=found_film["file_id"],
-            caption="🎬 Приємного перегляду! 🍿",
-            reply_markup=keyboard,
-            parse_mode="Markdown"
-        )
-
-        # 🕐 Чекаємо 60 секунд (1 хвилина для тесту)
-        await asyncio.sleep(60)
-
-        # 🗑 Після цього видаляємо повідомлення
-        try:
-            await bot.delete_message(chat_id=user_id, message_id=sent_message.message_id)
-        except Exception as e:
-            print(f"Помилка видалення повідомлення: {e}")
-
-        return {"success": True}
-    else:
+    if not found_film:
         return {"success": False, "error": "Фільм не знайдено або немає file_id"}
+
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(
+                text="🎥 Обрати інший фільм 📚",
+                web_app=WebAppInfo(url="https://lyuda140707.github.io/kinobot-webapp/")
+            )]
+        ]
+    )
+
+    sent_message = await bot.send_video(
+        chat_id=user_id,
+        video=found_film["file_id"],
+        caption="🎬 Приємного перегляду! 🍿",
+        reply_markup=keyboard,
+        parse_mode="Markdown"
+    )
+
+    # ✅ Одразу повертаємо відповідь WebApp'у
+    asyncio.create_task(delete_after_timeout(user_id, sent_message.message_id))
+
+    return {"success": True}
+
+
+# окремо виносимо функцію видалення
+async def delete_after_timeout(chat_id, message_id):
+    await asyncio.sleep(60)  # ⏳ чекаємо 1 хвилину
+    try:
+        await bot.delete_message(chat_id=chat_id, message_id=message_id)
+        print(f"✅ Повідомлення {message_id} видалено")
+    except Exception as e:
+        print(f"❗️ Помилка видалення повідомлення: {e}")
 
 
 # Додаємо CORS для доступу WebApp

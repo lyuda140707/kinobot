@@ -75,8 +75,7 @@ async def send_film(request: Request):
             break
 
     if found_film:
-        caption = f"🎬 *{found_film['Назва']}*\n{found_film['Опис']}"
-        await bot.send_video(
+      await bot.send_video(
             chat_id=user_id,
             video=found_film["file_id"],
             caption=caption,

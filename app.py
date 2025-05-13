@@ -5,6 +5,7 @@ from bot import dp, bot
 from google_api import get_gsheet_data
 import os
 import requests
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 
 app = FastAPI()
 
@@ -74,16 +75,29 @@ async def send_film(request: Request):
             found_film = film
             break
 
-    if found_film:
-        await bot.send_video(
-            chat_id=user_id,
-            video=found_film["file_id"],
-            caption="🎬 Приємного перегляду!",  # ✅ Прямо тут пишемо текст
-            parse_mode="Markdown"
-        )
-        return {"success": True}
-    else:
-        return {"success": False, "error": "Фільм не знайдено або немає file_id"}
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
+
+if found_film:
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(
+                text="🎬 Повернутись до каталогу",
+                web_app=WebAppInfo(url="https://lyuda140707.github.io/kinobot-webapp/")
+            )]
+        ]
+    )
+
+    await bot.send_video(
+        chat_id=user_id,
+        video=found_film["file_id"],
+        caption="🎬 Приємного перегляду! 🍿",
+        reply_markup=keyboard,
+        parse_mode="Markdown"
+    )
+
+    return {"success": True}
+else:
+    return {"success": False, "error": "Фільм не знайдено або немає file_id"}
 
 
 

@@ -104,7 +104,7 @@ async def send_film(request: Request):
 
 # окремо виносимо функцію видалення
 async def delete_after_timeout(chat_id, message_id):
-    await asyncio.sleep(60)  # ⏳ чекаємо 1 хвилину
+    await asyncio.sleep(10800)  # 3 години = 60*60*3 = 10800 секунд
     try:
         await bot.delete_message(chat_id=chat_id, message_id=message_id)
         print(f"✅ Повідомлення {message_id} видалено")

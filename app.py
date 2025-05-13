@@ -5,6 +5,7 @@ from bot import dp, bot
 from google_api import get_gsheet_data
 import os
 from fastapi import FastAPI, Request
+from fastapi import HTTPException
 import requests
 
 
@@ -24,13 +25,7 @@ async def request_film(req: Request):
         })
     return {"ok": True}
     
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # або вкажи конкретне джерело, якщо треба безпечно
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+
 
 
 @app.on_event("startup")
@@ -66,3 +61,40 @@ async def search_in_bot(request: Request):
                 return {"found": False}
 
     return {"found": False}
+
+@app.post("/send-film")
+async def send_film(request: Request):
+    data = await request.json()
+    user_id = data.get("user_id")
+    film_name = data.get("film_name")
+
+    if not user_id or not film_name:
+        raise HTTPException(status_code=400, detail="user_id або film_name відсутні")
+
+    films = get_gsheet_data()
+
+    for film in films:
+        if film_name.lower() in film.get("Назва", "").lower():
+            file_id = film.get("file_id")
+            if file_id:
+                caption = f"🎬 *{film['Назва']}*\n{film['Опис']}"
+                await bot.send_video(
+                    chat_id=user_id,
+                    video=file_id,
+                    caption=caption,
+                    parse_mode="Markdown"
+                )
+                return {"success": True}
+            else:
+                return {"success": False, "error": "file_id відсутній для цього фільму"}
+
+    return {"success": False, "error": "Фільм не знайдено"}
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # або вкажи конкретне джерело, якщо треба безпечно
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+

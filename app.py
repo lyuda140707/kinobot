@@ -77,13 +77,14 @@ async def send_film(request: Request):
 
     if found_film:
         keyboard = InlineKeyboardMarkup(
-            inline_keyboard=[
-                [InlineKeyboardButton(
-                    text="🎬 Повернутись до каталогу",
-                    web_app=WebAppInfo(url="https://lyuda140707.github.io/kinobot-webapp/")
-                )]
-            ]
-        )
+    inline_keyboard=[
+        [InlineKeyboardButton(
+            text="🎥 Обрати інший фільм 📚",
+            web_app=WebAppInfo(url="https://lyuda140707.github.io/kinobot-webapp/")
+        )]
+    ]
+)
+
 
         await bot.send_video(
             chat_id=user_id,

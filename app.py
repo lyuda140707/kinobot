@@ -1,13 +1,10 @@
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from aiogram import types
 from bot import dp, bot
 from google_api import get_gsheet_data
 import os
-from fastapi import FastAPI, Request
-from fastapi import HTTPException
 import requests
-
 
 app = FastAPI()
 
@@ -24,9 +21,6 @@ async def request_film(req: Request):
             "text": message
         })
     return {"ok": True}
-    
-
-
 
 @app.on_event("startup")
 async def on_startup():
@@ -52,15 +46,16 @@ async def search_in_bot(request: Request):
 
     films = get_gsheet_data()
 
+    found_film = None
     for film in films:
-        if query in film.get("Назва", "").lower():
-            video_url = film.get("Посилання")
-            if video_url:
-                return {"found": True, "videoUrl": video_url}
-            else:
-                return {"found": False}
+        if query in film.get("Назва", "").lower() and film.get("Посилання"):
+            found_film = film
+            break
 
-    return {"found": False}
+    if found_film:
+        return {"found": True, "videoUrl": found_film["Посилання"]}
+    else:
+        return {"found": False}
 
 @app.post("/send-film")
 async def send_film(request: Request):
@@ -73,31 +68,29 @@ async def send_film(request: Request):
 
     films = get_gsheet_data()
 
-    ffound_film = None
+    found_film = None
+    for film in films:
+        if film_name.lower() in film.get("Назва", "").lower() and film.get("file_id"):
+            found_film = film
+            break
 
-for film in films:
-    if film_name.lower() in film.get("Назва", "").lower() and film.get("file_id"):
-        found_film = film
-        break
+    if found_film:
+        caption = f"🎬 *{found_film['Назва']}*\n{found_film['Опис']}"
+        await bot.send_video(
+            chat_id=user_id,
+            video=found_film["file_id"],
+            caption=caption,
+            parse_mode="Markdown"
+        )
+        return {"success": True}
+    else:
+        return {"success": False, "error": "Фільм не знайдено або немає file_id"}
 
-if found_film:
-    caption = f"🎬 *{found_film['Назва']}*\n{found_film['Опис']}"
-    await bot.send_video(
-        chat_id=user_id,
-        video=found_film['file_id'],
-        caption=caption,
-        parse_mode="Markdown"
-    )
-    return {"success": True}
-else:
-    return {"success": False, "error": "file_id відсутній або фільм не знайдено"}
-
-
+# Додаємо CORS для доступу WebApp
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # або вкажи конкретне джерело, якщо треба безпечно
+    allow_origins=["*"],  # Або конкретні домени, якщо треба безпечніше
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-

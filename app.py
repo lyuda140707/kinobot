@@ -75,15 +75,16 @@ async def send_film(request: Request):
             break
 
     if found_film:
-      await bot.send_video(
-            chat_id=user_id,
-            video=found_film["file_id"],
-            caption=caption,
-            parse_mode="Markdown"
-        )
-        return {"success": True}
-    else:
-        return {"success": False, "error": "Фільм не знайдено або немає file_id"}
+    await bot.send_video(
+        chat_id=user_id,
+        video=found_film["file_id"],
+        caption=caption,
+        parse_mode="Markdown"
+    )
+    return {"success": True}
+else:
+    return {"success": False, "error": "Фільм не знайдено або немає file_id"}
+
 
 # Додаємо CORS для доступу WebApp
 app.add_middleware(

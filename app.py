@@ -6,6 +6,7 @@ from google_api import get_gsheet_data
 import os
 import requests
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
+import asyncio
 
 app = FastAPI()
 
@@ -77,16 +78,15 @@ async def send_film(request: Request):
 
     if found_film:
         keyboard = InlineKeyboardMarkup(
-    inline_keyboard=[
-        [InlineKeyboardButton(
-            text="🎥 Обрати інший фільм 📚",
-            web_app=WebAppInfo(url="https://lyuda140707.github.io/kinobot-webapp/")
-        )]
-    ]
-)
+            inline_keyboard=[
+                [InlineKeyboardButton(
+                    text="🎥 Обрати інший фільм 📚",
+                    web_app=WebAppInfo(url="https://lyuda140707.github.io/kinobot-webapp/")
+                )]
+            ]
+        )
 
-
-        await bot.send_video(
+        sent_message = await bot.send_video(
             chat_id=user_id,
             video=found_film["file_id"],
             caption="🎬 Приємного перегляду! 🍿",
@@ -94,12 +94,18 @@ async def send_film(request: Request):
             parse_mode="Markdown"
         )
 
+        # 🕐 Чекаємо 60 секунд (1 хвилина для тесту)
+        await asyncio.sleep(60)
+
+        # 🗑 Після цього видаляємо повідомлення
+        try:
+            await bot.delete_message(chat_id=user_id, message_id=sent_message.message_id)
+        except Exception as e:
+            print(f"Помилка видалення повідомлення: {e}")
+
         return {"success": True}
     else:
         return {"success": False, "error": "Фільм не знайдено або немає file_id"}
-
-
-
 
 
 # Додаємо CORS для доступу WebApp

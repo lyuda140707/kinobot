@@ -8,6 +8,8 @@ import asyncio
 import requests
 import logging
 
+bot_username = "UAKinoTochka_bot"
+
 # Налаштовуємо логування
 logging.basicConfig(level=logging.INFO)
 

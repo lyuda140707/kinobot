@@ -73,22 +73,25 @@ async def send_film(request: Request):
 
     films = get_gsheet_data()
 
-    for film in films:
-        if film_name.lower() in film.get("Назва", "").lower():
-            file_id = film.get("file_id")
-            if file_id:
-                caption = f"🎬 *{film['Назва']}*\n{film['Опис']}"
-                await bot.send_video(
-                    chat_id=user_id,
-                    video=file_id,
-                    caption=caption,
-                    parse_mode="Markdown"
-                )
-                return {"success": True}
-            else:
-                return {"success": False, "error": "file_id відсутній для цього фільму"}
+    ffound_film = None
 
-    return {"success": False, "error": "Фільм не знайдено"}
+for film in films:
+    if film_name.lower() in film.get("Назва", "").lower() and film.get("file_id"):
+        found_film = film
+        break
+
+if found_film:
+    caption = f"🎬 *{found_film['Назва']}*\n{found_film['Опис']}"
+    await bot.send_video(
+        chat_id=user_id,
+        video=found_film['file_id'],
+        caption=caption,
+        parse_mode="Markdown"
+    )
+    return {"success": True}
+else:
+    return {"success": False, "error": "file_id відсутній або фільм не знайдено"}
+
 
 app.add_middleware(
     CORSMiddleware,

@@ -111,6 +111,30 @@ async def delete_after_timeout(chat_id, message_id):
     except Exception as e:
         print(f"❗️ Помилка видалення повідомлення: {e}")
 
+@app.post("/check-subscription")
+async def check_subscription(request: Request):
+    data = await request.json()
+    user_id = data.get('user_id')
+
+    if not user_id:
+        raise HTTPException(status_code=400, detail="user_id відсутній")
+
+    bot_token = os.getenv("BOT_TOKEN")  # Бере токен з .env
+    channel_username = "@KinoTochkaUA"  # Твій канал
+
+    url = f"https://api.telegram.org/bot{bot_token}/getChatMember"
+    params = {
+        "chat_id": channel_username,
+        "user_id": user_id
+    }
+    response = requests.get(url, params=params)
+    result = response.json()
+
+    if result.get("ok") and result["result"]["status"] in ["member", "administrator", "creator"]:
+        return {"subscribed": True}
+    else:
+        return {"subscribed": False}
+
 
 # Додаємо CORS для доступу WebApp
 app.add_middleware(

@@ -10,8 +10,8 @@ import asyncio
 
 app = FastAPI()
 
-@app.get("/send-channel-post")
-async def send_channel_post():
+- @app.get("/send-channel-post")
++ @app.post("/send-channel-post")
     token = os.getenv("BOT_TOKEN")
     channel_id = os.getenv("CHANNEL_ID")  # або напряму ID твого каналу
     webapp_url = "https://lyuda140707.github.io/kinobot-webapp/"

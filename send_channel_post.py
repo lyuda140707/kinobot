@@ -4,7 +4,8 @@ import requests
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHANNEL_ID = os.getenv("CHANNEL_ID")  # або напряму "@твій_канал"
 
-WEBAPP_URL = "https://lyuda140707.github.io/kinobot-webapp/"
+WEBAPP_URL = "https://t.me/UAKinoTochka_bot?startapp"
+
 
 def send_channel_post():
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"

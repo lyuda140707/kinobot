@@ -7,6 +7,11 @@ import os
 import requests
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 import asyncio
+from datetime import datetime, timedelta
+
+# Список повідомлень, які потрібно буде видалити
+messages_to_delete = []
+
 
 app = FastAPI()
 
@@ -31,6 +36,8 @@ async def on_startup():
     webhook_url = os.getenv("WEBHOOK_URL")
     if webhook_url:
         await bot.set_webhook(webhook_url)
+  # 🚀 Запускаємо фоновий процес перевірки на видалення
+    asyncio.create_task(background_deleter())
 
 @app.post("/webhook")
 async def telegram_webhook(request: Request):
@@ -98,20 +105,19 @@ async def send_film(request: Request):
         parse_mode="Markdown"
     )
 
-    # ✅ Одразу повертаємо відповідь WebApp'у
-    asyncio.create_task(delete_after_timeout(user_id, sent_message.message_id))
+    
+    # ⏳ Додаємо повідомлення в список для майбутнього видалення
+    delete_time = datetime.utcnow() + timedelta(hours=3)
+    messages_to_delete.append({
+        "chat_id": user_id,
+        "message_id": sent_message.message_id,
+        "delete_at": delete_time
+    })
 
     return {"success": True}
 
 
-# окремо виносимо функцію видалення
-async def delete_after_timeout(chat_id, message_id):
-    await asyncio.sleep(10800)  # 3 години = 60*60*3 = 10800 секунд
-    try:
-        await bot.delete_message(chat_id=chat_id, message_id=message_id)
-        print(f"✅ Повідомлення {message_id} видалено")
-    except Exception as e:
-        print(f"❗️ Помилка видалення повідомлення: {e}")
+
 
 @app.post("/check-subscription")
 async def check_subscription(request: Request):
@@ -136,6 +142,23 @@ async def check_subscription(request: Request):
         return {"subscribed": True}
     else:
         return {"subscribed": False}
+
+async def background_deleter():
+    while True:
+        now = datetime.utcnow()
+        to_delete = [msg for msg in messages_to_delete if msg["delete_at"] <= now]
+
+        for msg in to_delete:
+            try:
+                await bot.delete_message(chat_id=msg["chat_id"], message_id=msg["message_id"])
+                print(f"✅ Видалено повідомлення {msg['message_id']}")
+            except Exception as e:
+                print(f"❗️ Помилка при видаленні повідомлення {msg['message_id']}: {e}")
+
+            messages_to_delete.remove(msg)
+
+        await asyncio.sleep(60)  # Перевіряти кожну хвилину
+
 
 
 # Додаємо CORS для доступу WebApp

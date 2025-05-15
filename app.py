@@ -10,6 +10,32 @@ import asyncio
 
 app = FastAPI()
 
+@app.get("/send-channel-post")
+async def send_channel_post():
+    token = os.getenv("BOT_TOKEN")
+    channel_id = os.getenv("CHANNEL_ID")  # або напряму ID твого каналу
+    webapp_url = "https://lyuda140707.github.io/kinobot-webapp/"
+
+    message_text = "🎬 Відкрити кіно-застосунок"
+
+    payload = {
+        "chat_id": channel_id,
+        "text": message_text,
+        "reply_markup": {
+            "inline_keyboard": [[
+                {"text": "🎬 Перейти в застосунок", "web_app": {"url": webapp_url}}
+            ]]
+        }
+    }
+
+    response = requests.post(f"https://api.telegram.org/bot{token}/sendMessage", json=payload)
+    
+    if response.status_code == 200:
+        return {"status": "✅ Повідомлення надіслано!"}
+    else:
+        return {"status": "❌ Помилка", "details": response.text}
+
+
 @app.post("/request-film")
 async def request_film(req: Request):
     data = await req.json()

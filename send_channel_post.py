@@ -19,7 +19,7 @@ def send_channel_post():
         ),
         "reply_markup": {
             "inline_keyboard": [[
-                {"text": "🎬 Перейти до застосунку", "web_app": {"url": WEBAPP_URL}}
+                {"text": "🎬 Перейти до застосунку", "url": WEBAPP_URL}
             ]]
         }
     }

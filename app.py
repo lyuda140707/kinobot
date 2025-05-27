@@ -8,6 +8,8 @@ import requests
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 import asyncio
 from datetime import datetime, timedelta
+import json
+
 
 # Список повідомлень, які потрібно буде видалити
 messages_to_delete = []
@@ -121,7 +123,15 @@ async def send_film(request: Request):
         "delete_at": delete_time
     })
 
+
+
+
+    # Зберігаємо у файл (convert datetime to string)
+    with open("deleter.json", "w") as f:
+        json.dump(messages_to_delete, f, default=str)
+
     return {"success": True}
+
 
 
 
@@ -152,6 +162,15 @@ async def check_subscription(request: Request):
         return {"subscribed": False}
 
 async def background_deleter():
+    # 🔁 Відновити список повідомлень з файлу, якщо він існує
+    if os.path.exists("deleter.json"):
+        with open("deleter.json", "r") as f:
+            data = json.load(f)
+            for item in data:
+                item["delete_at"] = datetime.fromisoformat(item["delete_at"])
+            messages_to_delete.extend(data)
+        print(f"♻️ Відновлено {len(messages_to_delete)} повідомлень до видалення")
+
     while True:
         now = datetime.utcnow()
         print(f"⏳ Перевірка на видалення: {len(messages_to_delete)} в черзі")
@@ -168,7 +187,13 @@ async def background_deleter():
 
             messages_to_delete.remove(msg)
 
+            # 🔄 Оновлюємо файл після кожного видалення
+            with open("deleter.json", "w") as f:
+                json.dump(messages_to_delete, f, default=str)
+
         await asyncio.sleep(60)
+
+    
 
 
 

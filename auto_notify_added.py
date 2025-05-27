@@ -7,7 +7,7 @@ from datetime import datetime
 import time
 
 load_dotenv()
-sheet = service.spreadsheets().values()
+
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 SPREADSHEET_ID = os.getenv("SHEET_ID")
 

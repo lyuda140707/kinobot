@@ -9,7 +9,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 import asyncio
 from datetime import datetime, timedelta
 import json
-
+from pytz import timezone
 
 # Список повідомлень, які потрібно буде видалити
 messages_to_delete = []
@@ -102,17 +102,26 @@ async def send_film(request: Request):
         ]
     )
 
+    # Час видалення через 3 години
+    kyiv = timezone("Europe/Kyiv")
+    delete_time = datetime.utcnow() + timedelta(hours=3)
+    delete_time_kyiv = delete_time.astimezone(kyiv)
+    delete_time_str = delete_time_kyiv.strftime('%H:%M %d.%m')
+
+    # Підпис до повідомлення
+    caption = (
+        "🎬 Приємного перегляду! 🍿\n\n"
+        f"🕓 Це повідомлення буде видалено о {delete_time_str} (за Києвом)."
+    )
+
     sent_message = await bot.send_video(
         chat_id=user_id,
         video=found_film["file_id"],
-        caption="🎬 Приємного перегляду! 🍿",
+        caption=caption,
         reply_markup=keyboard,
         parse_mode="Markdown"
     )
 
-
-    # ⏳ Додаємо повідомлення в список для майбутнього видалення
-    delete_time = datetime.utcnow() + timedelta(hours=3)
 
 
     print(f"📩 Додано повідомлення до видалення: chat_id={user_id}, message_id={sent_message.message_id}")

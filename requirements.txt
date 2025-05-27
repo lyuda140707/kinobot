@@ -4,3 +4,4 @@ aiogram[fastapi]
 gspread
 oauth2client
 python-dotenv
+google-api-python-client

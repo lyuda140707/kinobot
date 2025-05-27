@@ -18,32 +18,31 @@ async def check_and_notify():
     sheet = service.spreadsheets()
 
     # 1. Отримати запити
-    reqs = sheet.values().get(spreadsheetId=SPREADSHEET_ID, range="Запити!A2:C").execute().get("values", [])
+    reqs = sheet.values().get(
+        spreadsheetId=SPREADSHEET_ID,
+        range="Запити!A2:C"
+    ).execute().get("values", [])
+
     # 2. Отримати список назв фільмів
-    films = sheet.values().get(spreadsheetId=SPREADSHEET_ID, range="Sheet1!A2:A").execute().get("values", [])
+    films = sheet.values().get(
+        spreadsheetId=SPREADSHEET_ID,
+        range="Sheet1!A2:A"
+    ).execute().get("values", [])
     film_names = [f[0].strip().lower() for f in films if f]
 
     rows_to_update = []
 
     for i, row in enumerate(reqs):
-        if len(row) < 2:
+        if len(row) < 3:
             continue
 
-        # 🔁 Пропустити, якщо вже є статус у колонці C
-        if len(row) >= 3 and row[2].strip():
+        user_id, film_name, status = row[0], row[1], row[2]
+
+        # Обробляємо лише якщо статус == "чекає" (без смайлів і крапок)
+        if status.strip().lower() != "чекає":
             continue
 
-        user_id, film_name = row[0], row[1]
         if film_name.strip().lower() in film_names:
-
-            # 🕐 Позначити як "⏳ Чекає"
-            sheet.values().update(
-                spreadsheetId=SPREADSHEET_ID,
-                range=f"Запити!C{i+2}",
-                valueInputOption="RAW",
-                body={"values": [["⏳ Чекає"]]}
-            ).execute()
-
             try:
                 msg = await bot.send_message(
                     chat_id=int(user_id),
@@ -54,7 +53,7 @@ async def check_and_notify():
                 print(f"✅ Надіслано: {film_name} → {user_id}")
                 rows_to_update.append(i + 2)
 
-                # ⏳ Зачекати 60 секунд і видалити повідомлення
+                # Зачекати 60 секунд і видалити повідомлення
                 await asyncio.sleep(60)
                 try:
                     await bot.delete_message(chat_id=int(user_id), message_id=msg.message_id)
@@ -64,7 +63,7 @@ async def check_and_notify():
             except Exception as e:
                 print(f"❌ Помилка надсилання для {user_id}: {e}")
 
-    # 3. Позначити оброблені запити статусом
+    # 3. Оновити статус
     for row in rows_to_update:
         status = f"✅ Надіслано {datetime.now().strftime('%d.%m %H:%M')}"
         sheet.values().update(
@@ -81,4 +80,4 @@ if __name__ == "__main__":
             print("✅ Перевірка завершена. Чекаю 5 хвилин...")
         except Exception as e:
             print(f"❌ Сталася помилка: {e}")
-        time.sleep(300)  # 300 секунд = 5 хвилин
+        time.sleep(300)  # 5 хвилин

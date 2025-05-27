@@ -204,7 +204,13 @@ async def background_deleter():
 
         await asyncio.sleep(60)
 
+
+@app.get("/ping")
+async def ping():
+    return {"status": "alive"}
+
     
+
 
 
 

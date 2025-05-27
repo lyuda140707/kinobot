@@ -32,10 +32,12 @@ async def check_and_notify():
 
     # 3. Обробка запитів
     for i, row in enumerate(reqs):
-        if len(row) < 3:
+        if len(row) < 2:
             continue
 
-        user_id, film_name, status = row[0], row[1], row[2]
+        user_id = row[0]
+        film_name = row[1]
+        status = row[2] if len(row) > 2 else ""
 
         # Продовжити лише якщо статус == "чекає"
         if status.strip().lower() != "чекає":
@@ -78,4 +80,4 @@ if __name__ == "__main__":
             print("✅ Перевірка завершена. Чекаю 5 хвилин...")
         except Exception as e:
             print(f"❌ Сталася помилка: {e}")
-        time.sleep(300)  # 300 сек = 5 хв
+        time.sleep(300)  # 300 секунд = 5 хвилин

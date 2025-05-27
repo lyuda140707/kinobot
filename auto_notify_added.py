@@ -15,7 +15,7 @@ bot = Bot(token=BOT_TOKEN)
 
 async def check_and_notify():
     service = get_google_service()
-    sheet = service.spreadsheets()
+    sheet = service.spreadsheets().values()
 
     # Отримати запити
     reqs = sheet.values().get(

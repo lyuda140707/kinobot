@@ -104,7 +104,8 @@ async def send_film(request: Request):
 
     # Час видалення через 3 години
     kyiv = timezone("Europe/Kyiv")
-    delete_time = datetime.utcnow() + timedelta(hours=3)
+    kyiv = timezone("Europe/Kyiv")
+    delete_time = datetime.now(kyiv) + timedelta(hours=3)
     delete_time_kyiv = delete_time.astimezone(kyiv)
     delete_time_str = delete_time_kyiv.strftime('%H:%M %d.%m')
 
@@ -182,7 +183,7 @@ async def background_deleter():
         print(f"♻️ Відновлено {len(messages_to_delete)} повідомлень до видалення")
 
     while True:
-        now = datetime.utcnow()
+        now = datetime.now(timezone("Europe/Kyiv"))
         print(f"⏳ Перевірка на видалення: {len(messages_to_delete)} в черзі")
 
         to_delete = [msg for msg in messages_to_delete if msg["delete_at"] <= now]

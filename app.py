@@ -205,13 +205,9 @@ async def background_deleter():
         await asyncio.sleep(60)
 
 
-@app.get("/ping")
+@app.api_route("/ping", methods=["GET", "HEAD"])
 async def ping():
     return {"status": "alive"}
-
-    
-
-
 
 
 # Додаємо CORS для доступу WebApp

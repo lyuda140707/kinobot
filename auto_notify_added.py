@@ -3,6 +3,7 @@ import os
 from aiogram import Bot
 from google_api import get_google_service  # у тебе вже є
 from dotenv import load_dotenv
+from datetime import datetime
 
 load_dotenv()
 
@@ -39,9 +40,17 @@ async def check_and_notify():
             except Exception as e:
                 print(f"❌ Помилка надсилання для {user_id}: {e}")
 
-    # 3. Очистити оброблені запити
+
+
+    # 3. Позначити оброблені запити статусом
     for row in reversed(rows_to_delete):
-        sheet.values().clear(spreadsheetId=SPREADSHEET_ID, range=f"Запити!A{row}:B{row}").execute()
+        status = f"✅ Надіслано {datetime.now().strftime('%d.%m %H:%M')}"
+        sheet.values().update(
+            spreadsheetId=SPREADSHEET_ID,
+            range=f"Запити!C{row}",
+            valueInputOption="RAW",
+            body={"values": [[status]]}
+        ).execute()
 
 import time
 

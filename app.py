@@ -33,11 +33,14 @@ async def request_film(req: Request):
 
 @app.on_event("startup")
 async def on_startup():
+    print("🚀 background_deleter запущено!")
+
     webhook_url = os.getenv("WEBHOOK_URL")
     if webhook_url:
         await bot.set_webhook(webhook_url)
-  # 🚀 Запускаємо фоновий процес перевірки на видалення
+
     asyncio.create_task(background_deleter())
+
 
 @app.post("/webhook")
 async def telegram_webhook(request: Request):
@@ -105,9 +108,13 @@ async def send_film(request: Request):
         parse_mode="Markdown"
     )
 
-    
+
     # ⏳ Додаємо повідомлення в список для майбутнього видалення
-    delete_time = datetime.utcnow() + timedelta(hours=3)
+    delete_time = datetime.utcnow() + timedelta(minutes=1)
+
+    print(f"📩 Додано повідомлення до видалення: chat_id={user_id}, message_id={sent_message.message_id}")
+    print(f"🕓 Видалення заплановано на: {delete_time.isoformat()}")
+
     messages_to_delete.append({
         "chat_id": user_id,
         "message_id": sent_message.message_id,
@@ -115,6 +122,7 @@ async def send_film(request: Request):
     })
 
     return {"success": True}
+
 
 
 
@@ -146,9 +154,12 @@ async def check_subscription(request: Request):
 async def background_deleter():
     while True:
         now = datetime.utcnow()
+        print(f"⏳ Перевірка на видалення: {len(messages_to_delete)} в черзі")
+
         to_delete = [msg for msg in messages_to_delete if msg["delete_at"] <= now]
 
         for msg in to_delete:
+            print(f"🗑 Видаляю повідомлення {msg['message_id']} у чаті {msg['chat_id']}")
             try:
                 await bot.delete_message(chat_id=msg["chat_id"], message_id=msg["message_id"])
                 print(f"✅ Видалено повідомлення {msg['message_id']}")
@@ -157,7 +168,7 @@ async def background_deleter():
 
             messages_to_delete.remove(msg)
 
-        await asyncio.sleep(60)  # Перевіряти кожну хвилину
+        await asyncio.sleep(60)
 
 
 

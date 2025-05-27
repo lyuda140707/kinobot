@@ -30,19 +30,19 @@ async def check_and_notify():
     ).execute().get("values", [])
     film_names = [f[0].strip().lower() for f in films if f]
 
-    rows_to_update = []
-
+    # 3. Обробка запитів
     for i, row in enumerate(reqs):
         if len(row) < 3:
             continue
 
         user_id, film_name, status = row[0], row[1], row[2]
 
-        # Обробляємо лише якщо статус == "чекає" (без смайлів і крапок)
+        # Продовжити лише якщо статус == "чекає"
         if status.strip().lower() != "чекає":
             continue
 
         if film_name.strip().lower() in film_names:
+            row_number = i + 2  # номер рядка в Google Таблиці (починається з 2)
             try:
                 msg = await bot.send_message(
                     chat_id=int(user_id),
@@ -51,27 +51,25 @@ async def check_and_notify():
                 )
 
                 print(f"✅ Надіслано: {film_name} → {user_id}")
-                rows_to_update.append(i + 2)
 
-                # Зачекати 60 секунд і видалити повідомлення
+                # Зачекати 60 сек і видалити
                 await asyncio.sleep(60)
                 try:
                     await bot.delete_message(chat_id=int(user_id), message_id=msg.message_id)
                 except Exception as e:
                     print(f"⚠️ Не вдалося видалити повідомлення: {e}")
 
+                # ✅ Оновити статус у таблиці
+                status_text = f"✅ Надіслано {datetime.now().strftime('%d.%m %H:%M')}"
+                sheet.values().update(
+                    spreadsheetId=SPREADSHEET_ID,
+                    range=f"Запити!C{row_number}",
+                    valueInputOption="RAW",
+                    body={"values": [[status_text]]}
+                ).execute()
+
             except Exception as e:
                 print(f"❌ Помилка надсилання для {user_id}: {e}")
-
-    # 3. Оновити статус
-    for row in rows_to_update:
-        status = f"✅ Надіслано {datetime.now().strftime('%d.%m %H:%M')}"
-        sheet.values().update(
-            spreadsheetId=SPREADSHEET_ID,
-            range=f"Запити!C{row}",
-            valueInputOption="RAW",
-            body={"values": [[status]]}
-        ).execute()
 
 if __name__ == "__main__":
     while True:
@@ -80,4 +78,4 @@ if __name__ == "__main__":
             print("✅ Перевірка завершена. Чекаю 5 хвилин...")
         except Exception as e:
             print(f"❌ Сталася помилка: {e}")
-        time.sleep(300)  # 5 хвилин
+        time.sleep(300)  # 300 сек = 5 хв

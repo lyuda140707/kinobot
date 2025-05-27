@@ -46,34 +46,37 @@ async def check_and_notify():
 
 
         if film_name.strip().lower() in film_names:
-            row_number = i + 2
-            try:
-                msg = await bot.send_message(
-                    chat_id=int(user_id),
-                    text=f"🎬 Фільм *{film_name}* уже додано! Перевір у боті 😉",
-                    parse_mode="Markdown"
-                )
+    row_number = i + 2
+    try:
+        msg = await bot.send_message(
+            chat_id=int(user_id),
+            text=f"🎬 Фільм *{film_name}* уже додано! Перевір у боті 😉",
+            parse_mode="Markdown"
+        )
 
-                print(f"✅ Надіслано: {film_name} → {user_id}")
+        print(f"✅ Надіслано: {film_name} → {user_id}")
 
-                # Зачекати 60 сек і видалити
-                await asyncio.sleep(60)
-                try:
-                    await bot.delete_message(chat_id=int(user_id), message_id=msg.message_id)
-                except Exception as e:
-                    print(f"⚠️ Не вдалося видалити повідомлення: {e}")
+        # Зачекати 60 сек і видалити
+        await asyncio.sleep(60)
+        try:
+            await bot.delete_message(chat_id=int(user_id), message_id=msg.message_id)
+        except Exception as e:
+            print(f"⚠️ Не вдалося видалити повідомлення: {e}")
 
-                # Оновити статус
-                print(f"📝 Оновлюю статус у C{row_number} → ✅ Надіслано")
-                sheet.values().update(
-                    spreadsheetId=SPREADSHEET_ID,
-                    range=f"Запити!C{row_number}",
-                    valueInputOption="RAW",
-                    body={"values": [[f"✅ Надіслано {datetime.now().strftime('%d.%m %H:%M')}"]]}
-                ).execute()
+        # 🟢 Оновлення статусу ТУТ (з правильним відступом)
+        print(f"📝 Оновлюю статус у C{row_number} → ✅ Надіслано")
+        result = sheet.values().update(
+            spreadsheetId=SPREADSHEET_ID,
+            range=f"Запити!C{row_number}",
+            valueInputOption="RAW",
+            body={"values": [[f"✅ Надіслано {datetime.now().strftime('%d.%m %H:%M')}"]]}
+        ).execute()
 
-            except Exception as e:
-                print(f"❌ Помилка надсилання для {user_id}: {e}")
+        print("🟢 Результат оновлення статусу:", result)
+
+    except Exception as e:
+        print(f"❌ Помилка надсилання для {user_id}: {e}")
+
 
 if __name__ == "__main__":
     while True:

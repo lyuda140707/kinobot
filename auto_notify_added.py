@@ -1,9 +1,10 @@
 import asyncio
 import os
 from aiogram import Bot
-from google_api import get_google_service  # у тебе вже є
+from google_api import get_google_service
 from dotenv import load_dotenv
 from datetime import datetime
+import time
 
 load_dotenv()
 
@@ -22,28 +23,44 @@ async def check_and_notify():
     films = sheet.values().get(spreadsheetId=SPREADSHEET_ID, range="Sheet1!A2:A").execute().get("values", [])
     film_names = [f[0].strip().lower() for f in films if f]
 
-    rows_to_delete = []
+    rows_to_update = []
 
     for i, row in enumerate(reqs):
         if len(row) < 2:
             continue
         user_id, film_name = row[0], row[1]
         if film_name.strip().lower() in film_names:
+            # 🕐 Позначити як "⏳ Чекає"
+            sheet.values().update(
+                spreadsheetId=SPREADSHEET_ID,
+                range=f"Запити!C{i+2}",
+                valueInputOption="RAW",
+                body={"values": [["⏳ Чекає"]]}
+            ).execute()
+
             try:
-                await bot.send_message(
+                msg = await bot.send_message(
+
                     chat_id=int(user_id),
                     text=f"🎬 Фільм *{film_name}* уже додано! Перевір у боті 😉",
                     parse_mode="Markdown"
                 )
+
                 print(f"✅ Надіслано: {film_name} → {user_id}")
-                rows_to_delete.append(i + 2)
+                rows_to_update.append(i + 2)
+
+                # ⏳ Зачекати 60 секунд і видалити повідомлення
+                await asyncio.sleep(60)
+                try:
+                    await bot.delete_message(chat_id=int(user_id), message_id=msg.message_id)
+                except Exception as e:
+                    print(f"⚠️ Не вдалося видалити повідомлення: {e}")
+
             except Exception as e:
                 print(f"❌ Помилка надсилання для {user_id}: {e}")
 
-
-
     # 3. Позначити оброблені запити статусом
-    for row in reversed(rows_to_delete):
+    for row in rows_to_update:
         status = f"✅ Надіслано {datetime.now().strftime('%d.%m %H:%M')}"
         sheet.values().update(
             spreadsheetId=SPREADSHEET_ID,
@@ -51,8 +68,6 @@ async def check_and_notify():
             valueInputOption="RAW",
             body={"values": [[status]]}
         ).execute()
-
-import time
 
 if __name__ == "__main__":
     while True:
@@ -62,4 +77,3 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"❌ Сталася помилка: {e}")
         time.sleep(300)  # 300 секунд = 5 хвилин
-

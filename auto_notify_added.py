@@ -62,6 +62,7 @@ async def check_and_notify():
                     print(f"⚠️ Не вдалося видалити повідомлення: {e}")
 
                 # Оновити статус
+                print(f"📝 Оновлюю статус у C{row_number} → ✅ Надіслано")
                 sheet.values().update(
                     spreadsheetId=SPREADSHEET_ID,
                     range=f"Запити!C{row_number}",

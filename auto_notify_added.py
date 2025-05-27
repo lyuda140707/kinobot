@@ -18,7 +18,7 @@ async def check_and_notify():
     sheet = service.spreadsheets()
 
     # 1. Отримати запити
-    reqs = sheet.values().get(spreadsheetId=SPREADSHEET_ID, range="Запити!A2:B").execute().get("values", [])
+    reqs = sheet.values().get(spreadsheetId=SPREADSHEET_ID, range="Запити!A2:C").execute().get("values", [])
     # 2. Отримати список назв фільмів
     films = sheet.values().get(spreadsheetId=SPREADSHEET_ID, range="Sheet1!A2:A").execute().get("values", [])
     film_names = [f[0].strip().lower() for f in films if f]
@@ -28,8 +28,14 @@ async def check_and_notify():
     for i, row in enumerate(reqs):
         if len(row) < 2:
             continue
+
+        # 🔁 Пропустити, якщо вже є статус у колонці C
+        if len(row) >= 3 and row[2].strip():
+            continue
+
         user_id, film_name = row[0], row[1]
         if film_name.strip().lower() in film_names:
+
             # 🕐 Позначити як "⏳ Чекає"
             sheet.values().update(
                 spreadsheetId=SPREADSHEET_ID,
@@ -40,7 +46,6 @@ async def check_and_notify():
 
             try:
                 msg = await bot.send_message(
-
                     chat_id=int(user_id),
                     text=f"🎬 Фільм *{film_name}* уже додано! Перевір у боті 😉",
                     parse_mode="Markdown"

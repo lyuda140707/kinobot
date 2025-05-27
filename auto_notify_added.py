@@ -43,5 +43,14 @@ async def check_and_notify():
     for row in reversed(rows_to_delete):
         sheet.values().clear(spreadsheetId=SPREADSHEET_ID, range=f"Запити!A{row}:B{row}").execute()
 
+import time
+
 if __name__ == "__main__":
-    asyncio.run(check_and_notify())
+    while True:
+        try:
+            asyncio.run(check_and_notify())
+            print("✅ Перевірка завершена. Чекаю 5 хвилин...")
+        except Exception as e:
+            print(f"❌ Сталася помилка: {e}")
+        time.sleep(300)  # 300 секунд = 5 хвилин
+

@@ -41,7 +41,9 @@ async def check_and_notify():
 
         # Лише якщо статус == "чекає"
         if status.strip().lower() != "чекає":
+            print(f"⏭ Пропущено рядок {i+2} — статус був: '{status}'")
             continue
+
 
         if film_name.strip().lower() in film_names:
             row_number = i + 2

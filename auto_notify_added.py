@@ -80,4 +80,4 @@ if __name__ == "__main__":
             print("✅ Перевірка завершена. Чекаю 5 хвилин...")
         except Exception as e:
             print(f"❌ Сталася помилка: {e}")
-        time.sleep(300)  # 300 секунд = 5 хвилин
+        time.sleep(300)  # 5 хв

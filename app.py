@@ -112,7 +112,8 @@ async def send_film(request: Request):
 
 
     # ⏳ Додаємо повідомлення в список для майбутнього видалення
-    delete_time = datetime.utcnow() + timedelta(minutes=1)
+    delete_time = datetime.utcnow() + timedelta(hours=3)
+
 
     print(f"📩 Додано повідомлення до видалення: chat_id={user_id}, message_id={sent_message.message_id}")
     print(f"🕓 Видалення заплановано на: {delete_time.isoformat()}")

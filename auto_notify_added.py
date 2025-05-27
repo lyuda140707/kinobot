@@ -7,7 +7,7 @@ from datetime import datetime
 import time
 
 load_dotenv()
-
+sheet = service.spreadsheets().values()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 SPREADSHEET_ID = os.getenv("SHEET_ID")
 
@@ -15,7 +15,7 @@ bot = Bot(token=BOT_TOKEN)
 
 async def check_and_notify():
     service = get_google_service()
-    sheet = service.spreadsheets().values()
+    sheet = service.spreadsheets()
 
     # Отримати запити
     reqs = sheet.values().get(

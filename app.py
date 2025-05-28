@@ -105,7 +105,7 @@ async def send_film(request: Request):
     # Час видалення через 3 години
     kyiv = timezone("Europe/Kyiv")
     kyiv = timezone("Europe/Kyiv")
-    delete_time = datetime.now(kyiv) + timedelta(hours=3)
+    delete_time = datetime.now(kyiv) + timedelta(minutes=1)
     delete_time_kyiv = delete_time.astimezone(kyiv)
     delete_time_str = delete_time_kyiv.strftime('%H:%M %d.%m')
 
@@ -178,7 +178,7 @@ async def background_deleter():
         with open("deleter.json", "r") as f:
             data = json.load(f)
             for item in data:
-                item["delete_at"] = datetime.fromisoformat(item["delete_at"])
+                item["delete_at"] = datetime.fromisoformat(item["delete_at"]).replace(tzinfo=timezone("Europe/Kyiv"))
             messages_to_delete.extend(data)
         print(f"♻️ Відновлено {len(messages_to_delete)} повідомлень до видалення")
 

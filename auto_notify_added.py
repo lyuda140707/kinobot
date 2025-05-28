@@ -32,7 +32,7 @@ async def check_and_notify():
     ).execute().get("values", [])
     film_names = [f[0].strip().lower() for f in films if f]
 
-    for i, row in enumerate(reqs):
+    for i, row in enumerate(reqs):  # ← БЕЗ відступу!
         if len(row) < 2:
             continue
 
@@ -44,53 +44,84 @@ async def check_and_notify():
             print(f"⏭ Пропущено рядок {i+2} — статус був: '{status}'")
             continue
 
-        if film_name.strip().lower() in film_names:
-            row_number = i + 2
-            try:
-                msg = await bot.send_message(
-                    chat_id=int(user_id),
-                    text=f"🎬 Фільм *{film_name}* уже додано! Перевір у боті 😉",
-                    parse_mode="Markdown"
-                )
+        row_number = i + 2
 
-                print(f"✅ Надіслано: {film_name} → {user_id}")
+        try:
+            msg = await bot.send_message(
+                chat_id=int(user_id),
+                text=f"🎬 Фільм *{film_name}* уже додано! Перевір у боті 😉",
+                parse_mode="Markdown"
+            )
 
-                # Додати до черги на видалення через 24 години
-                delete_at = datetime.utcnow() + timedelta(hours=24)
-                messages_to_delete.append({
-                    "chat_id": int(user_id),
-                    "message_id": msg.message_id,
-                    "delete_at": delete_at
-                })
-                print(f"🕓 Повідомлення заплановано на видалення: {delete_at}")
+            delete_at = datetime.utcnow() + timedelta(minutes=1)
 
-                # Оновити статус у Google Таблиці
-                print(f"📝 Оновлюю статус у C{row_number} → ✅ Надіслано")
-                result = sheet.values().update(
-                    spreadsheetId=SPREADSHEET_ID,
-                    range=f"Запити!C{row_number}",
-                    valueInputOption="RAW",
-                    body={"values": [[f"✅ Надіслано {datetime.now().strftime('%d.%m %H:%M')}"]]}
-                ).execute()
-                print("🟢 Результат оновлення статусу:", result)
 
-            except Exception as e:
-                print(f"❌ Помилка надсилання для {user_id}: {e}")
+            sheet.values().update(
+                spreadsheetId=SPREADSHEET_ID,
+                range=f"Запити!D{row_number}",
+                valueInputOption="RAW",
+                body={"values": [[delete_at.isoformat()]]}
+            ).execute()
+
+            print(f"✅ Надіслано: {film_name} → {user_id}")
+
+            sheet.values().update(
+                spreadsheetId=SPREADSHEET_ID,
+                range=f"Запити!C{row_number}",
+                valueInputOption="RAW",
+                body={"values": [[f"✅ Надіслано {datetime.now().strftime('%d.%m %H:%M')}"]]}
+            ).execute()
+
+        except Exception as e:
+            print(f"❌ Помилка надсилання для {user_id}: {e}")
+
+
+
 
 async def background_deleter():
+    service = get_google_service()
+    sheet = service.spreadsheets()
+
     while True:
         now = datetime.utcnow()
-        to_delete = [m for m in messages_to_delete if m["delete_at"] <= now]
 
-        for msg in to_delete:
+        reqs = sheet.values().get(
+            spreadsheetId=SPREADSHEET_ID,
+            range="Запити!A2:D1000"
+        ).execute().get("values", [])
+
+        for i, row in enumerate(reqs):
+            if len(row) < 4:
+                continue
+
+            user_id = row[0]
+            film_name = row[1]
+            delete_at_str = row[3]
+
             try:
-                await bot.delete_message(chat_id=msg["chat_id"], message_id=msg["message_id"])
-                print(f"✅ Видалено повідомлення {msg['message_id']} у {msg['chat_id']}")
-            except Exception as e:
-                print(f"❗️ Помилка видалення {msg['message_id']}: {e}")
-            messages_to_delete.remove(msg)
+                delete_at = datetime.fromisoformat(delete_at_str)
+            except:
+                continue
+
+            if now >= delete_at:
+                try:
+                    # 🧽 Можна надсилати повідомлення про видалення, або нічого не робити
+                    print(f"🗑 Видаляємо запис для {film_name} ({user_id})")
+
+                    # Очистити колонку D
+                    row_number = i + 2
+                    sheet.values().update(
+                        spreadsheetId=SPREADSHEET_ID,
+                        range=f"Запити!D{row_number}",
+                        valueInputOption="RAW",
+                        body={"values": [[""]]}
+                    ).execute()
+
+                except Exception as e:
+                    print(f"❗️ Помилка видалення рядка {i+2}: {e}")
 
         await asyncio.sleep(60)
+
 
 if __name__ == "__main__":
     async def main_loop():

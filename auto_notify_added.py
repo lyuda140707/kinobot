@@ -47,7 +47,7 @@ async def check_and_notify():
                 parse_mode="Markdown"
             )
 
-            delete_at = datetime.utcnow() + timedelta(minutes=1)
+            delete_at = datetime.utcnow() + timedelta(hours=24)
 
             # Зберегти час видалення
             sheet.values().update(

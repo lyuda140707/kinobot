@@ -10,6 +10,8 @@ import asyncio
 from datetime import datetime, timedelta
 import json
 from pytz import timezone
+from fastapi.responses import JSONResponse
+
 
 # Список повідомлень, які потрібно буде видалити
 messages_to_delete = []
@@ -19,19 +21,33 @@ app = FastAPI()
 
 
 
+
 @app.post("/request-film")
 async def request_film(req: Request):
-    data = await req.json()
-    user_id = data.get('user_id')
-    film_name = data.get('film_name')
-    
-    if user_id and film_name:
+    try:
+        data = await req.json()
+        user_id = data.get('user_id')
+        film_name = data.get('film_name')
+
+        if not user_id or not film_name:
+            return JSONResponse(status_code=400, content={"success": False, "error": "user_id або film_name відсутні"})
+
         message = f"🎬 Користувач {user_id} хоче додати фільм: {film_name}"
-        requests.post(f"https://api.telegram.org/bot7749808687:AAGQ2TuCvI5T-HfRFP7GxWAsXsCi15Heqek/sendMessage", data={
-            "chat_id": "7205633024",
-            "text": message
-        })
-    return {"ok": True}
+
+        telegram_response = requests.post(
+            f"https://api.telegram.org/bot{os.getenv('BOT_TOKEN')}/sendMessage",
+            data={"chat_id": "7205633024", "text": message}
+        )
+
+        # Якщо не вдалося надіслати повідомлення
+        if telegram_response.status_code != 200:
+            return JSONResponse(status_code=500, content={"success": False, "error": "Помилка при надсиланні до Telegram"})
+
+        return {"success": True}
+
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
+
 
 @app.on_event("startup")
 async def on_startup():
@@ -73,75 +89,74 @@ async def search_in_bot(request: Request):
     else:
         return {"found": False}
 
+from fastapi.responses import JSONResponse
+
 @app.post("/send-film")
 async def send_film(request: Request):
-    data = await request.json()
-    user_id = data.get("user_id")
-    film_name = data.get("film_name")
+    try:
+        data = await request.json()
+        user_id = data.get("user_id")
+        film_name = data.get("film_name")
 
-    if not user_id or not film_name:
-        raise HTTPException(status_code=400, detail="user_id або film_name відсутні")
+        if not user_id or not film_name:
+            return JSONResponse(status_code=400, content={"success": False, "error": "user_id або film_name відсутні"})
 
-    films = get_gsheet_data()
+        films = get_gsheet_data()
 
-    found_film = None
-    for film in films:
-        if film_name.lower() in film.get("Назва", "").lower() and film.get("file_id"):
-            found_film = film
-            break
+        found_film = None
+        for film in films:
+            if film_name.lower() in film.get("Назва", "").lower() and film.get("file_id"):
+                found_film = film
+                break
 
-    if not found_film:
-        return {"success": False, "error": "Фільм не знайдено або немає file_id"}
+        if not found_film:
+            return JSONResponse(status_code=404, content={"success": False, "error": "Фільм не знайдено або немає file_id"})
 
-    keyboard = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(
-                text="🎥 Обрати інший фільм 📚",
-                web_app=WebAppInfo(url="https://lyuda140707.github.io/kinobot-webapp/")
-            )]
-        ]
-    )
+        # Готуємо клавіатуру
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(
+                    text="🎥 Обрати інший фільм 📚",
+                    web_app=WebAppInfo(url="https://lyuda140707.github.io/kinobot-webapp/")
+                )]
+            ]
+        )
 
-    # Час видалення через 3 години
-    kyiv = timezone("Europe/Kyiv")
-    kyiv = timezone("Europe/Kyiv")
-    delete_time = datetime.now(kyiv) + timedelta(hours=12)
-    delete_time_kyiv = delete_time.astimezone(kyiv)
-    delete_time_str = delete_time_kyiv.strftime('%H:%M %d.%m')
+        # Час видалення
+        kyiv = timezone("Europe/Kyiv")
+        delete_time = datetime.now(kyiv) + timedelta(hours=12)
+        delete_time_str = delete_time.strftime('%H:%M %d.%m')
 
-    # Підпис до повідомлення
-    caption = (
-        "🎬 Приємного перегляду! 🍿\n\n"
-        f"🕓 Це повідомлення буде видалено о {delete_time_str} (за Києвом)."
-    )
+        caption = (
+            "🎬 Приємного перегляду! 🍿\n\n"
+            f"🕓 Це повідомлення буде видалено о {delete_time_str} (за Києвом)."
+        )
 
-    sent_message = await bot.send_video(
-        chat_id=user_id,
-        video=found_film["file_id"],
-        caption=caption,
-        reply_markup=keyboard,
-        parse_mode="Markdown"
-    )
+        # Надсилаємо відео
+        sent_message = await bot.send_video(
+            chat_id=user_id,
+            video=found_film["file_id"],
+            caption=caption,
+            reply_markup=keyboard,
+            parse_mode="Markdown"
+        )
 
+        # Зберігаємо для видалення
+        messages_to_delete.append({
+            "chat_id": user_id,
+            "message_id": sent_message.message_id,
+            "delete_at": delete_time
+        })
+        with open("deleter.json", "w") as f:
+            json.dump(messages_to_delete, f, default=str)
 
+        print(f"✅ Відео надіслано користувачу {user_id}")
 
-    print(f"📩 Додано повідомлення до видалення: chat_id={user_id}, message_id={sent_message.message_id}")
-    print(f"🕓 Видалення заплановано на: {delete_time.isoformat()}")
+        return {"success": True}
 
-    messages_to_delete.append({
-        "chat_id": user_id,
-        "message_id": sent_message.message_id,
-        "delete_at": delete_time
-    })
-
-
-
-
-    # Зберігаємо у файл (convert datetime to string)
-    with open("deleter.json", "w") as f:
-        json.dump(messages_to_delete, f, default=str)
-
-    return {"success": True}
+    except Exception as e:
+        print(f"❌ Помилка в /send-film: {e}")
+        return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
 
 
 

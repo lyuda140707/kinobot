@@ -260,6 +260,60 @@ async def background_deleter():
                 json.dump(messages_to_delete, f, default=str)
 
         await asyncio.sleep(60)
+@app.post("/check-requests")
+async def check_requests(request: Request):
+    data = await request.json()
+    user_id = str(data.get("user_id"))
+
+    service = get_google_service()
+    sheet = service.spreadsheets()
+
+    data = sheet.values().get(
+        spreadsheetId=os.getenv("SHEET_ID"),
+        range="Запити!A2:F1000"
+    ).execute().get("values", [])
+
+    now = datetime.utcnow()
+    count = 0
+    for row in data:
+        if len(row) < 6:
+            continue
+        if row[0] != user_id:
+            continue
+        try:
+            date = datetime.fromisoformat(row[5])
+            if now - date < timedelta(days=30):
+                count += 1
+        except:
+            continue
+
+    return {"used": count, "left": max(0, 3 - count)}
+@app.post("/request-history")
+async def request_history(request: Request):
+    data = await request.json()
+    user_id = str(data.get("user_id"))
+
+    service = get_google_service()
+    sheet = service.spreadsheets()
+
+    values = sheet.values().get(
+        spreadsheetId=os.getenv("SHEET_ID"),
+        range="Запити!A2:F1000"
+    ).execute().get("values", [])
+
+    history = []
+    now = datetime.utcnow()
+
+    for row in values:
+        if len(row) >= 6 and row[0] == user_id:
+            try:
+                dt = datetime.fromisoformat(row[5])
+                if now - dt < timedelta(days=30):
+                    history.append((row[1], row[5]))  # (film_name, date)
+            except:
+                continue
+
+    return {"history": history}
 
 
 @app.api_route("/ping", methods=["GET", "HEAD"])

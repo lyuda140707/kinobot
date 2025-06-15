@@ -16,30 +16,6 @@ from fastapi.responses import JSONResponse
 # Список повідомлень, які потрібно буде видалити
 messages_to_delete = []
 
-def is_limit_exceeded(user_id, sheet, max_requests=3):
-    data = sheet.values().get(
-        spreadsheetId=os.getenv("SHEET_ID"),
-        range="Запити!A2:F1000"
-    ).execute().get("values", [])
-
-    now = datetime.utcnow()
-    count = 0
-
-    for row in data:
-        if len(row) < 6:
-            continue
-        if row[0] != str(user_id):
-            continue
-        try:
-            date = datetime.fromisoformat(row[5])  # колонка F
-            if now - date < timedelta(days=30):
-                count += 1
-        except:
-            continue
-
-    return count >= max_requests
-
-
 
 app = FastAPI()
 
@@ -50,38 +26,20 @@ app = FastAPI()
 async def request_film(req: Request):
     try:
         data = await req.json()
-        user_id = str(data.get('user_id'))
+        user_id = data.get('user_id')
         film_name = data.get('film_name')
 
         if not user_id or not film_name:
             return JSONResponse(status_code=400, content={"success": False, "error": "user_id або film_name відсутні"})
 
-        # Підключення до Google Таблиці
-        service = get_google_service()
-        sheet = service.spreadsheets()
-
-        # 🔒 Перевірка на ліміт
-        if is_limit_exceeded(user_id, sheet):
-            return JSONResponse(
-                status_code=429,
-                content={"success": False, "error": "💬 Ви вже надіслали 3 запити цього місяця. Щоб додати ще — підтримай бота на каву ☕"}
-            )
-
-        # Додати новий запит
-        sheet.values().append(
-            spreadsheetId=os.getenv("SHEET_ID"),
-            range="Запити!A2",
-            valueInputOption="USER_ENTERED",
-            body={"values": [[user_id, film_name, "чекає", "", "", datetime.utcnow().isoformat()]]}
-        ).execute()
-
-        # Надіслати адміну
         message = f"🎬 Користувач {user_id} хоче додати фільм: {film_name}"
+
         telegram_response = requests.post(
             f"https://api.telegram.org/bot{os.getenv('BOT_TOKEN')}/sendMessage",
             data={"chat_id": "7205633024", "text": message}
         )
 
+        # Якщо не вдалося надіслати повідомлення
         if telegram_response.status_code != 200:
             return JSONResponse(status_code=500, content={"success": False, "error": "Помилка при надсиланні до Telegram"})
 
@@ -260,60 +218,6 @@ async def background_deleter():
                 json.dump(messages_to_delete, f, default=str)
 
         await asyncio.sleep(60)
-@app.post("/check-requests")
-async def check_requests(request: Request):
-    data = await request.json()
-    user_id = str(data.get("user_id"))
-
-    service = get_google_service()
-    sheet = service.spreadsheets()
-
-    data = sheet.values().get(
-        spreadsheetId=os.getenv("SHEET_ID"),
-        range="Запити!A2:F1000"
-    ).execute().get("values", [])
-
-    now = datetime.utcnow()
-    count = 0
-    for row in data:
-        if len(row) < 6:
-            continue
-        if row[0] != user_id:
-            continue
-        try:
-            date = datetime.fromisoformat(row[5])
-            if now - date < timedelta(days=30):
-                count += 1
-        except:
-            continue
-
-    return {"used": count, "left": max(0, 3 - count)}
-@app.post("/request-history")
-async def request_history(request: Request):
-    data = await request.json()
-    user_id = str(data.get("user_id"))
-
-    service = get_google_service()
-    sheet = service.spreadsheets()
-
-    values = sheet.values().get(
-        spreadsheetId=os.getenv("SHEET_ID"),
-        range="Запити!A2:F1000"
-    ).execute().get("values", [])
-
-    history = []
-    now = datetime.utcnow()
-
-    for row in values:
-        if len(row) >= 6 and row[0] == user_id:
-            try:
-                dt = datetime.fromisoformat(row[5])
-                if now - dt < timedelta(days=30):
-                    history.append((row[1], row[5]))  # (film_name, date)
-            except:
-                continue
-
-    return {"history": history}
 
 
 @app.api_route("/ping", methods=["GET", "HEAD"])

@@ -43,10 +43,18 @@ async def check_and_notify():
         try:
             msg = await bot.send_message(
                 chat_id=int(user_id),
-                text=f"🎬 Фільм *{film_name}* уже додано! Перевір у боті 😉",
-                parse_mode="Markdown"
+                text=(
+                    f"🎬 Фільм *{film_name}* уже додано! Перевір у боті 😉\n\n"
+                    f"☕️ Хочеш подякувати за добрі фільми?\n"
+                    f"Підтримай КіноБота на каву — адмінці буде дуже приємно 🫶🏻🧡\n\n"
+                    f"🔗 [Підтримати на Monobank](https://send.monobank.ua/jar/2FdmSYjoGo)\n"
+                    f"📣 А ще запроси друга → @UAKinoTochka_bot"
+                 ),
+                parse_mode="Markdown",
+                disable_web_page_preview=True
             )
-
+                    
+               
             delete_at = datetime.utcnow() + timedelta(hours=24)
 
             # Зберегти час видалення

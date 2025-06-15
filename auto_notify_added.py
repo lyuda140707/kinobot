@@ -42,14 +42,11 @@ async def check_and_notify():
         row_number = i + 2
 
         try:
+            # Кнопка тільки на підтримку
             keyboard = InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(
                     text="☕ Підтримати КіноБота",
                     url="https://send.monobank.ua/jar/2FdmSYjoGo"
-                )],
-                [InlineKeyboardButton(
-                    text="📣 Перейти до бота",
-                    url="https://t.me/UAKinoTochka_bot"
                 )]
             ])
 
@@ -57,8 +54,8 @@ async def check_and_notify():
                 chat_id=int(user_id),
                 text=(
                     f"🎬 Фільм *{film_name}* уже додано! Перевір у боті 😉\n\n"
-                    f"Хочеш подякувати за добрі фільми? Натисни одну з кнопок нижче 🧡\n\n"
-                    f"📣 А ще можеш поділитись ботом із другом: @UAKinoTochka_bot"
+                    f"👥 Подобається бот? Поділись із другом: @UAKinoTochka_bot\n\n"
+                    f"Хочеш подякувати — натисни кнопку нижче ☕"
                 ),
                 parse_mode="Markdown",
                 reply_markup=keyboard,

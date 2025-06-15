@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from datetime import datetime, timedelta
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
+
 load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
@@ -43,23 +44,24 @@ async def check_and_notify():
 
         try:
             keyboard = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(
-                    text="☕ Підтримати КіноБота",
-                    url="https://send.monobank.ua/jar/2FdmSYjoGo"
-                )]
+                [InlineKeyboardButton(text="☕ Підтримати КіноБота", url="https://send.monobank.ua/jar/2FdmSYjoGo")],
+                [InlineKeyboardButton(text="📣 Запросити друга", url="https://t.me/UAKinoTochka_bot")]
             ])
+
             msg = await bot.send_message(
                 chat_id=int(user_id),
                 text=(
-                    f"🎬 Фільм *{film_name}* уже додано! Перевір у боті 😉\n\n"
-                    f"👥 Подобається бот? Поділись із другом: @UAKinoTochka_bot\n\n"
-                    f"☕ Підтримай КіноБота на каву — адмінці буде дуже приємно 🫶🏻"
+                    f"🎬 <b>{film_name}</b> уже додано! Перевір у боті 😉\n\n"
+                    f"<i>Хочеш подякувати за добрі фільми?</i>\n"
+                    f"<i>Натисни одну з кнопок нижче 🧡</i>"
                 ),
-                parse_mode="Markdown",
+                parse_mode="HTML",
                 reply_markup=keyboard,
                 disable_web_page_preview=True
             )
-                
+
+   
+       
 
             delete_at = datetime.utcnow() + timedelta(hours=24)
 

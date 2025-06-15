@@ -48,8 +48,8 @@ async def check_and_notify():
                     url="https://send.monobank.ua/jar/2FdmSYjoGo"
                 )],
                 [InlineKeyboardButton(
-                    text="📣 Запросити друга",
-                    url="https://t.me/share/url?url=https://t.me/UAKinoTochka_bot&text=🔎 Знайди будь-який фільм українською в @UAKinoTochka_bot!"
+                    text="📣 Перейти до бота",
+                    url="https://t.me/UAKinoTochka_bot"
                 )]
             ])
 
@@ -57,7 +57,8 @@ async def check_and_notify():
                 chat_id=int(user_id),
                 text=(
                     f"🎬 Фільм *{film_name}* уже додано! Перевір у боті 😉\n\n"
-                    f"Хочеш подякувати за добрі фільми? Натисни одну з кнопок нижче 🧡"
+                    f"Хочеш подякувати за добрі фільми? Натисни одну з кнопок нижче 🧡\n\n"
+                    f"📣 А ще можеш поділитись ботом із другом: @UAKinoTochka_bot"
                 ),
                 parse_mode="Markdown",
                 reply_markup=keyboard,

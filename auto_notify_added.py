@@ -45,20 +45,23 @@ async def check_and_notify():
         try:
             keyboard = InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="☕ Підтримати КіноБота", url="https://send.monobank.ua/jar/2FdmSYjoGo")],
-                [InlineKeyboardButton(text="📣 Запросити друга", url="https://t.me/UAKinoTochka_bot")]
             ])
-
             msg = await bot.send_message(
                 chat_id=int(user_id),
                 text=(
                     f"🎬 <b>{film_name}</b> уже додано! Перевір у боті 😉\n\n"
                     f"<i>Хочеш подякувати за добрі фільми?</i>\n"
-                    f"<i>Натисни одну з кнопок нижче 🧡</i>"
+                    f"<i>Натисни кнопку нижче або скопіюй посилання другу 🧡</i>\n\n"
+                    f"👥 Подобається бот? Поділись із другом цей текст:\n"
+                    f"🎬 Дивись фільми безкоштовно, українською — @UAKinoTochka_bot"
                 ),
                 parse_mode="HTML",
                 reply_markup=keyboard,
                 disable_web_page_preview=True
             )
+
+                    
+                
 
    
        

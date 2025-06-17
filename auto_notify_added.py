@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.types import WebAppInfo
 
+WEBAPP_URL = "https://t.me/UAKinoTochka_bot?startapp"
 
 
 load_dotenv()
@@ -48,7 +49,7 @@ async def check_and_notify():
             keyboard = InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="☕ Підтримати КіноБота", url="https://send.monobank.ua/jar/2FdmSYjoGo")],
                 [InlineKeyboardButton(text="📋 Скопіювати запрошення", switch_inline_query="Дивись фільми українською — @UAKinoTochka_bot")],
-                [InlineKeyboardButton(text="🎬 Відкрити КіноБот WebApp", web_app=WebAppInfo(url="https://t.me/UAKinoTochka_bot?startapp=profile"))]
+                [InlineKeyboardButton(text="🎬 Перейти до застосунку", url=WEBAPP_URL)]
     
             ])
             msg = await bot.send_message(

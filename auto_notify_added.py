@@ -51,7 +51,7 @@ async def check_and_notify():
                 [InlineKeyboardButton(text="📋 Скопіювати запрошення", switch_inline_query="Дивись фільми українською — @UAKinoTochka_bot")],
                 [InlineKeyboardButton(
                     text="🎬 Відкрити застосунок",
-                    web_app=WebAppInfo(url="https://kinobot-webapp.onrender.com/")
+                    url="https://t.me/UAKinoTochka_bot?startapp"
                     )]
     
             ])

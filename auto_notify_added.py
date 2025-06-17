@@ -5,6 +5,8 @@ from google_api import get_google_service
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import WebAppInfo
+
 
 
 load_dotenv()
@@ -48,7 +50,7 @@ async def check_and_notify():
                 [InlineKeyboardButton(text="☕ Підтримати КіноБота", url="https://send.monobank.ua/jar/2FdmSYjoGo")],
                 [InlineKeyboardButton(text="📋 Скопіювати запрошення", switch_inline_query="Дивись фільми українською — @UAKinoTochka_bot")],
         
-                [InlineKeyboardButton(text="🎬 Відкрити бот", url="https://t.me/UAKinoTochka_bot")]
+                🎬 Відкрити КіноБот WebApp", web_app=WebAppInfo(url="https://your-webapp-link.com"))]
 
             ])
             msg = await bot.send_message(

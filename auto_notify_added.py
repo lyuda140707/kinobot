@@ -48,7 +48,7 @@ async def check_and_notify():
                 [InlineKeyboardButton(text="☕ Підтримати КіноБота", url="https://send.monobank.ua/jar/2FdmSYjoGo")],
                 [InlineKeyboardButton(text="📋 Скопіювати запрошення", switch_inline_query="Дивись фільми українською — @UAKinoTochka_bot")],
         
-                [InlineKeyboardButton(text="🎬 Перейти до бота", switch_inline_query="")]
+                [InlineKeyboardButton(text="🎬 Відкрити бот", url="https://t.me/UAKinoTochka_bot")]
 
             ])
             msg = await bot.send_message(

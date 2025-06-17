@@ -49,10 +49,10 @@ async def check_and_notify():
             keyboard = InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="☕ Підтримати КіноБота", url="https://send.monobank.ua/jar/2FdmSYjoGo")],
                 [InlineKeyboardButton(text="📋 Скопіювати запрошення", switch_inline_query="Дивись фільми українською — @UAKinoTochka_bot")],
-                [InlineKeyboardButton(
-                    text="🎬 Відкрити застосунок",
-                    web_app=WebAppInfo(url="https://kinobot-webapp.onrender.com/")
-                   )]
+               "reply_markup": {
+                    "inline_keyboard": [[
+                    {"text": "🎬 Перейти до застосунку", "url": WEBAPP_URL}
+                   ]]
                 
             ])
             msg = await bot.send_message(

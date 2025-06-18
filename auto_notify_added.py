@@ -75,6 +75,8 @@ async def check_and_notify():
         film_name = row[1]
         status = row[2] if len(row) > 2 else ""
         help_text = row[5] if len(row) > 5 else ""
+        print(f"ℹ️ user_id: {user_id}, help_text: '{help_text}'")
+         
 
         if status.strip().lower() != "чекає":
             continue
@@ -110,12 +112,13 @@ async def check_and_notify():
                 bot,
                 int(user_id),
                 text,
-                service=service,
-                spreadsheet_id=SPREADSHEET_ID,
+                service=service,  # ← ДОДАЙ ЦЕ
+                spreadsheet_id=SPREADSHEET_ID,  # ← І ЦЕ
                 parse_mode="HTML",
                 reply_markup=keyboard,
                 disable_web_page_preview=True
             )
+                
 
             if not sent_msg:
                 continue

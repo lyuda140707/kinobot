@@ -142,13 +142,15 @@ async def send_film(request: Request):
         )
 
         # Зберігаємо для видалення
-        messages_to_delete.append({
-            "chat_id": user_id,
-            "message_id": sent_message.message_id,
-            "delete_at": delete_time
-        })
-        with open("deleter.json", "w") as f:
-            json.dump(messages_to_delete, f, default=str)
+        service = get_google_service()
+        sheet = service.spreadsheets()
+        sheet.values().append(
+            spreadsheetId=os.getenv("SHEET_ID"),
+            range="Видалення!A2",
+            valueInputOption="USER_ENTERED",
+            insertDataOption="INSERT_ROWS",
+            body={"values": [[str(user_id), str(sent_message.message_id), delete_time.isoformat()]]}
+            ).execute()
 
         print(f"✅ Відео надіслано користувачу {user_id}")
 
@@ -197,34 +199,49 @@ async def check_subscription(request: Request):
 
 
 async def background_deleter():
-    # 🔁 Відновити список повідомлень з файлу, якщо він існує
-    if os.path.exists("deleter.json"):
-        with open("deleter.json", "r") as f:
-            data = json.load(f)
-            for item in data:
-                item["delete_at"] = datetime.fromisoformat(item["delete_at"]).replace(tzinfo=timezone("Europe/Kyiv"))
-            messages_to_delete.extend(data)
-        print(f"♻️ Відновлено {len(messages_to_delete)} повідомлень до видалення")
+    service = get_google_service()
+    sheet = service.spreadsheets()
 
     while True:
-        now = datetime.now(timezone("Europe/Kyiv"))
-        print(f"⏳ Перевірка на видалення: {len(messages_to_delete)} в черзі")
+        now = datetime.utcnow()
 
-        to_delete = [msg for msg in messages_to_delete if msg["delete_at"] <= now]
+        # Отримати всі записи з аркуша "Видалення"
+        data = sheet.values().get(
+            spreadsheetId=os.getenv("SHEET_ID"),
+            range="Видалення!A2:C1000"
+        ).execute().get("values", [])
 
-        for msg in to_delete:
-            print(f"🗑 Видаляю повідомлення {msg['message_id']} у чаті {msg['chat_id']}")
+        print(f"⏳ Перевірка на видалення: {len(data)} в черзі")
+
+        for i, row in enumerate(data):
+            if len(row) < 3:
+                continue
+
+            user_id = row[0]
+            message_id = row[1]
+            delete_at_str = row[2]
+
             try:
-                await bot.delete_message(chat_id=msg["chat_id"], message_id=msg["message_id"])
-                print(f"✅ Видалено повідомлення {msg['message_id']}")
+                delete_at = datetime.fromisoformat(delete_at_str)
             except Exception as e:
-                print(f"❗️ Помилка при видаленні повідомлення {msg['message_id']}: {e}")
+                print(f"⚠️ Неможливо розпізнати дату: {delete_at_str} — {e}")
+                continue
 
-            messages_to_delete.remove(msg)
+            if now >= delete_at:
+                try:
+                    await bot.delete_message(chat_id=int(user_id), message_id=int(message_id))
+                    print(f"✅ Видалено повідомлення {message_id} у {user_id}")
+                except Exception as e:
+                    print(f"❌ Помилка видалення повідомлення {message_id}: {e}")
 
-            # 🔄 Оновлюємо файл після кожного видалення
-            with open("deleter.json", "w") as f:
-                json.dump(messages_to_delete, f, default=str)
+                # Очистити рядок
+                row_number = i + 2
+                sheet.values().update(
+                    spreadsheetId=os.getenv("SHEET_ID"),
+                    range=f"Видалення!A{row_number}:C{row_number}",
+                    valueInputOption="RAW",
+                    body={"values": [["", "", ""]]}
+                ).execute()
 
         await asyncio.sleep(60)
 

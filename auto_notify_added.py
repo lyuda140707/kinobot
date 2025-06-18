@@ -39,6 +39,7 @@ async def check_and_notify():
         user_id = row[0]
         film_name = row[1]
         status = row[2] if len(row) > 2 else ""
+        help_text = row[5] if len(row) > 5 else ""
 
         if status.strip().lower() != "чекає":
             continue
@@ -51,18 +52,27 @@ async def check_and_notify():
                 [InlineKeyboardButton(text="📋 Скопіювати запрошення", switch_inline_query="Дивись фільми українською — @UAKinoTochka_bot")],
               
             ])
+            
+            text = (
+                f"🎬 <b>{film_name}</b> уже додано! Перевір у боті 😉\n\n"
+            )
+            if help_text.strip():
+                text += f"{help_text.strip()}\n\n"
+
+            text += (
+                "<i>Підтримай КіноБота на каву — адмінці буде дуже приємно 🫶🏻</i>\n"
+                "<i>Натисни кнопку нижче або скопіюй посилання другу 🧡</i>\n\n"
+            )
             msg = await bot.send_message(
                 chat_id=int(user_id),
-                text=(
-                    f"🎬 <b>{film_name}</b> уже додано! Перевір у боті 😉\n\n"
-                    f"<i>Підтримай КіноБота на каву — адмінці буде дуже приємно 🫶🏻</i>\n"
-                    f"<i>Натисни кнопку нижче або скопіюй посилання другу 🧡</i>\n\n"
-                   
-                ),
+                text=text,
                 parse_mode="HTML",
                 reply_markup=keyboard,
                 disable_web_page_preview=True
             )
+
+        
+                
 
                     
                 

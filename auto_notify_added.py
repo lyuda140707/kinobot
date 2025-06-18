@@ -11,6 +11,41 @@ from aiogram.types import WebAppInfo
 
 
 load_dotenv()
+from aiogram.exceptions import TelegramForbiddenError, TelegramBadRequest
+
+def is_user_blocked(user_id: int, service, spreadsheet_id: str) -> bool:
+    sheet = service.spreadsheets()
+    response = sheet.values().get(
+        spreadsheetId=spreadsheet_id,
+        range="Заблокували!A2:A1000"
+    ).execute()
+    blocked_ids = [str(row[0]) for row in response.get("values", []) if row]
+    return str(user_id) in blocked_ids
+
+def add_blocked_user(user_id: int, service, spreadsheet_id: str):
+    sheet = service.spreadsheets()
+    sheet.values().append(
+        spreadsheetId=spreadsheet_id,
+        range="Заблокували!A2",
+        valueInputOption="USER_ENTERED",
+        insertDataOption="INSERT_ROWS",
+        body={"values": [[str(user_id)]]}
+    ).execute()
+
+async def safe_send(bot: Bot, user_id: int, text: str, service=None, spreadsheet_id=None, **kwargs):
+    try:
+        sent_msg = await bot.send_message(chat_id=user_id, text=text, **kwargs)
+        return sent_msg
+    except TelegramForbiddenError:
+        print(f"❌ Користувач {user_id} заблокував бота")
+        if service and spreadsheet_id:
+            add_blocked_user(user_id, service, spreadsheet_id)
+    except TelegramBadRequest as e:
+        print(f"❌ BadRequest {user_id}: {e}")
+    except Exception as e:
+        print(f"❌ Інша помилка {user_id}: {e}")
+    return False
+
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 SPREADSHEET_ID = os.getenv("SHEET_ID")
@@ -43,6 +78,13 @@ async def check_and_notify():
 
         if status.strip().lower() != "чекає":
             continue
+        if is_user_blocked(user_id, service, SPREADSHEET_ID):
+            print(f"⛔ Пропускаємо {user_id} — користувач заблокував бота")
+            continue
+
+        
+            
+
 
         row_number = i + 2
 
@@ -63,22 +105,23 @@ async def check_and_notify():
                 "<i>Підтримай КіноБота на каву — адмінці буде дуже приємно 🫶🏻</i>\n"
                 "<i>Натисни кнопку нижче або скопіюй посилання другу 🧡</i>\n\n"
             )
-            msg = await bot.send_message(
-                chat_id=int(user_id),
-                text=text,
+
+            sent_msg = await safe_send(
+                bot,
+                int(user_id),
+                text,
+                service=service,
+                spreadsheet_id=SPREADSHEET_ID,
                 parse_mode="HTML",
                 reply_markup=keyboard,
                 disable_web_page_preview=True
             )
 
+            if not sent_msg:
+                continue
+            
         
-                
-
-                    
-                
-
-   
-       
+          
 
             delete_at = datetime.utcnow() + timedelta(hours=24)
 
@@ -95,7 +138,7 @@ async def check_and_notify():
                 spreadsheetId=SPREADSHEET_ID,
                 range=f"Запити!E{row_number}",
                 valueInputOption="RAW",
-                body={"values": [[str(msg.message_id)]]}
+                body={"values": [[str(sent_msg.message_id)]]}
             ).execute()
 
             # Оновити статус

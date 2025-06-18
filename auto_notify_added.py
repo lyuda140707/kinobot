@@ -39,6 +39,7 @@ async def safe_send(bot: Bot, user_id: int, text: str, service=None, spreadsheet
     except TelegramForbiddenError:
         print(f"❌ Користувач {user_id} заблокував бота")
         if service and spreadsheet_id:
+            print(f"⚠️ Додаємо користувача {user_id} у таблицю Заблокували")
             add_blocked_user(user_id, service, spreadsheet_id)
     except TelegramBadRequest as e:
         print(f"❌ BadRequest {user_id}: {e}")

@@ -74,7 +74,7 @@ async def check_and_notify():
         user_id = row[0]
         film_name = row[1]
         status = row[2] if len(row) > 2 else ""
-        help_text = row[5] if len(row) > 5 else ""
+        help_text = row[6] if len(row) > 6 else ""
         print(f"ℹ️ user_id: {user_id}, help_text: '{help_text}'")
          
 

@@ -203,7 +203,8 @@ async def background_deleter():
     sheet = service.spreadsheets()
 
     while True:
-        now = datetime.utcnow()
+        from pytz import utc
+        now = datetime.now(utc)
 
         # Отримати всі записи з аркуша "Видалення"
         data = sheet.values().get(

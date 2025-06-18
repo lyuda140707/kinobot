@@ -11,8 +11,20 @@ from aiogram.filters import Command
 from aiogram.client.default import DefaultBotProperties
 import logging
 logging.basicConfig(level=logging.INFO)
-
+from google_api import get_google_service
 from aiogram.exceptions import TelegramForbiddenError, TelegramBadRequest
+
+def add_blocked_user(user_id: int):
+    service = get_google_service()
+    sheet = service.spreadsheets()
+    sheet.values().append(
+        spreadsheetId=os.getenv("SHEET_ID"),
+        range="Заблокували!A2",
+        valueInputOption="USER_ENTERED",
+        insertDataOption="INSERT_ROWS",
+        body={"values": [[str(user_id)]]}
+    ).execute()
+    print(f"🛑 Додано до таблиці Заблокували: {user_id}")
 
 async def safe_send(bot: Bot, user_id: int, text: str, **kwargs):
     try:
@@ -20,12 +32,13 @@ async def safe_send(bot: Bot, user_id: int, text: str, **kwargs):
         return True
     except TelegramForbiddenError:
         print(f"❌ Користувач {user_id} заблокував бота")
+        add_blocked_user(user_id)
     except TelegramBadRequest as e:
         print(f"❌ BadRequest {user_id}: {e}")
     except Exception as e:
         print(f"❌ Інша помилка {user_id}: {e}")
     return False
-
+    
 
 bot = Bot(
     token=os.getenv("BOT_TOKEN"),
@@ -112,3 +125,6 @@ async def search_film(message: types.Message):
             return
 
     await safe_send(bot, message.chat.id, "Фільм не знайдено 😢")
+
+    
+  

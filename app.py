@@ -171,21 +171,30 @@ async def check_subscription(request: Request):
     if not user_id:
         raise HTTPException(status_code=400, detail="user_id відсутній")
 
-    bot_token = os.getenv("BOT_TOKEN")  # Бере токен з .env
-    channel_username = "@KinoTochkaUA"  # Твій канал
+    bot_token = os.getenv("BOT_TOKEN")
 
-    url = f"https://api.telegram.org/bot{bot_token}/getChatMember"
-    params = {
-        "chat_id": channel_username,
-        "user_id": user_id
-    }
-    response = requests.get(url, params=params)
-    result = response.json()
+    channels = os.getenv("CHANNEL_LIST", "").split(",")  # ← тут заміни на свій другий канал
 
-    if result.get("ok") and result["result"]["status"] in ["member", "administrator", "creator"]:
-        return {"subscribed": True}
-    else:
-        return {"subscribed": False}
+    subscribed_to_any = False
+
+    for channel_username in channels:
+        url = f"https://api.telegram.org/bot{bot_token}/getChatMember"
+        params = {
+            "chat_id": channel_username,
+            "user_id": user_id
+        }
+
+        try:
+            response = requests.get(url, params=params)
+            result = response.json()
+            if result.get("ok") and result["result"]["status"] in ["member", "administrator", "creator"]:
+                subscribed_to_any = True
+                break  # можна припинити перевірку, бо вже є підписка
+        except Exception as e:
+            print(f"❗️Помилка перевірки підписки на {channel_username}: {e}")
+
+    return {"subscribed": subscribed_to_any}
+
 
 async def background_deleter():
     # 🔁 Відновити список повідомлень з файлу, якщо він існує

@@ -58,7 +58,7 @@ async def check_and_notify():
 
     reqs = sheet.values().get(
         spreadsheetId=SPREADSHEET_ID,
-        range="Запити!A2:C1000"
+        range="Запити!A2:G1000"
     ).execute().get("values", [])
 
     films = sheet.values().get(

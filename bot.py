@@ -12,6 +12,21 @@ from aiogram.client.default import DefaultBotProperties
 import logging
 logging.basicConfig(level=logging.INFO)
 
+from aiogram.exceptions import TelegramForbiddenError, TelegramBadRequest
+
+async def safe_send(bot: Bot, user_id: int, text: str, **kwargs):
+    try:
+        await bot.send_message(chat_id=user_id, text=text, **kwargs)
+        return True
+    except TelegramForbiddenError:
+        print(f"❌ Користувач {user_id} заблокував бота")
+    except TelegramBadRequest as e:
+        print(f"❌ BadRequest {user_id}: {e}")
+    except Exception as e:
+        print(f"❌ Інша помилка {user_id}: {e}")
+    return False
+
+
 bot = Bot(
     token=os.getenv("BOT_TOKEN"),
     default=DefaultBotProperties(parse_mode=ParseMode.MARKDOWN)
@@ -62,12 +77,10 @@ async def start_handler(message: types.Message):
                 else:
                     await message.answer(caption, parse_mode="Markdown")
                 return
-        await message.answer("Фільм не знайдено 😢")
+        await safe_send(bot, message.chat.id, "Фільм не знайдено 😢")
     else:
-        await message.answer(
-            "Привіт! Натисни кнопку нижче, щоб відкрити кіно-застосунок:",
-            reply_markup=webapp_keyboard
-        )
+        await safe_send(bot, message.chat.id, "Привіт! Натисни кнопку нижче, щоб відкрити кіно-застосунок:", reply_markup=webapp_keyboard)
+
 
 @dp.message(F.video)
 async def get_file_id(message: types.Message):
@@ -98,4 +111,4 @@ async def search_film(message: types.Message):
                 await message.answer(caption, parse_mode="Markdown")
             return
 
-    await message.answer("Фільм не знайдено 😢")
+    await safe_send(bot, message.chat.id, "Фільм не знайдено 😢")

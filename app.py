@@ -20,6 +20,19 @@ messages_to_delete = []
 
 from contextlib import asynccontextmanager
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    print("🚀 background_deleter запущено!")
+    webhook_url = os.getenv("WEBHOOK_URL")
+    if webhook_url:
+        await bot.set_webhook(webhook_url)
+
+    asyncio.create_task(background_deleter())
+    yield
+
+# ✅ Оголошення FastAPI ДО використання декораторів
+app = FastAPI(lifespan=lifespan)
+
 
 
 
@@ -50,17 +63,7 @@ async def request_film(req: Request):
         return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    print("🚀 background_deleter запущено!")
-    webhook_url = os.getenv("WEBHOOK_URL")
-    if webhook_url:
-        await bot.set_webhook(webhook_url)
 
-    asyncio.create_task(background_deleter())
-    yield
-
-app = FastAPI(lifespan=lifespan)
 
 
 @app.post("/webhook")

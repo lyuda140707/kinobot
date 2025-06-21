@@ -11,13 +11,14 @@ from datetime import datetime, timedelta
 import json
 from pytz import timezone
 from fastapi.responses import JSONResponse
+import dateutil.parser
 
 
 # Список повідомлень, які потрібно буде видалити
 messages_to_delete = []
 
 
-app = FastAPI()
+from contextlib import asynccontextmanager
 
 
 
@@ -49,15 +50,17 @@ async def request_film(req: Request):
         return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
 
 
-@app.on_event("startup")
-async def on_startup():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     print("🚀 background_deleter запущено!")
-
     webhook_url = os.getenv("WEBHOOK_URL")
     if webhook_url:
         await bot.set_webhook(webhook_url)
 
     asyncio.create_task(background_deleter())
+    yield
+
+app = FastAPI(lifespan=lifespan)
 
 
 @app.post("/webhook")
@@ -223,7 +226,7 @@ async def background_deleter():
             delete_at_str = row[2]
 
             try:
-                delete_at = datetime.fromisoformat(delete_at_str)
+                delete_at = dateutil.parser.isoparse(delete_at_str)
             except Exception as e:
                 print(f"⚠️ Неможливо розпізнати дату: {delete_at_str} — {e}")
                 continue

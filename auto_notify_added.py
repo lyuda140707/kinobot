@@ -62,11 +62,16 @@ async def check_and_notify():
         range="Запити!A2:G1000"
     ).execute().get("values", [])
 
-    films = sheet.values().get(
+    films_data = sheet.values().get(
         spreadsheetId=SPREADSHEET_ID,
-        range="Sheet1!A2:A"
-    ).execute().get("values", [])
-    film_names = [f[0].strip().lower() for f in films if f]
+        range="Sheet1!A2:K"  # A до K — включає колонку "Сховати"
+        ).execute().get("values", [])
+    film_names = [
+        row[0].strip().lower()
+        for row in films_data
+        if row and (len(row) < 11 or row[10].strip().lower() != "так")  # Стовпець "Сховати" = K → індекс 10
+    ]
+        
 
     for i, row in enumerate(reqs):
         if len(row) < 2:

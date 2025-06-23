@@ -130,7 +130,7 @@ async def send_film(request: Request):
 
         # Час видалення
         kyiv = timezone("Europe/Kyiv")
-        delete_time = datetime.now(kyiv) + timedelta(hours=12)
+        delete_time = datetime.now(kyiv) + timedelta(hours=24)
         delete_time_str = delete_time.strftime('%H:%M %d.%m')
 
         caption = (

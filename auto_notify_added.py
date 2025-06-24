@@ -146,9 +146,12 @@ async def check_and_notify():
 
             if not sent_msg:
                 continue
-            
-        
-          
+                
+            if is_user_blocked(user_id, service, SPREADSHEET_ID):
+                print(f"🔓 {user_id} розблокував бота — видаляємо з таблиці Заблокували")
+                remove_user_from_blocklist(user_id, service, SPREADSHEET_ID)
+
+           
 
             delete_at = datetime.utcnow() + timedelta(hours=24)
 

@@ -188,9 +188,11 @@ async def check_and_notify():
 async def background_deleter():
     service = get_google_service()
     sheet = service.spreadsheets()
+    print("🚀 Фоновий процес видалення запущено!")
 
     while True:
         now = datetime.utcnow()
+        print(f"🔍 Перевірка на видалення повідомлень {now.isoformat()}")
 
         reqs = sheet.values().get(
             spreadsheetId=SPREADSHEET_ID,
@@ -206,9 +208,13 @@ async def background_deleter():
             delete_at_str = row[3]
             message_id_str = row[4]
 
+            if not delete_at_str.strip():
+                continue
+
             try:
                 delete_at = datetime.fromisoformat(delete_at_str)
-            except:
+            except Exception as e:
+                print(f"⚠️ Некоректна дата у рядку {i + 2}: {delete_at_str} — {e}")
                 continue
 
             if now >= delete_at:
@@ -216,9 +222,8 @@ async def background_deleter():
                     await bot.delete_message(chat_id=int(user_id), message_id=int(message_id_str))
                     print(f"✅ Видалено повідомлення {message_id_str} у {user_id}")
                 except Exception as e:
-                    print(f"❌ Помилка видалення повідомлення {message_id_str}: {e}")
+                    print(f"❌ Помилка видалення повідомлення {message_id_str} для {user_id}: {e}")
 
-                # Очистити колонки D та E
                 row_number = i + 2
                 sheet.values().update(
                     spreadsheetId=SPREADSHEET_ID,

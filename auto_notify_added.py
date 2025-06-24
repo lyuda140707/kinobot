@@ -32,6 +32,29 @@ def add_blocked_user(user_id: int, service, spreadsheet_id: str):
         body={"values": [[str(user_id)]]}
     ).execute()
 
+def remove_user_from_blocklist(user_id: int, service, spreadsheet_id: str):
+    sheet = service.spreadsheets()
+    response = sheet.values().get(
+        spreadsheetId=spreadsheet_id,
+        range="Заблокували!A2:A1000"
+    ).execute()
+
+    values = response.get("values", [])
+    new_values = []
+
+    for row in values:
+        if row and str(row[0]) != str(user_id):
+            new_values.append(row)
+
+    # Повністю перезаписати список, без видаленого user_id
+    sheet.values().update(
+        spreadsheetId=spreadsheet_id,
+        range="Заблокували!A2:A1000",
+        valueInputOption="RAW",
+        body={"values": new_values}
+    ).execute()
+
+
 async def safe_send(bot: Bot, user_id: int, text: str, service=None, spreadsheet_id=None, **kwargs):
     try:
         sent_msg = await bot.send_message(chat_id=user_id, text=text, **kwargs)

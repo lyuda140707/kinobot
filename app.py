@@ -50,7 +50,7 @@ async def request_film(req: Request):
 
         telegram_response = requests.post(
             f"https://api.telegram.org/bot{os.getenv('BOT_TOKEN')}/sendMessage",
-            data={"chat_id": "7205633024", "text": message}
+            data={"chat_id": "7963871119", "text": message}
         )
 
         # Якщо не вдалося надіслати повідомлення

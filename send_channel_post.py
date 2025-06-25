@@ -2,7 +2,8 @@ import os
 import requests
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-WEBAPP_URL = "https://t.me/UAKinoTochka_bot?startapp"
+WEBAPP_URL = "https://t.me/Relax_TimeBot?startapp"
+
 
 # ✅ Лише новий канал
 CHANNELS = ["@KinoTochkaFilms"]

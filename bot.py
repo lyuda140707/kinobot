@@ -48,7 +48,7 @@ dp = Dispatcher(storage=MemoryStorage())
 
 webapp_keyboard = InlineKeyboardMarkup(inline_keyboard=[
     [InlineKeyboardButton(
-        text="🎬 Відкрити кіно-застосунок",
+        text="🛋 Відкрити застосунок",
         web_app=WebAppInfo(url="https://lyuda140707.github.io/kinobot-webapp/")
     )]
 ])
@@ -58,7 +58,7 @@ webapp_keyboard = InlineKeyboardMarkup(inline_keyboard=[
 async def send_webapp(message: types.Message):
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(
-            text="🎬 Відкрити WebApp",
+            text="😎 Відкрити WebApp",
             web_app=WebAppInfo(url="https://lyuda140707.github.io/kinobot-webapp/")
         )]
     ])
@@ -92,7 +92,7 @@ async def start_handler(message: types.Message):
                 return
         await safe_send(bot, message.chat.id, "Фільм не знайдено 😢")
     else:
-        await safe_send(bot, message.chat.id, "Привіт! Натисни кнопку нижче, щоб відкрити кіно-застосунок:", reply_markup=webapp_keyboard)
+        await safe_send(bot, message.chat.id, "☕ Хочеш трохи відпочити? Натискай кнопку — усе вже готово!", reply_markup=webapp_keyboard)
 
 
 @dp.message(F.video)

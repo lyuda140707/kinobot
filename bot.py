@@ -15,6 +15,44 @@ from google_api import get_google_service
 from aiogram.exceptions import TelegramForbiddenError, TelegramBadRequest
 from datetime import datetime, timedelta
 
+
+def clean_expired_pro():
+    service = get_google_service()
+    sheet = service.spreadsheets()
+
+    req = sheet.values().get(
+        spreadsheetId=os.getenv("SHEET_ID"),
+        range="PRO!A2:C1000"
+    ).execute()
+
+    rows = req.get("values", [])
+    cleared = 0
+
+    for i, row in enumerate(rows):
+        if len(row) < 3:
+            continue
+
+        user_id = row[0]
+        status = row[1]
+        expire_date = row[2]
+
+        try:
+            expire_dt = datetime.strptime(expire_date, "%Y-%m-%d")
+            if expire_dt < datetime.now():
+                row_number = i + 2
+                sheet.values().update(
+                    spreadsheetId=os.getenv("SHEET_ID"),
+                    range=f"PRO!A{row_number}:C{row_number}",
+                    valueInputOption="RAW",
+                    body={"values": [["", "", ""]]}
+                ).execute()
+                cleared += 1
+        except Exception as e:
+            print(f"⚠️ Помилка обробки рядка {i+2}: {e}")
+
+    print(f"✅ Очищено {cleared} прострочених записів")
+
+
 def add_blocked_user(user_id: int):
     service = get_google_service()
     sheet = service.spreadsheets()

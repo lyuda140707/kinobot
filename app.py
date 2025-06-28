@@ -53,7 +53,11 @@ async def notify_payment(req: Request):
     ).execute()
 
     admin_id = os.getenv("ADMIN_ID")
-    await bot.send_message(admin_id, f"🛒 Користувач {user_id} натиснув 'Я оплатив'. Перевір оплату.")
+    await bot.send_message(
+        admin_id, 
+        f"💳 Користувач {user_id} натиснув 'Я оплатив'\n\n✅ Щоб підтвердити PRO, надішли:\n`/ok {user_id}`",
+        parse_mode="Markdown"
+    )
 
     return {"ok": True}
 

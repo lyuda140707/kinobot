@@ -33,6 +33,10 @@ async def lifespan(app: FastAPI):
 
 # ✅ Оголошення FastAPI ДО використання декораторів
 app = FastAPI(lifespan=lifespan)
+@app.get("/")
+async def root():
+    return {"status": "ok"}
+
 
 
 

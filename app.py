@@ -285,9 +285,9 @@ async def check_pro(req: Request):
 
     req = sheet.values().get(
         spreadsheetId=os.getenv("SHEET_ID"),
-        range="PRO!A:C"
+        range="PRO!A2:C1000"
     ).execute()
-
+    
     rows = req.get("values", [])
     for row in rows:
         if row[0] == user_id and row[1] == "Активно":

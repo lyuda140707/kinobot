@@ -293,16 +293,27 @@ async def check_pro(req: Request):
     ).execute()
 
     rows = req.get("values", [])
-    for row in rows:
-        if len(row) < 3:
-            continue  # Пропускаємо пусті або некоректні рядки
 
-        if row[0] == user_id and row[1] == "Активно":
-            expire_date = datetime.strptime(row[2], "%Y-%m-%d")
-            if expire_date > datetime.now():
-                return {"isPro": True, "expire_date": row[2]}
+    for row in rows:
+        # Пропускаємо пусті або неповні рядки
+        if len(row) < 3:
+            continue
+
+        row_user_id = row[0].strip()
+        status = row[1].strip()
+        expire_str = row[2].strip()
+
+        if row_user_id == user_id and status == "Активно":
+            try:
+                expire_date = datetime.strptime(expire_str, "%Y-%m-%d")
+                if expire_date > datetime.now():
+                    return {"isPro": True, "expire_date": expire_str}
+            except Exception as e:
+                print(f"⚠️ Помилка формату дати в PRO: {expire_str} — {e}")
+                continue
 
     return {"isPro": False}
+
 @app.post("/clean-pro")
 async def clean_pro_endpoint():
     from bot import clean_expired_pro

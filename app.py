@@ -301,7 +301,14 @@ async def check_pro(req: Request):
 
     return {"isPro": False}
 
-
+@app.post("/clean-pro")
+async def clean_pro_endpoint():
+    from bot import clean_expired_pro
+    try:
+        clean_expired_pro()
+        return {"success": True, "message": "Чистка PRO завершена"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 @app.api_route("/ping", methods=["GET", "HEAD"])
 async def ping():

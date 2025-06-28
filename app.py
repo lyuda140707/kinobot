@@ -12,6 +12,7 @@ import json
 from pytz import timezone
 from fastapi.responses import JSONResponse
 import dateutil.parser
+from pro_utils import add_pro_user, is_pro_active
 
 
 # Список повідомлень, які потрібно буде видалити

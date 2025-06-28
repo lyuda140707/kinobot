@@ -116,7 +116,7 @@ async def check_and_notify():
 
         try:
             keyboard = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="☕ Підтримати КіноБота", url="https://send.monobank.ua/jar/2FdmSYjoGo")],
+                [InlineKeyboardButton(text="☕ Підтримати RelaxTime", url="https://send.monobank.ua/jar/2FdmSYjoGo")],
                 [InlineKeyboardButton(text="📋 Скопіювати запрошення", switch_inline_query="Дивись фільми українською — @Relax_TimeBot")],
               
             ])
@@ -128,7 +128,7 @@ async def check_and_notify():
                 text += f"{help_text.strip()}\n\n"
 
             text += (
-                "<i>Підтримай КіноБота на каву — адмінці буде дуже приємно 🫶🏻</i>\n"
+                "<i>Підтримай RelaxTime на каву — адмінці буде дуже приємно 🫶🏻</i>\n"
                 "<i>Натисни кнопку нижче або скопіюй посилання другу 🧡</i>\n\n"
             )
 

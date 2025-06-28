@@ -68,37 +68,60 @@ async def send_webapp(message: types.Message):
 
 @dp.message(Command("ok"))
 async def approve_pro(message: types.Message):
-    if message.from_user.id != 7963871119:
-        return  # заміни на свій Telegram ID
+    if message.from_user.id != 7963871119:  # свій ID
+        return
 
     args = message.text.split()
     if len(args) != 2:
         await message.reply("⚠️ Формат: /ok user_id")
         return
 
-    user_id = args[1]
+    user_id = args[1].strip()  # прибираємо пробіли
     service = get_google_service()
     sheet = service.spreadsheets()
 
     expire_date = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d")
 
-    sheet.values().append(
+    # Шукаємо користувача
+    req = sheet.values().get(
         spreadsheetId=os.getenv("SHEET_ID"),
-        range="PRO!A:C",
-        valueInputOption="USER_ENTERED",
-        body={"values": [[str(user_id), "Активно", expire_date]]}
+        range="PRO!A2:C1000"
     ).execute()
+
+    rows = req.get("values", [])
+    updated = False
+
+    for i, row in enumerate(rows):
+        if row and row[0] == user_id:
+            row_number = i + 2
+            sheet.values().update(
+                spreadsheetId=os.getenv("SHEET_ID"),
+                range=f"PRO!A{row_number}:C{row_number}",
+                valueInputOption="USER_ENTERED",
+                body={"values": [[user_id, "Активно", expire_date]]}
+            ).execute()
+            updated = True
+            break
+
+    if not updated:
+        sheet.values().append(
+            spreadsheetId=os.getenv("SHEET_ID"),
+            range="PRO!A:C",
+            valueInputOption="USER_ENTERED",
+            body={"values": [[user_id, "Активно", expire_date]]}
+        ).execute()
 
     await message.reply(f"✅ PRO активовано для {user_id} до {expire_date}")
 
+    # Надсилаємо повідомлення користувачу
     try:
         await bot.send_message(
             chat_id=int(user_id),
-            text=f"✅ Ваш PRO доступ активований до {expire_date}! 🎬 Приємного перегляду!",
-            parse_mode="Markdown"
+            text=f"✅ Ваш PRO доступ активовано до {expire_date}! 🎬 Приємного перегляду!"
         )
     except Exception as e:
         print(f"❗ Не вдалося надіслати повідомлення користувачу {user_id}: {e}")
+
 
 
 

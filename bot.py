@@ -90,7 +90,8 @@ async def approve_pro(message: types.Message):
     ).execute()
 
     await message.reply(f"✅ PRO активовано для {user_id} до {expire_date}")
-        try:
+
+    try:
         await bot.send_message(
             chat_id=int(user_id),
             text=f"✅ Ваш PRO доступ активований до {expire_date}! 🎬 Приємного перегляду!",
@@ -98,6 +99,7 @@ async def approve_pro(message: types.Message):
         )
     except Exception as e:
         print(f"❗ Не вдалося надіслати повідомлення користувачу {user_id}: {e}")
+
 
 
 @dp.message(Command("start"))

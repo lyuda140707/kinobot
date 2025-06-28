@@ -253,6 +253,19 @@ async def background_deleter():
 
         await asyncio.sleep(60)
 
+@app.post("/check-pro")
+async def check_pro(req: Request):
+    data = await req.json()
+    user_id = data.get("user_id")
+    return {"isPro": is_pro_active(user_id)}
+
+@app.post("/notify-payment")
+async def notify_payment(req: Request):
+    data = await req.json()
+    user_id = data.get("user_id")
+    add_pro_user(user_id)
+    return {"status": "ok"}
+
 
 @app.api_route("/ping", methods=["GET", "HEAD"])
 async def ping():

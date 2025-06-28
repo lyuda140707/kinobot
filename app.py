@@ -34,6 +34,29 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 
+@app.post("/notify-payment")
+async def notify_payment(req: Request):
+    data = await req.json()
+    user_id = data.get("user_id")
+
+    if not user_id:
+        raise HTTPException(status_code=400, detail="user_id відсутній")
+
+    service = get_google_service()
+    sheet = service.spreadsheets()
+
+    sheet.values().append(
+        spreadsheetId=os.getenv("SHEET_ID"),
+        range="PRO!A:C",
+        valueInputOption="USER_ENTERED",
+        body={"values": [[str(user_id), "Очікує підтвердження", datetime.now().strftime("%Y-%m-%d %H:%M")]]}
+    ).execute()
+
+    admin_id = os.getenv("ADMIN_ID")
+    await bot.send_message(admin_id, f"🛒 Користувач {user_id} натиснув 'Я оплатив'. Перевір оплату.")
+
+    return {"ok": True}
+
 
 
 @app.post("/request-film")
@@ -251,6 +274,28 @@ async def background_deleter():
                 ).execute()
 
         await asyncio.sleep(60)
+
+@app.post("/check-pro")
+async def check_pro(req: Request):
+    data = await req.json()
+    user_id = str(data.get("user_id"))
+
+    service = get_google_service()
+    sheet = service.spreadsheets()
+
+    req = sheet.values().get(
+        spreadsheetId=os.getenv("SHEET_ID"),
+        range="PRO!A:C"
+    ).execute()
+
+    rows = req.get("values", [])
+    for row in rows:
+        if row[0] == user_id and row[1] == "Активно":
+            expire_date = datetime.strptime(row[2], "%Y-%m-%d")
+            if expire_date > datetime.now():
+                return {"isPro": True}
+
+    return {"isPro": False}
 
 
 @app.api_route("/ping", methods=["GET", "HEAD"])

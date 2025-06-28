@@ -291,16 +291,18 @@ async def check_pro(req: Request):
         spreadsheetId=os.getenv("SHEET_ID"),
         range="PRO!A2:C1000"
     ).execute()
-    
+
     rows = req.get("values", [])
     for row in rows:
+        if len(row) < 3:
+            continue  # Пропускаємо пусті або некоректні рядки
+
         if row[0] == user_id and row[1] == "Активно":
             expire_date = datetime.strptime(row[2], "%Y-%m-%d")
             if expire_date > datetime.now():
                 return {"isPro": True, "expire_date": row[2]}
 
     return {"isPro": False}
-
 @app.post("/clean-pro")
 async def clean_pro_endpoint():
     from bot import clean_expired_pro
@@ -313,6 +315,14 @@ async def clean_pro_endpoint():
 @app.api_route("/ping", methods=["GET", "HEAD"])
 async def ping():
     return {"status": "alive"}
+@app.post("/reactivate-user")
+async def reactivate_user(req: Request):
+    data = await req.json()
+    user_id = str(data.get("user_id"))
+
+    print(f"✅ Користувач {user_id} знову активний")
+    return {"ok": True}
+
 
 
 # Додаємо CORS для доступу WebApp

@@ -297,9 +297,10 @@ async def check_pro(req: Request):
         if row[0] == user_id and row[1] == "Активно":
             expire_date = datetime.strptime(row[2], "%Y-%m-%d")
             if expire_date > datetime.now():
-                return {"isPro": True}
+                return {"isPro": True, "expire_date": row[2]}
 
     return {"isPro": False}
+
 
 
 @app.api_route("/ping", methods=["GET", "HEAD"])

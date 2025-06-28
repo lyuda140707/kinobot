@@ -13,6 +13,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 from google_api import get_google_service
 from aiogram.exceptions import TelegramForbiddenError, TelegramBadRequest
+from datetime import datetime, timedelta
 
 def add_blocked_user(user_id: int):
     service = get_google_service()
@@ -64,6 +65,31 @@ async def send_webapp(message: types.Message):
     ])
     await message.answer("Ось кнопка для відкриття WebApp:", reply_markup=keyboard)
 
+
+@dp.message(commands=["ok"])
+async def approve_pro(message: types.Message):
+    if message.from_user.id != 7963871119:
+        return  # заміни на свій Telegram ID
+
+    args = message.text.split()
+    if len(args) != 2:
+        await message.reply("⚠️ Формат: /ok user_id")
+        return
+
+    user_id = args[1]
+    service = get_google_service()
+    sheet = service.spreadsheets()
+
+    expire_date = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d")
+
+    sheet.values().append(
+        spreadsheetId=os.getenv("SHEET_ID"),
+        range="PRO!A:C",
+        valueInputOption="USER_ENTERED",
+        body={"values": [[str(user_id), "Активно", expire_date]]}
+    ).execute()
+
+    await message.reply(f"✅ PRO активовано для {user_id} до {expire_date}")
 
 @dp.message(Command("start"))
 async def start_handler(message: types.Message):

@@ -12,7 +12,6 @@ import json
 from pytz import timezone
 from fastapi.responses import JSONResponse
 import dateutil.parser
-from pro_utils import add_pro_user, is_pro_active
 
 
 # Список повідомлень, які потрібно буде видалити
@@ -33,10 +32,6 @@ async def lifespan(app: FastAPI):
 
 # ✅ Оголошення FastAPI ДО використання декораторів
 app = FastAPI(lifespan=lifespan)
-@app.get("/")
-async def root():
-    return {"status": "ok"}
-
 
 
 
@@ -256,19 +251,6 @@ async def background_deleter():
                 ).execute()
 
         await asyncio.sleep(60)
-
-@app.post("/check-pro")
-async def check_pro(req: Request):
-    data = await req.json()
-    user_id = data.get("user_id")
-    return {"isPro": is_pro_active(user_id)}
-
-@app.post("/notify-payment")
-async def notify_payment(req: Request):
-    data = await req.json()
-    user_id = data.get("user_id")
-    add_pro_user(user_id)
-    return {"status": "ok"}
 
 
 @app.api_route("/ping", methods=["GET", "HEAD"])

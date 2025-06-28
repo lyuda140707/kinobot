@@ -66,7 +66,7 @@ async def send_webapp(message: types.Message):
     await message.answer("Ось кнопка для відкриття WebApp:", reply_markup=keyboard)
 
 
-@dp.message(commands=["ok"])
+@dp.message(Command("ok"))
 async def approve_pro(message: types.Message):
     if message.from_user.id != 7963871119:
         return  # заміни на свій Telegram ID

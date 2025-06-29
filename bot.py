@@ -22,19 +22,19 @@ def clean_expired_pro():
 
     req = sheet.values().get(
         spreadsheetId=os.getenv("SHEET_ID"),
-        range="PRO!A2:C1000"
+        range="PRO!A2:D1000"
     ).execute()
 
     rows = req.get("values", [])
     cleared = 0
 
     for i, row in enumerate(rows):
-        if len(row) < 3:
+        if len(row) < 4:
             continue
 
         user_id = row[0]
-        status = row[1]
-        expire_date = row[2]
+        status = row[2]
+        expire_date = row[3]
 
         try:
             expire_dt = datetime.strptime(expire_date, "%Y-%m-%d")
@@ -114,29 +114,33 @@ async def approve_pro(message: types.Message):
         await message.reply("⚠️ Формат: /ok user_id")
         return
 
-    user_id = args[1].strip()  # прибираємо пробіли
+    user_id = args[1].strip()
     service = get_google_service()
     sheet = service.spreadsheets()
 
     expire_date = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d")
 
-    # Шукаємо користувача
     req = sheet.values().get(
         spreadsheetId=os.getenv("SHEET_ID"),
-        range="PRO!A2:C1000"
+        range="PRO!A2:D1000"
     ).execute()
 
     rows = req.get("values", [])
     updated = False
 
     for i, row in enumerate(rows):
-        if row and row[0] == user_id:
+        if len(row) < 4:
+            continue  # Пропускаємо некоректні
+
+        if row[0] == user_id:
             row_number = i + 2
+            username = row[1] if len(row) > 1 else ""  # якщо є username
+
             sheet.values().update(
                 spreadsheetId=os.getenv("SHEET_ID"),
-                range=f"PRO!A{row_number}:C{row_number}",
+                range=f"PRO!A{row_number}:D{row_number}",
                 valueInputOption="USER_ENTERED",
-                body={"values": [[user_id, "Активно", expire_date]]}
+                body={"values": [[user_id, username, "Активно", expire_date]]}
             ).execute()
             updated = True
             break
@@ -144,14 +148,13 @@ async def approve_pro(message: types.Message):
     if not updated:
         sheet.values().append(
             spreadsheetId=os.getenv("SHEET_ID"),
-            range="PRO!A:C",
+            range="PRO!A2:D2",
             valueInputOption="USER_ENTERED",
-            body={"values": [[user_id, "Активно", expire_date]]}
+            body={"values": [[user_id, "", "Активно", expire_date]]}
         ).execute()
 
     await message.reply(f"✅ PRO активовано для {user_id} до {expire_date}")
 
-    # Надсилаємо повідомлення користувачу
     try:
         await bot.send_message(
             chat_id=int(user_id),

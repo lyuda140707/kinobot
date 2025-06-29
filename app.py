@@ -10,7 +10,6 @@ import asyncio
 from datetime import datetime, timedelta
 import json
 from pytz import timezone
-from fastapi.responses import JSONResponse
 import dateutil.parser
 
 
@@ -279,7 +278,7 @@ async def background_deleter():
                     valueInputOption="RAW",
                     body={"values": [["", "", ""]]}
                 ).execute()
-
+                    
         await asyncio.sleep(60)
 
 @app.post("/check-pro")

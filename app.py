@@ -48,12 +48,12 @@ async def notify_payment(req: Request):
     sheet = service.spreadsheets()
 
     sheet.values().append(
-        spreadsheetId=os.getenv("SHEET_ID"),
-        range="PRO!A:D",
-        valueInputOption="USER_ENTERED",
-        body={"values": [[str(user_id), username, first_name, datetime.now().strftime("%Y-%m-%d %H:%M:%S")]]}
-    ).execute()
-
+    spreadsheetId=os.getenv("SHEET_ID"),
+    range="PRO!A2:D2",
+    valueInputOption="USER_ENTERED",
+    body={"values": [[str(user_id), username, "Очікує підтвердження", datetime.now().strftime("%Y-%m-%d %H:%M:%S")]]}
+).execute()
+    
     admin_id = os.getenv("ADMIN_ID")
     await bot.send_message(
         admin_id, 
@@ -292,19 +292,18 @@ async def check_pro(req: Request):
 
     req = sheet.values().get(
         spreadsheetId=os.getenv("SHEET_ID"),
-        range="PRO!A2:C1000"
+        range="PRO!A2:D1000"
     ).execute()
 
     rows = req.get("values", [])
 
     for row in rows:
-        # Пропускаємо пусті або неповні рядки
-        if len(row) < 3:
+        if len(row) < 4:
             continue
 
         row_user_id = row[0].strip()
-        status = row[1].strip()
-        expire_str = row[2].strip()
+        status = row[2].strip()
+        expire_str = row[3].strip()
 
         if row_user_id == user_id and status == "Активно":
             try:
@@ -316,6 +315,7 @@ async def check_pro(req: Request):
                 continue
 
     return {"isPro": False}
+
 
 @app.post("/clean-pro")
 async def clean_pro_endpoint():

@@ -27,7 +27,9 @@ async def lifespan(app: FastAPI):
         await bot.set_webhook(webhook_url)
 
     asyncio.create_task(background_deleter())
+    asyncio.create_task(check_pending_payments())
     yield
+    
 
 # ✅ Оголошення FastAPI ДО використання декораторів
 app = FastAPI(lifespan=lifespan)
@@ -280,6 +282,73 @@ async def background_deleter():
                 ).execute()
                     
         await asyncio.sleep(60)
+
+async def check_pending_payments():
+    service = get_google_service()
+    sheet = service.spreadsheets()
+
+    while True:
+        now = datetime.now()
+
+        data = sheet.values().get(
+            spreadsheetId=os.getenv("SHEET_ID"),
+            range="PRO!A2:D1000"
+        ).execute().get("values", [])
+
+        for i, row in enumerate(data):
+            if len(row) < 4:
+                continue
+
+            user_id = row[0]
+            username = row[1] if len(row) > 1 else ""
+            status = row[2]
+            created_at_str = row[3]
+
+            if status != "Очікує підтвердження":
+                continue  # пропускаємо все, що не "Очікує підтвердження"
+
+            try:
+                created_at = datetime.strptime(created_at_str, "%Y-%m-%d %H:%M:%S")
+            except:
+                continue  # некоректна дата — пропустити
+
+            if (now - created_at) > timedelta(minutes=10):
+                from bot import safe_send  # функція безпечного надсилання
+
+                try:
+                    await safe_send(bot, int(user_id),
+                        "❗️ Ми не знайшли вашу оплату за PRO доступ.\n\n"
+                        "Можливо, ви забули оплатити або оплата ще обробляється.\n"
+                        "Спробуйте повторити або натисніть кнопку нижче:",
+                        reply_markup=InlineKeyboardMarkup(
+                            inline_keyboard=[
+                                [InlineKeyboardButton(
+                                    text="🚀 Повторити оплату",
+                                    web_app=WebAppInfo(url="https://lyuda140707.github.io/kinobot-webapp/")
+                                )]
+                            ]
+                        )
+                    )
+                    print(f"✅ Повідомлення про оплату надіслано користувачу {user_id}")
+                    
+                except Exception as e:
+                    print(f"⚠️ Не вдалося надіслати повідомлення {user_id}: {e}")
+
+                row_number = i + 2
+                sheet.values().update(
+                    spreadsheetId=os.getenv("SHEET_ID"),
+                    range=f"PRO!A{row_number}:C{row_number}",
+                    valueInputOption="RAW",
+                    body={"values": [[user_id, username, "Не активовано"]]}
+                ).execute()
+                
+                print(f"🔧 Статус користувача {user_id} змінено на 'Не активовано' у Google Таблиці")
+
+        
+                    
+
+        await asyncio.sleep(60)  # Перевірка кожну хвилину
+
 
 @app.post("/check-pro")
 async def check_pro(req: Request):

@@ -38,6 +38,8 @@ app = FastAPI(lifespan=lifespan)
 async def notify_payment(req: Request):
     data = await req.json()
     user_id = data.get("user_id")
+    username = data.get("username", "")
+    first_name = data.get("first_name", "")
 
     if not user_id:
         raise HTTPException(status_code=400, detail="user_id відсутній")
@@ -47,19 +49,20 @@ async def notify_payment(req: Request):
 
     sheet.values().append(
         spreadsheetId=os.getenv("SHEET_ID"),
-        range="PRO!A:C",
+        range="PRO!A:D",
         valueInputOption="USER_ENTERED",
-        body={"values": [[str(user_id), "Очікує підтвердження", datetime.now().strftime("%Y-%m-%d %H:%M")]]}
+        body={"values": [[str(user_id), username, first_name, datetime.now().strftime("%Y-%m-%d %H:%M:%S")]]}
     ).execute()
 
     admin_id = os.getenv("ADMIN_ID")
     await bot.send_message(
         admin_id, 
-        f"💳 Користувач {user_id} натиснув 'Я оплатив'\n\n✅ Щоб підтвердити PRO, надішли:\n`/ok {user_id}`",
+        f"💳 Користувач [{first_name}](tg://user?id={user_id}) натиснув 'Я оплатив'\n\n✅ Щоб підтвердити PRO, надішли:\n`/ok {user_id}`",
         parse_mode="Markdown"
     )
 
     return {"ok": True}
+
 
 
 

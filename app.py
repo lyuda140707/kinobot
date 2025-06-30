@@ -27,8 +27,13 @@ async def lifespan(app: FastAPI):
         await bot.set_webhook(webhook_url)
 
     asyncio.create_task(background_deleter())
+    print("✅ Задача background_deleter стартувала")
+
     asyncio.create_task(check_pending_payments())
+    print("✅ Задача check_pending_payments стартувала")
+
     yield
+
     
 
 # ✅ Оголошення FastAPI ДО використання декораторів
@@ -288,12 +293,15 @@ async def check_pending_payments():
     sheet = service.spreadsheets()
 
     while True:
+        print("🔎 Перевірка очікуючих платежів...")  # Додали діагностику
         now = datetime.now()
 
         data = sheet.values().get(
             spreadsheetId=os.getenv("SHEET_ID"),
             range="PRO!A2:D1000"
         ).execute().get("values", [])
+
+        print(f"Знайдено записів: {len(data)}")
 
         for i, row in enumerate(data):
             if len(row) < 4:
@@ -305,15 +313,21 @@ async def check_pending_payments():
             created_at_str = row[3]
 
             if status != "Очікує підтвердження":
-                continue  # пропускаємо все, що не "Очікує підтвердження"
+                continue
 
             try:
-                created_at = datetime.strptime(created_at_str, "%Y-%m-%d %H:%M:%S")
-            except:
-                continue  # некоректна дата — пропустити
+                # Обробка двох можливих форматів дати
+                if len(created_at_str) == 10:
+                    created_at = datetime.strptime(created_at_str, "%Y-%m-%d")
+                else:
+                    created_at = datetime.strptime(created_at_str, "%Y-%m-%d %H:%M:%S")
+            except Exception as e:
+                print(f"⚠️ Некоректна дата: {created_at_str} — {e}")
+                continue
 
             if (now - created_at) > timedelta(minutes=10):
-                from bot import safe_send  # функція безпечного надсилання
+                from bot import safe_send
+                print(f"⚠️ Термін очікування вийшов для користувача {user_id}")
 
                 try:
                     await safe_send(bot, int(user_id),
@@ -321,16 +335,16 @@ async def check_pending_payments():
                         "Можливо, ви забули оплатити або оплата ще обробляється.\n"
                         "Спробуйте повторити або натисніть кнопку нижче:",
                         reply_markup=InlineKeyboardMarkup(
-                            inline_keyboard=[
-                                [InlineKeyboardButton(
+                            inline_keyboard=[[
+                                InlineKeyboardButton(
                                     text="🚀 Повторити оплату",
                                     web_app=WebAppInfo(url="https://lyuda140707.github.io/kinobot-webapp/")
-                                )]
-                            ]
+                                )
+                            ]]
                         )
                     )
                     print(f"✅ Повідомлення про оплату надіслано користувачу {user_id}")
-                    
+
                 except Exception as e:
                     print(f"⚠️ Не вдалося надіслати повідомлення {user_id}: {e}")
 
@@ -341,13 +355,10 @@ async def check_pending_payments():
                     valueInputOption="RAW",
                     body={"values": [[user_id, username, "Не активовано"]]}
                 ).execute()
-                
+
                 print(f"🔧 Статус користувача {user_id} змінено на 'Не активовано' у Google Таблиці")
 
-        
-                    
-
-        await asyncio.sleep(60)  # Перевірка кожну хвилину
+        await asyncio.sleep(60)
 
 
 @app.post("/check-pro")

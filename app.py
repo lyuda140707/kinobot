@@ -292,16 +292,19 @@ async def check_pending_payments():
     service = get_google_service()
     sheet = service.spreadsheets()
 
+    kyiv = timezone("Europe/Kyiv")
+
     while True:
-        print("🔎 Перевірка очікуючих платежів...")  # Додали діагностику
-        now = datetime.now()
+        print("🔎 Перевірка очікуючих платежів...")  
+        now = datetime.now(kyiv).replace(tzinfo=None)  # Часовий пояс Києва
+        print(f"🕒 Поточний час: {now}")
 
         data = sheet.values().get(
             spreadsheetId=os.getenv("SHEET_ID"),
             range="PRO!A2:D1000"
         ).execute().get("values", [])
 
-        print(f"Знайдено записів: {len(data)}")
+        print(f"📋 Знайдено записів для перевірки: {len(data)}")
 
         for i, row in enumerate(data):
             if len(row) < 4:
@@ -316,21 +319,23 @@ async def check_pending_payments():
                 continue
 
             try:
-                # Обробка двох можливих форматів дати
-                if len(created_at_str) == 10:
-                    created_at = datetime.strptime(created_at_str, "%Y-%m-%d")
-                else:
-                    created_at = datetime.strptime(created_at_str, "%Y-%m-%d %H:%M:%S")
+                created_at = datetime.strptime(created_at_str, "%Y-%m-%d %H:%M:%S")
+                print(f"⏰ Запис створений о: {created_at}")
             except Exception as e:
-                print(f"⚠️ Некоректна дата: {created_at_str} — {e}")
+                print(f"⚠️ Помилка формату дати '{created_at_str}': {e}")
                 continue
 
-            if (now - created_at) > timedelta(minutes=10):
+            diff = now - created_at
+            print(f"⏳ Пройшло часу: {diff}")
+
+            if diff > timedelta(minutes=10):
                 from bot import safe_send
-                print(f"⚠️ Термін очікування вийшов для користувача {user_id}")
+
+                print(f"⚠️ Термін очікування минув для користувача {user_id}")
 
                 try:
-                    await safe_send(bot, int(user_id),
+                    await safe_send(
+                        bot, int(user_id),
                         "❗️ Ми не знайшли вашу оплату за PRO доступ.\n\n"
                         "Можливо, ви забули оплатити або оплата ще обробляється.\n"
                         "Спробуйте повторити або натисніть кнопку нижче:",

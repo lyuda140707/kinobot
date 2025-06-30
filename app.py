@@ -53,12 +53,15 @@ async def notify_payment(req: Request):
     service = get_google_service()
     sheet = service.spreadsheets()
 
+    kyiv = timezone("Europe/Kyiv")
+    now_kyiv = datetime.now(kyiv).strftime("%Y-%m-%d %H:%M:%S")
+
     sheet.values().append(
-    spreadsheetId=os.getenv("SHEET_ID"),
-    range="PRO!A2:D2",
-    valueInputOption="USER_ENTERED",
-    body={"values": [[str(user_id), username, "Очікує підтвердження", datetime.now().strftime("%Y-%m-%d %H:%M:%S")]]}
-).execute()
+        spreadsheetId=os.getenv("SHEET_ID"),
+        range="PRO!A2:D2",
+        valueInputOption="USER_ENTERED",
+        body={"values": [[str(user_id), username, "Очікує підтвердження", now_kyiv]]}
+    ).execute()
     
     admin_id = os.getenv("ADMIN_ID")
     await bot.send_message(
@@ -68,6 +71,7 @@ async def notify_payment(req: Request):
     )
 
     return {"ok": True}
+
 
 
 

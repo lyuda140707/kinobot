@@ -207,6 +207,20 @@ async def send_film(request: Request):
         return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
 
 
+@app.post("/send-film-id")
+async def send_film_by_id(request: Request):
+    data = await request.json()
+    user_id = data.get("user_id")
+    file_id = data.get("file_id")
+
+    if not user_id or not file_id:
+        return {"success": False, "error": "Недостатньо даних"}
+
+    try:
+        await bot.send_video(chat_id=user_id, video=file_id)
+        return {"success": True}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 
 

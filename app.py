@@ -217,10 +217,37 @@ async def send_film_by_id(request: Request):
         return {"success": False, "error": "Недостатньо даних"}
 
     try:
-        await bot.send_video(chat_id=user_id, video=file_id)
+        films = get_gsheet_data()
+        found_film = next((f for f in films if f.get("file_id") == file_id), None)
+
+        if not found_film:
+            return {"success": False, "error": "Фільм не знайдено"}
+
+        # Підпис для серії
+        caption = f"🎬 {found_film.get('Назва', '')}\n{found_film.get('Опис', '')}\n\nПриємного перегляду! 🍿"
+
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(
+                    text="🎥 Обрати інший фільм 📚",
+                    web_app=WebAppInfo(url="https://lyuda140707.github.io/kinobot-webapp/")
+                )]
+            ]
+        )
+
+        await bot.send_video(
+            chat_id=user_id,
+            video=file_id,
+            caption=caption,
+            reply_markup=keyboard,
+            parse_mode="HTML"
+        )
+
         return {"success": True}
+
     except Exception as e:
         return {"success": False, "error": str(e)}
+
 
 
 

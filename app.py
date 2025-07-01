@@ -223,7 +223,6 @@ async def send_film_by_id(request: Request):
         if not found_film:
             return {"success": False, "error": "Фільм не знайдено"}
 
-        # Підпис для серії
         caption = f"🎬 {found_film.get('Назва', '')}\n{found_film.get('Опис', '')}\n\nПриємного перегляду! 🍿"
 
         keyboard = InlineKeyboardMarkup(
@@ -235,13 +234,29 @@ async def send_film_by_id(request: Request):
             ]
         )
 
-        await bot.send_video(
+        # Надсилаємо відео
+        sent_message = await bot.send_video(
             chat_id=user_id,
             video=file_id,
             caption=caption,
             reply_markup=keyboard,
             parse_mode="HTML"
         )
+
+        # Зберігаємо для видалення
+        service = get_google_service()
+        sheet = service.spreadsheets()
+
+        kyiv = timezone("Europe/Kyiv")
+        delete_time = datetime.now(kyiv) + timedelta(hours=24)
+
+        sheet.values().append(
+            spreadsheetId=os.getenv("SHEET_ID"),
+            range="Видалення!A2",
+            valueInputOption="USER_ENTERED",
+            insertDataOption="INSERT_ROWS",
+            body={"values": [[str(user_id), str(sent_message.message_id), delete_time.isoformat()]]}
+        ).execute()
 
         return {"success": True}
 

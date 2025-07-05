@@ -314,6 +314,8 @@ async def background_deleter():
             range="Видалення!A2:C1000"
         ).execute().get("values", [])
 
+        print(f"🔍 Вміст таблиці Видалення:\n{data}")
+
         print(f"⏳ Перевірка на видалення: {len(data)} в черзі")
 
         for i, row in enumerate(data):
@@ -323,6 +325,10 @@ async def background_deleter():
             user_id = row[0]
             message_id = row[1]
             delete_at_str = row[2]
+
+            if not user_id.isdigit() or not message_id.isdigit():
+                print(f"⚠️ Пропускаємо некоректний рядок: {row}")
+                continue
 
             try:
                 delete_at = dateutil.parser.isoparse(delete_at_str)

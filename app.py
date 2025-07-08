@@ -144,12 +144,6 @@ async def send_film(request: Request):
         user_id = data.get("user_id")
         film_name = data.get("film_name")
 
-        await track_user_if_new(
-            user_id,
-            data.get("username", ""),
-            data.get("first_name", "")
-        )
-
         if not user_id or not film_name:
             return JSONResponse(status_code=400, content={"success": False, "error": "user_id або film_name відсутні"})
 
@@ -202,15 +196,15 @@ async def send_film(request: Request):
             valueInputOption="USER_ENTERED",
             insertDataOption="INSERT_ROWS",
             body={"values": [[str(user_id), str(sent_message.message_id), delete_time.isoformat()]]}
-        ).execute()
+            ).execute()
 
         print(f"✅ Відео надіслано користувачу {user_id}")
+
         return {"success": True}
 
     except Exception as e:
         print(f"❌ Помилка в /send-film: {e}")
         return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
-
 
 
 @app.post("/send-film-id")

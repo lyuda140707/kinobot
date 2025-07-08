@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 import json
 from pytz import timezone
 import dateutil.parser
-from user_utils import add_user_if_not_exists  # або з google_api, якщо там додав
+from google_api import add_user_if_not_exists
 
 
 # Список повідомлень, які потрібно буде видалити

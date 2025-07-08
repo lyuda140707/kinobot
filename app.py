@@ -150,10 +150,6 @@ async def send_film(request: Request):
             data.get("first_name", "")
         )
 
-    except Exception as e:
-        print(f"❌ Помилка запису користувача: {e}")
-
-
         if not user_id or not film_name:
             return JSONResponse(status_code=400, content={"success": False, "error": "user_id або film_name відсутні"})
 
@@ -206,37 +202,15 @@ async def send_film(request: Request):
             valueInputOption="USER_ENTERED",
             insertDataOption="INSERT_ROWS",
             body={"values": [[str(user_id), str(sent_message.message_id), delete_time.isoformat()]]}
-            ).execute()
+        ).execute()
 
         print(f"✅ Відео надіслано користувачу {user_id}")
-
         return {"success": True}
 
     except Exception as e:
         print(f"❌ Помилка в /send-film: {e}")
         return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
-async def track_user_if_new(user_id: int, username: str = "", first_name: str = ""):
-    service = get_google_service()
-    sheet = service.spreadsheets()
 
-    # Отримуємо список вже збережених ID
-    result = sheet.values().get(
-        spreadsheetId=os.getenv("SHEET_ID"),
-        range="Користувачі!A2:A1000"
-    ).execute()
-
-    existing_ids = [row[0] for row in result.get("values", [])]
-
-    if str(user_id) not in existing_ids:
-        kyiv = timezone("Europe/Kyiv")
-        now = datetime.now(kyiv).strftime("%Y-%m-%d %H:%M:%S")
-
-        sheet.values().append(
-            spreadsheetId=os.getenv("SHEET_ID"),
-            range="Користувачі!A2:D2",
-            valueInputOption="USER_ENTERED",
-            body={"values": [[str(user_id), username, first_name, now]]}
-        ).execute()
 
 
 @app.post("/send-film-id")

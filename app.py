@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 import json
 from pytz import timezone
 import dateutil.parser
+from user_utils import add_user_if_not_exists  # або з google_api, якщо там додав
 
 
 # Список повідомлень, які потрібно буде видалити
@@ -143,6 +144,11 @@ async def send_film(request: Request):
         data = await request.json()
         user_id = data.get("user_id")
         film_name = data.get("film_name")
+
+        username = data.get("username", "")
+        first_name = data.get("first_name", "")
+        add_user_if_not_exists(user_id, username, first_name)
+
 
         if not user_id or not film_name:
             return JSONResponse(status_code=400, content={"success": False, "error": "user_id або film_name відсутні"})

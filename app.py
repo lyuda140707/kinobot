@@ -143,11 +143,16 @@ async def send_film(request: Request):
         data = await request.json()
         user_id = data.get("user_id")
         film_name = data.get("film_name")
-    await track_user_if_new(
-        user_id,
-        data.get("username", ""),
-        data.get("first_name", "")
-    )
+
+        await track_user_if_new(
+            user_id,
+            data.get("username", ""),
+            data.get("first_name", "")
+        )
+
+    except Exception as e:
+        print(f"❌ Помилка запису користувача: {e}")
+
 
         if not user_id or not film_name:
             return JSONResponse(status_code=400, content={"success": False, "error": "user_id або film_name відсутні"})

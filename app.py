@@ -120,6 +120,13 @@ async def search_in_bot(request: Request):
     user_id = data.get("user_id")
     query = data.get("query", "").lower()
 
+    username = data.get("username", "")
+    first_name = data.get("first_name", "")
+
+    if user_id:
+        add_user_if_not_exists(user_id, username, first_name)
+
+
     if not user_id or not query:
         return {"found": False}
 
@@ -147,7 +154,10 @@ async def send_film(request: Request):
 
         username = data.get("username", "")
         first_name = data.get("first_name", "")
-        add_user_if_not_exists(user_id, username, first_name)
+
+        if user_id:
+            add_user_if_not_exists(user_id, username, first_name)
+
 
 
         if not user_id or not film_name:
@@ -218,6 +228,13 @@ async def send_film_by_id(request: Request):
     data = await request.json()
     user_id = data.get("user_id")
     file_id = data.get("file_id")
+
+    username = data.get("username", "")
+    first_name = data.get("first_name", "")
+
+    if user_id:
+        add_user_if_not_exists(user_id, username, first_name)
+
 
     if not user_id or not file_id:
         return {"success": False, "error": "Недостатньо даних"}

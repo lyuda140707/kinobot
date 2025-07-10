@@ -455,7 +455,7 @@ async def check_pending_payments():
         await asyncio.sleep(60)
 
 
-@@app.post("/check-pro")
+@app.post("/check-pro")
 async def check_pro(req: Request):
     data = await req.json()
     user_id = str(data.get("user_id"))

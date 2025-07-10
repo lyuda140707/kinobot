@@ -470,7 +470,7 @@ async def check_pro(req: Request):
 
     rows = req.get("values", [])
 
-    for row in rows:
+    for i, row in enumerate(rows):
         if len(row) < 4:
             continue
 
@@ -483,11 +483,22 @@ async def check_pro(req: Request):
                 expire_date = datetime.strptime(expire_str, "%Y-%m-%d")
                 if expire_date > datetime.now():
                     return {"isPro": True, "expire_date": expire_str}
+                else:
+                    # ⛔ PRO минув — оновлюємо статус
+                    row_number = i + 2  # бо починається з 2
+                    sheet.values().update(
+                        spreadsheetId=os.getenv("SHEET_ID"),
+                        range=f"PRO!C{row_number}",
+                        valueInputOption="RAW",
+                        body={"values": [["Не активовано"]]}
+                    ).execute()
+                    print(f"⚠️ PRO закінчився — статус змінено для {user_id}")
             except Exception as e:
                 print(f"⚠️ Помилка формату дати в PRO: {expire_str} — {e}")
                 continue
 
     return {"isPro": False}
+
 
 
 @app.post("/clean-pro")
@@ -520,3 +531,4 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+

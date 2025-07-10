@@ -455,7 +455,7 @@ async def check_pending_payments():
         await asyncio.sleep(60)
 
 
-@app.post("/check-pro")
+@@app.post("/check-pro")
 async def check_pro(req: Request):
     data = await req.json()
     user_id = str(data.get("user_id"))
@@ -478,26 +478,28 @@ async def check_pro(req: Request):
         status = row[2].strip()
         expire_str = row[3].strip()
 
-        if row_user_id == user_id and status == "Активно":
+        if row_user_id == user_id:
             try:
                 expire_date = datetime.strptime(expire_str, "%Y-%m-%d")
-                if expire_date > datetime.now():
+                now = datetime.now()
+
+                if status == "Активно" and expire_date > now:
                     return {"isPro": True, "expire_date": expire_str}
-                else:
-                    # ⛔ PRO минув — оновлюємо статус
-                    row_number = i + 2  # бо починається з 2
+                elif status == "Активно" and expire_date <= now:
+                    # якщо прострочено — змінити статус на "Не активовано"
+                    row_number = i + 2
                     sheet.values().update(
                         spreadsheetId=os.getenv("SHEET_ID"),
                         range=f"PRO!C{row_number}",
                         valueInputOption="RAW",
                         body={"values": [["Не активовано"]]}
                     ).execute()
-                    print(f"⚠️ PRO закінчився — статус змінено для {user_id}")
+                    print(f"⛔ PRO закінчився для {user_id} — статус оновлено")
             except Exception as e:
-                print(f"⚠️ Помилка формату дати в PRO: {expire_str} — {e}")
-                continue
+                print(f"⚠️ Помилка розпізнавання дати {expire_str} — {e}")
 
     return {"isPro": False}
+
 
 
 

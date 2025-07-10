@@ -456,34 +456,38 @@ async def check_pending_payments():
 
 
 @app.post("/check-pro")
-async def check_pro(request: Request):
-    data = await request.json()
+async def check_pro(req: Request):
+    data = await req.json()
     user_id = str(data.get("user_id"))
-    print(f"📋 Перевірка PRO для користувача {user_id}")
 
-    rows = get_gsheet_data(PAYMENTS_SHEET_ID, PAYMENTS_SHEET_NAME)
+    service = get_google_service()
+    sheet = service.spreadsheets()
 
-    matching_rows = [
-        row for row in rows
-        if len(row) >= 4 and row[0].strip() == user_id and row[2].strip() == "Активно"
-    ]
+    req = sheet.values().get(
+        spreadsheetId=os.getenv("SHEET_ID"),
+        range="PRO!A2:D1000"
+    ).execute()
 
-    if matching_rows:
-        try:
-            # Беремо найновішу дату серед активних
-            latest = sorted(matching_rows, key=lambda r: r[3], reverse=True)[0]
-            expire_date = datetime.strptime(latest[3], "%Y-%m-%d")
-            
-            if expire_date > datetime.now():
-                return {"isPro": True, "expire_date": latest[3]}
-            else:
-                print(f"🔔 Строк PRO у користувача {user_id} вже вийшов ({latest[3]})")
-        except Exception as e:
-            print("❌ Помилка при розборі дати:", e)
+    rows = req.get("values", [])
+
+    for row in rows:
+        if len(row) < 4:
+            continue
+
+        row_user_id = row[0].strip()
+        status = row[2].strip()
+        expire_str = row[3].strip()
+
+        if row_user_id == user_id and status == "Активно":
+            try:
+                expire_date = datetime.strptime(expire_str, "%Y-%m-%d")
+                if expire_date > datetime.now():
+                    return {"isPro": True, "expire_date": expire_str}
+            except Exception as e:
+                print(f"⚠️ Помилка формату дати в PRO: {expire_str} — {e}")
+                continue
 
     return {"isPro": False}
-
-
 
 
 @app.post("/clean-pro")

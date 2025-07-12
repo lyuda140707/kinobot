@@ -214,11 +214,16 @@ async def search_film(message: types.Message):
     if not message.text:
         return
 
+    # ✅ Перевірка на наявність chat.id
+    if not message.chat or not message.chat.id:
+        print("❌ Немає message.chat.id — не надсилаємо відео")
+        return
+
     query = message.text.lower()
     films = get_gsheet_data()
 
     for film in films:
-        if query in film["Назва"].lower():
+        if query in film.get("Назва", "").lower():
             name = film.get("Назва", "Без назви")
             desc = film.get("Опис", "Без опису")
             file_id = film.get("file_id")
@@ -228,13 +233,22 @@ async def search_film(message: types.Message):
             print(f"🎞 file_id: {file_id}")
 
             if file_id:
-                await bot.send_video(chat_id=message.chat.id, video=file_id, caption=caption, parse_mode="Markdown")
-
+                try:
+                    await bot.send_video(
+                        chat_id=message.chat.id,
+                        video=file_id,
+                        caption=caption,
+                        parse_mode="Markdown"
+                    )
+                except Exception as e:
+                    print(f"❌ Помилка надсилання відео: {e}")
+                    await safe_send(bot, message.chat.id, "⚠️ Не вдалося надіслати відео")
             else:
                 await message.answer(caption, parse_mode="Markdown")
             return
 
     await safe_send(bot, message.chat.id, "Фільм не знайдено 😢")
+
 
     
   

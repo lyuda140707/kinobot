@@ -194,7 +194,8 @@ async def start_handler(message: types.Message):
                 print(f"🎞 file_id: {file_id}")
 
                 if file_id:
-                    await message.answer_video(file_id, caption=caption, parse_mode="Markdown")
+                    await bot.send_video(chat_id=message.chat.id, video=file_id, caption=caption, parse_mode="Markdown")
+
                 else:
                     await message.answer(caption, parse_mode="Markdown")
                 return
@@ -227,7 +228,8 @@ async def search_film(message: types.Message):
             print(f"🎞 file_id: {file_id}")
 
             if file_id:
-                await message.answer_video(file_id, caption=caption, parse_mode="Markdown")
+                await bot.send_video(chat_id=message.chat.id, video=file_id, caption=caption, parse_mode="Markdown")
+
             else:
                 await message.answer(caption, parse_mode="Markdown")
             return

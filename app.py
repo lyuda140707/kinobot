@@ -540,7 +540,7 @@ async def rate_film(data: dict):
     sheet = service.spreadsheets()
     values = sheet.values().get(
         spreadsheetId=SPREADSHEET_ID,
-        range="Фільми!A2:Z1000"  # зчитуємо всі колонки від A до Z (щоб захопити всі)
+        range="Sheet1!A2:Z1000"  # зчитуємо всі колонки від A до Z (щоб захопити всі)
     ).execute().get("values", [])
 
     # Індекси колонок для лайків і дизлайків (0-based, A=0)

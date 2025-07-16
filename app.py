@@ -560,8 +560,8 @@ async def rate_film(data: RateRequest):
             range="Sheet1!A2:Z1000"
         ).execute().get("values", [])
 
-        col_idx = 11 if action == "like" else 12
-        undo_col_idx = 11 if undo_action == "like" else 12 if undo_action == "dislike" else None
+        col_idx = 12 if action == "like" else 13
+        undo_col_idx = 12 if undo_action == "like" else 13 if undo_action == "dislike" else None
 
         print(f"Починаємо пошук фільму у таблиці...")
 

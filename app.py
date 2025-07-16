@@ -13,6 +13,13 @@ from pytz import timezone
 import dateutil.parser
 from google_api import add_user_if_not_exists
 from fastapi import HTTPException
+from pydantic import BaseModel
+from typing import Optional
+
+class RateRequest(BaseModel):
+    film_name: str
+    action: str            # наприклад, "like" або "dislike"
+    undo: Optional[str] = None  # опціональне, "like" або "dislike" або None
 
 
 # Список повідомлень, які потрібно буде видалити
@@ -529,15 +536,13 @@ async def reactivate_user(req: Request):
 from fastapi.responses import JSONResponse
 
 @app.post("/rate")
-async def rate_film(data: dict):
+async def rate_film(data: RateRequest):
     try:
-        print("🔔 /rate запит отримано:", data)
+        print("🔔 /rate запит отримано:", data.dict())
 
-        film_name = data.get("film_name")
-        action = data.get("action")  # 'like' або 'dislike'
-        undo_action = data.get("undo")  # скасування: якщо була протилежна дія
-
-        print(f"film_name={film_name}, action={action}, undo_action={undo_action}")
+        film_name = data.film_name
+        action = data.action
+        undo_action = data.undo
 
         SPREADSHEET_ID = os.getenv("SHEET_ID")
         if not SPREADSHEET_ID:
@@ -551,7 +556,6 @@ async def rate_film(data: dict):
             range="Sheet1!A2:Z1000"
         ).execute().get("values", [])
 
-        # Індекси колонок для лайків і дизлайків (0-based, A=0)
         col_idx = 11 if action == "like" else 12
         undo_col_idx = 11 if undo_action == "like" else 12 if undo_action == "dislike" else None
 
@@ -609,7 +613,6 @@ async def rate_film(data: dict):
     except Exception as e:
         print(f"❌ Помилка в /rate: {e}")
         return JSONResponse(status_code=500, content={"success": False, "error": "Внутрішня помилка сервера"})
-
 
 
 

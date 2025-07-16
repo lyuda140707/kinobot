@@ -522,37 +522,63 @@ async def reactivate_user(req: Request):
 
     print(f"✅ Користувач {user_id} знову активний")
     return {"ok": True}
+    
 @app.post("/rate")
-async def rate_film(request: Request):
-    data = await request.json()
+async def rate_film(data: dict):
     film_name = data.get("film_name")
-    action = data.get("action")  # "like" або "dislike"
+    action = data.get("action")  # 'like' або 'dislike'
+    undo_action = data.get("undo")  # скасування: якщо до цього була протилежна дія
 
-    if not film_name or action not in ["like", "dislike"]:
-        return {"success": False, "error": "Недійсні дані"}
+    sheet = get_google_service()
+    values = sheet.values().get(
+        spreadsheetId=SPREADSHEET_ID,
+        range="Фільми!A2:Z"
+    ).execute().get("values", [])
 
-    films = get_gsheet_data()
+    for idx, row in enumerate(values, start=2):
+        if row[0] == film_name:
+            col_idx = 2 if action == "like" else 3
+            undo_col_idx = 2 if undo_action == "like" else 3 if undo_action == "dislike" else None
 
-    for idx, film in enumerate(films, start=2):  # start=2 бо перший — заголовок
-        if film.get("Назва", "").strip().lower() == film_name.strip().lower():
-            column = "Лайки" if action == "like" else "Дизлайки"
-            old_value = int(film.get(column, "0") or 0)
-            new_value = old_value + 1
+            # Додаємо нову дію
+            try:
+                current = int(row[col_idx])
+            except:
+                current = 0
+            current += 1
 
-            service = get_google_service()
-            sheet = service.spreadsheets()
-            col_letter = {"Лайки": "M", "Дизлайки": "N"}[column]  # 🟡 заміни, якщо колонки інші
+            # Скасовуємо попередню (якщо була)
+            if undo_col_idx is not None:
+                try:
+                    undo_val = int(row[undo_col_idx])
+                except:
+                    undo_val = 0
+                undo_val = max(0, undo_val - 1)  # мінус 1, але не нижче 0
 
-            sheet.values().update(
-                spreadsheetId=os.getenv("SHEET_ID"),
-                range=f"Sheet1!{col_letter}{idx}",
-                valueInputOption="USER_ENTERED",
-                body={"values": [[str(new_value)]]}
-            ).execute()
+                # Оновити обидва значення
+                sheet.values().batchUpdate(
+                    spreadsheetId=SPREADSHEET_ID,
+                    body={
+                        "valueInputOption": "USER_ENTERED",
+                        "data": [
+                            {"range": f"Фільми!{chr(65+col_idx)}{idx}", "values": [[current]]},
+                            {"range": f"Фільми!{chr(65+undo_col_idx)}{idx}", "values": [[undo_val]]}
+                        ]
+                    }
+                ).execute()
+            else:
+                # Оновити тільки одну
+                sheet.values().update(
+                    spreadsheetId=SPREADSHEET_ID,
+                    range=f"Фільми!{chr(65+col_idx)}{idx}",
+                    valueInputOption="USER_ENTERED",
+                    body={"values": [[current]]}
+                ).execute()
 
-            return {"success": True, "new_value": new_value}
+            return {"success": True, "new_value": current}
 
-    return {"success": False, "error": "Фільм не знайдено"}
+    raise HTTPException(status_code=404, detail="Фільм не знайдено")
+
 
 
 

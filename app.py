@@ -551,7 +551,6 @@ async def rate_film(data: RateRequest):
 
         SPREADSHEET_ID = os.getenv("SHEET_ID")
         if not SPREADSHEET_ID:
-            print("❌ SHEET_ID не визначено!")
             return JSONResponse(status_code=500, content={"success": False, "error": "SHEET_ID не визначено"})
 
         service = get_google_service()
@@ -564,52 +563,47 @@ async def rate_film(data: RateRequest):
         col_idx = 12 if action == "like" else 13
         undo_col_idx = 12 if undo_action == "like" else 13 if undo_action == "dislike" else None
 
-        found = False
-        new_value = 0  # щоб щось повернути після циклу
+        updates = []
 
+        found = False
         for idx, row in enumerate(values, start=2):
             if len(row) == 0 or row[0] != film_name:
                 continue
 
             found = True
-
             while len(row) <= max(col_idx, undo_col_idx if undo_col_idx is not None else 0):
                 row.append("0")
 
-            try:
-                current = int(row[col_idx])
-            except:
-                current = 0
+            current = int(row[col_idx]) if row[col_idx].isdigit() else 0
             current += 1
-            new_value = current  # оновлюємо значення
 
-            data_batch = [
-                {"range": f"Sheet1!{chr(65+col_idx)}{idx}", "values": [[str(current)]]}
-            ]
+            updates.append({
+                "range": f"Sheet1!{chr(65+col_idx)}{idx}",
+                "values": [[str(current)]]
+            })
 
             if undo_col_idx is not None:
-                try:
-                    undo_val = int(row[undo_col_idx])
-                except:
-                    undo_val = 0
+                undo_val = int(row[undo_col_idx]) if row[undo_col_idx].isdigit() else 0
                 undo_val = max(0, undo_val - 1)
-                data_batch.append(
-                    {"range": f"Sheet1!{chr(65+undo_col_idx)}{idx}", "values": [[str(undo_val)]]}
-                )
+                updates.append({
+                    "range": f"Sheet1!{chr(65+undo_col_idx)}{idx}",
+                    "values": [[str(undo_val)]]
+                })
 
-            sheet.values().batchUpdate(
-                spreadsheetId=SPREADSHEET_ID,
-                body={
-                    "valueInputOption": "USER_ENTERED",
-                    "data": data_batch
-                }
-            ).execute()
-
-        if found:
-            return {"success": True, "new_value": new_value}
-        else:
+        if not found:
             print("❌ Фільм не знайдено у таблиці")
             return JSONResponse(status_code=404, content={"success": False, "error": "Фільм не знайдено"})
+
+        # ✅ Надсилаємо всі оновлення за один раз
+        sheet.values().batchUpdate(
+            spreadsheetId=SPREADSHEET_ID,
+            body={
+                "valueInputOption": "USER_ENTERED",
+                "data": updates
+            }
+        ).execute()
+
+        return {"success": True}
 
     except Exception as e:
         print(f"❌ Помилка в /rate: {e}")

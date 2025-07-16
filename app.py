@@ -12,6 +12,7 @@ import json
 from pytz import timezone
 import dateutil.parser
 from google_api import add_user_if_not_exists
+from fastapi import HTTPException
 
 
 # Список повідомлень, які потрібно буде видалити
@@ -523,60 +524,71 @@ async def reactivate_user(req: Request):
     print(f"✅ Користувач {user_id} знову активний")
     return {"ok": True}
     
+
+
 @app.post("/rate")
 async def rate_film(data: dict):
     film_name = data.get("film_name")
     action = data.get("action")  # 'like' або 'dislike'
-    undo_action = data.get("undo")  # скасування: якщо до цього була протилежна дія
+    undo_action = data.get("undo")  # скасування: якщо була протилежна дія
+
+    SPREADSHEET_ID = os.getenv("SHEET_ID")
+    if not SPREADSHEET_ID:
+        return JSONResponse(status_code=500, content={"success": False, "error": "SHEET_ID не визначено"})
 
     service = get_google_service()
     sheet = service.spreadsheets()
     values = sheet.values().get(
         spreadsheetId=SPREADSHEET_ID,
-        range="Фільми!A2:Z"
+        range="Фільми!A2:Z"  # зчитуємо всі колонки від A до Z (щоб захопити всі)
     ).execute().get("values", [])
 
+    # Індекси колонок для лайків і дизлайків (0-based, A=0)
+    col_idx = 11 if action == "like" else 12
+    undo_col_idx = 11 if undo_action == "like" else 12 if undo_action == "dislike" else None
+
     for idx, row in enumerate(values, start=2):
-        if row[0] == film_name:
-            col_idx = 2 if action == "like" else 3
-            undo_col_idx = 2 if undo_action == "like" else 3 if undo_action == "dislike" else None
+        if len(row) == 0 or row[0] != film_name:
+            continue
 
-            # Додаємо нову дію
+        # Якщо рядок короткий, добудовуємо 0 у потрібні колонки
+        while len(row) <= max(col_idx, undo_col_idx if undo_col_idx is not None else 0):
+            row.append("0")
+
+        try:
+            current = int(row[col_idx])
+        except:
+            current = 0
+        current += 1
+
+        if undo_col_idx is not None:
             try:
-                current = int(row[col_idx])
+                undo_val = int(row[undo_col_idx])
             except:
-                current = 0
-            current += 1
+                undo_val = 0
+            undo_val = max(0, undo_val - 1)
 
-            # Скасовуємо попередню (якщо була)
-            if undo_col_idx is not None:
-                try:
-                    undo_val = int(row[undo_col_idx])
-                except:
-                    undo_val = 0
-                undo_val = max(0, undo_val - 1)  # мінус 1, але не нижче 0
+            # Оновлюємо дві клітинки одночасно через batchUpdate
+            sheet.values().batchUpdate(
+                spreadsheetId=SPREADSHEET_ID,
+                body={
+                    "valueInputOption": "USER_ENTERED",
+                    "data": [
+                        {"range": f"Фільми!{chr(65+col_idx)}{idx}", "values": [[str(current)]]},
+                        {"range": f"Фільми!{chr(65+undo_col_idx)}{idx}", "values": [[str(undo_val)]]}
+                    ]
+                }
+            ).execute()
+        else:
+            # Оновлюємо тільки одну клітинку
+            sheet.values().update(
+                spreadsheetId=SPREADSHEET_ID,
+                range=f"Фільми!{chr(65+col_idx)}{idx}",
+                valueInputOption="USER_ENTERED",
+                body={"values": [[str(current)]]}
+            ).execute()
 
-                # Оновити обидва значення
-                sheet.values().batchUpdate(
-                    spreadsheetId=SPREADSHEET_ID,
-                    body={
-                        "valueInputOption": "USER_ENTERED",
-                        "data": [
-                            {"range": f"Фільми!{chr(65+col_idx)}{idx}", "values": [[current]]},
-                            {"range": f"Фільми!{chr(65+undo_col_idx)}{idx}", "values": [[undo_val]]}
-                        ]
-                    }
-                ).execute()
-            else:
-                # Оновити тільки одну
-                sheet.values().update(
-                    spreadsheetId=SPREADSHEET_ID,
-                    range=f"Фільми!{chr(65+col_idx)}{idx}",
-                    valueInputOption="USER_ENTERED",
-                    body={"values": [[current]]}
-                ).execute()
-
-            return {"success": True, "new_value": current}
+        return {"success": True, "new_value": current}
 
     raise HTTPException(status_code=404, detail="Фільм не знайдено")
 

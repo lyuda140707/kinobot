@@ -187,6 +187,11 @@ async def send_film(request: Request):
         if not found_film:
             return JSONResponse(status_code=404, content={"success": False, "error": "Фільм не знайдено або немає file_id"})
 
+                # 🔒 Перевірка доступу PRO
+        if found_film.get("Доступ") == "PRO" and not has_active_pro(str(user_id)):
+            return JSONResponse(status_code=403, content={"success": False, "error": "⛔ Доступ лише для PRO користувачів"})
+
+
         # Готуємо клавіатуру
         keyboard = InlineKeyboardMarkup(
             inline_keyboard=[
@@ -239,37 +244,32 @@ async def send_film(request: Request):
 @app.post("/send-film-id")
 async def send_film_by_id(request: Request):
     data = await request.json()
-    user_id = data.get("user_id")
+    user_id = str(data.get("user_id"))
     file_id = data.get("file_id")
 
-    username = data.get("username", "")
-    first_name = data.get("first_name", "")
+    print(f"📽️ /send-film-id {file_id} від {user_id}")
 
-    if user_id:
-        add_user_if_not_exists(user_id, username, first_name)
+    found_film = next((f for f in films if f.get("file_id") == file_id), None)
 
+    if not found_film:
+        return {"success": False, "error": "Фільм не знайдено"}
 
-    if not user_id or not file_id:
-        return {"success": False, "error": "Недостатньо даних"}
+    # 🔒 Захист PRO
+    if found_film.get("Доступ") == "PRO" and not has_active_pro(user_id):
+        return {"success": False, "error": "⛔ Доступ лише для PRO користувачів"}
+
+    caption = f"🎬 {found_film.get('Назва', '')}\n\n{found_film.get('Опис', '')}".strip()
+
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(
+                text="🎥 Обрати інший фільм 📚",
+                web_app=WebAppInfo(url="https://lyuda140707.github.io/kinobot-webapp/")
+            )]
+        ]
+    )
 
     try:
-        films = get_gsheet_data()
-        found_film = next((f for f in films if f.get("file_id") == file_id), None)
-
-        if not found_film:
-            return {"success": False, "error": "Фільм не знайдено"}
-
-        caption = f"🎬 {found_film.get('Назва', '')}\n{found_film.get('Опис', '')}\n\nПриємного перегляду! 🍿"
-
-        keyboard = InlineKeyboardMarkup(
-            inline_keyboard=[
-                [InlineKeyboardButton(
-                    text="🎥 Обрати інший фільм 📚",
-                    web_app=WebAppInfo(url="https://lyuda140707.github.io/kinobot-webapp/")
-                )]
-            ]
-        )
-
         # Надсилаємо відео
         sent_message = await bot.send_video(
             chat_id=user_id,
@@ -297,6 +297,7 @@ async def send_film_by_id(request: Request):
         return {"success": True}
 
     except Exception as e:
+        print(f"❌ Помилка надсилання: {e}")
         return {"success": False, "error": str(e)}
 
 

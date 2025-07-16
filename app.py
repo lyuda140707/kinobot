@@ -21,6 +21,13 @@ class RateRequest(BaseModel):
     action: str            # наприклад, "like" або "dislike"
     undo: Optional[str] = None  # опціональне, "like" або "dislike" або None
 
+class SearchRequest(BaseModel):
+    user_id: int
+    query: str
+    username: Optional[str] = None
+    first_name: Optional[str] = None
+
+
 
 # Список повідомлень, які потрібно буде видалити
 messages_to_delete = []
@@ -123,17 +130,14 @@ async def telegram_webhook(request: Request):
     return {"ok": True}
 
 @app.post("/search-in-bot")
-async def search_in_bot(request: Request):
-    data = await request.json()
-    user_id = data.get("user_id")
-    query = data.get("query", "").lower()
-
-    username = data.get("username", "")
-    first_name = data.get("first_name", "")
+async def search_in_bot(data: SearchRequest):
+    user_id = data.user_id
+    query = data.query.lower()
+    username = data.username or ""
+    first_name = data.first_name or ""
 
     if user_id:
         add_user_if_not_exists(user_id, username, first_name)
-
 
     if not user_id or not query:
         return {"found": False}

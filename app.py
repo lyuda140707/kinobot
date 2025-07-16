@@ -495,7 +495,7 @@ async def check_pro(req: Request):
 
         if row_user_id == user_id:
             try:
-                expire_date = datetime.strptime(expire_str, "%Y-%m-%d")
+                expire_date = datetime.strptime(expire_str, "%Y-%m-%d %H:%M:%S")
                 now = datetime.now()
 
                 if status == "Активно" and expire_date > now:

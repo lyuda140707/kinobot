@@ -567,7 +567,7 @@ async def rate_film(data: RateRequest):
 
         found = False
         for idx, row in enumerate(values, start=2):
-            if len(row) == 0 or row[0] != film_name:
+            if len(row) == 0 or row[0].strip().lower() != film_name.strip().lower():
                 continue
 
             found = True

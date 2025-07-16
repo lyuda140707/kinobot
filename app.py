@@ -526,71 +526,90 @@ async def reactivate_user(req: Request):
     
 
 
+from fastapi.responses import JSONResponse
+
 @app.post("/rate")
 async def rate_film(data: dict):
-    film_name = data.get("film_name")
-    action = data.get("action")  # 'like' або 'dislike'
-    undo_action = data.get("undo")  # скасування: якщо була протилежна дія
+    try:
+        print("🔔 /rate запит отримано:", data)
 
-    SPREADSHEET_ID = os.getenv("SHEET_ID")
-    if not SPREADSHEET_ID:
-        return JSONResponse(status_code=500, content={"success": False, "error": "SHEET_ID не визначено"})
+        film_name = data.get("film_name")
+        action = data.get("action")  # 'like' або 'dislike'
+        undo_action = data.get("undo")  # скасування: якщо була протилежна дія
 
-    service = get_google_service()
-    sheet = service.spreadsheets()
-    values = sheet.values().get(
-        spreadsheetId=SPREADSHEET_ID,
-        range="Sheet1!A2:Z1000"  # зчитуємо всі колонки від A до Z (щоб захопити всі)
-    ).execute().get("values", [])
+        print(f"film_name={film_name}, action={action}, undo_action={undo_action}")
 
-    # Індекси колонок для лайків і дизлайків (0-based, A=0)
-    col_idx = 11 if action == "like" else 12
-    undo_col_idx = 11 if undo_action == "like" else 12 if undo_action == "dislike" else None
+        SPREADSHEET_ID = os.getenv("SHEET_ID")
+        if not SPREADSHEET_ID:
+            print("❌ SHEET_ID не визначено!")
+            return JSONResponse(status_code=500, content={"success": False, "error": "SHEET_ID не визначено"})
 
-    for idx, row in enumerate(values, start=2):
-        if len(row) == 0 or row[0] != film_name:
-            continue
+        service = get_google_service()
+        sheet = service.spreadsheets()
+        values = sheet.values().get(
+            spreadsheetId=SPREADSHEET_ID,
+            range="Sheet1!A2:Z1000"
+        ).execute().get("values", [])
 
-        # Якщо рядок короткий, добудовуємо 0 у потрібні колонки
-        while len(row) <= max(col_idx, undo_col_idx if undo_col_idx is not None else 0):
-            row.append("0")
+        # Індекси колонок для лайків і дизлайків (0-based, A=0)
+        col_idx = 11 if action == "like" else 12
+        undo_col_idx = 11 if undo_action == "like" else 12 if undo_action == "dislike" else None
 
-        try:
-            current = int(row[col_idx])
-        except:
-            current = 0
-        current += 1
+        print(f"Починаємо пошук фільму у таблиці...")
 
-        if undo_col_idx is not None:
+        for idx, row in enumerate(values, start=2):
+            if len(row) == 0 or row[0] != film_name:
+                continue
+
+            print(f"Знайдено фільм у рядку {idx}: {row}")
+
+            while len(row) <= max(col_idx, undo_col_idx if undo_col_idx is not None else 0):
+                row.append("0")
+
             try:
-                undo_val = int(row[undo_col_idx])
+                current = int(row[col_idx])
             except:
-                undo_val = 0
-            undo_val = max(0, undo_val - 1)
+                current = 0
+            current += 1
 
-            # Оновлюємо дві клітинки одночасно через batchUpdate
-            sheet.values().batchUpdate(
-                spreadsheetId=SPREADSHEET_ID,
-                body={
-                    "valueInputOption": "USER_ENTERED",
-                    "data": [
-                        {"range": f"Sheet1!{chr(65+col_idx)}{idx}", "values": [[str(current)]]},
-                        {"range": f"Sheet1!{chr(65+undo_col_idx)}{idx}", "values": [[str(undo_val)]]}
-                    ]
-                }
-            ).execute()
-        else:
-            # Оновлюємо тільки одну клітинку
-            sheet.values().update(
-                spreadsheetId=SPREADSHEET_ID,
-                range=f"Sheet1!{chr(65+col_idx)}{idx}",
-                valueInputOption="USER_ENTERED",
-                body={"values": [[str(current)]]}
-            ).execute()
+            if undo_col_idx is not None:
+                try:
+                    undo_val = int(row[undo_col_idx])
+                except:
+                    undo_val = 0
+                undo_val = max(0, undo_val - 1)
 
-        return {"success": True, "new_value": current}
+                print(f"Оновлюємо колонки: {col_idx}={current}, {undo_col_idx}={undo_val}")
 
-    raise HTTPException(status_code=404, detail="Фільм не знайдено")
+                sheet.values().batchUpdate(
+                    spreadsheetId=SPREADSHEET_ID,
+                    body={
+                        "valueInputOption": "USER_ENTERED",
+                        "data": [
+                            {"range": f"Sheet1!{chr(65+col_idx)}{idx}", "values": [[str(current)]]},
+                            {"range": f"Sheet1!{chr(65+undo_col_idx)}{idx}", "values": [[str(undo_val)]]}
+                        ]
+                    }
+                ).execute()
+            else:
+                print(f"Оновлюємо колонку: {col_idx}={current}")
+
+                sheet.values().update(
+                    spreadsheetId=SPREADSHEET_ID,
+                    range=f"Sheet1!{chr(65+col_idx)}{idx}",
+                    valueInputOption="USER_ENTERED",
+                    body={"values": [[str(current)]]}
+                ).execute()
+
+            return {"success": True, "new_value": current}
+
+        print("❌ Фільм не знайдено у таблиці")
+        return JSONResponse(status_code=404, content={"success": False, "error": "Фільм не знайдено"})
+
+    except Exception as e:
+        print(f"❌ Помилка в /rate: {e}")
+        return JSONResponse(status_code=500, content={"success": False, "error": "Внутрішня помилка сервера"})
+
 
 
 

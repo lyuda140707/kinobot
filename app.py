@@ -529,7 +529,8 @@ async def rate_film(data: dict):
     action = data.get("action")  # 'like' або 'dislike'
     undo_action = data.get("undo")  # скасування: якщо до цього була протилежна дія
 
-    sheet = get_google_service()
+    service = get_google_service()
+    sheet = service.spreadsheets()
     values = sheet.values().get(
         spreadsheetId=SPREADSHEET_ID,
         range="Фільми!A2:Z"

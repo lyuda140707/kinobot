@@ -501,47 +501,6 @@ async def check_pro(req: Request):
     return {"isPro": False}
 
 
-@app.post("/rate")
-async def rate_film(request: Request):
-    data = await request.json()
-    file_id = data.get("file_id")
-    user_id = data.get("user_id")
-    type = data.get("type")
-
-    if not file_id or not user_id or type not in ["like", "dislike"]:
-        return JSONResponse(content={"ok": False, "error": "Invalid input"}, status_code=400)
-
-    sheet = get_google_service()
-    result = sheet.values().get(
-        spreadsheetId=os.getenv("GOOGLE_SHEET_ID"),
-        range="Фільми"
-    ).execute()
-    values = result.get("values", [])
-
-    header = values[0]
-    file_id_index = header.index("file_id") if "file_id" in header else -1
-    like_index = header.index("👍") if "👍" in header else -1
-    dislike_index = header.index("👎") if "👎" in header else -1
-    column_index = like_index if type == "like" else dislike_index
-
-    import string
-
-    for i, row in enumerate(values):
-        if len(row) > file_id_index and row[file_id_index] == file_id:
-            current_value = int(row[column_index]) if len(row) > column_index and row[column_index] else 0
-            new_value = current_value + 1
-
-            column_letter = string.ascii_uppercase[column_index]
-            sheet.values().update(
-                spreadsheetId=os.getenv("GOOGLE_SHEET_ID"),
-                range=f"Фільми!{column_letter}{i+1}",
-                valueInputOption="USER_ENTERED",
-                body={"values": [[new_value]]}
-            ).execute()
-
-            return {"ok": True}
-
-    return JSONResponse(content={"ok": False, "error": "File ID not found"}, status_code=404)
 
 
 @app.post("/clean-pro")
@@ -574,4 +533,3 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-

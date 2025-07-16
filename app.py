@@ -522,6 +522,37 @@ async def reactivate_user(req: Request):
 
     print(f"✅ Користувач {user_id} знову активний")
     return {"ok": True}
+@app.post("/rate")
+async def rate_film(request: Request):
+    data = await request.json()
+    film_name = data.get("film_name")
+    action = data.get("action")  # "like" або "dislike"
+
+    if not film_name or action not in ["like", "dislike"]:
+        return {"success": False, "error": "Недійсні дані"}
+
+    films = get_gsheet_data()
+
+    for idx, film in enumerate(films, start=2):  # start=2 бо перший — заголовок
+        if film.get("Назва", "").strip().lower() == film_name.strip().lower():
+            column = "Лайки" if action == "like" else "Дизлайки"
+            old_value = int(film.get(column, "0") or 0)
+            new_value = old_value + 1
+
+            service = get_google_service()
+            sheet = service.spreadsheets()
+            col_letter = {"Лайки": "M", "Дизлайки": "N"}[column]  # 🟡 заміни, якщо колонки інші
+
+            sheet.values().update(
+                spreadsheetId=os.getenv("SHEET_ID"),
+                range=f"Sheet1!{col_letter}{idx}",
+                valueInputOption="USER_ENTERED",
+                body={"values": [[str(new_value)]]}
+            ).execute()
+
+            return {"success": True, "new_value": new_value}
+
+    return {"success": False, "error": "Фільм не знайдено"}
 
 
 

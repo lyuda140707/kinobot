@@ -574,8 +574,8 @@ async def rate_film(data: dict):
                 body={
                     "valueInputOption": "USER_ENTERED",
                     "data": [
-                        {"range": f"Фільми!{chr(65+col_idx)}{idx}", "values": [[str(current)]]},
-                        {"range": f"Фільми!{chr(65+undo_col_idx)}{idx}", "values": [[str(undo_val)]]}
+                        {"range": f"Sheet1!{chr(65+col_idx)}{idx}", "values": [[str(current)]]},
+                        {"range": f"Sheet1!{chr(65+undo_col_idx)}{idx}", "values": [[str(undo_val)]]}
                     ]
                 }
             ).execute()
@@ -583,7 +583,7 @@ async def rate_film(data: dict):
             # Оновлюємо тільки одну клітинку
             sheet.values().update(
                 spreadsheetId=SPREADSHEET_ID,
-                range=f"Фільми!{chr(65+col_idx)}{idx}",
+                range=f"Sheet1!{chr(65+col_idx)}{idx}",
                 valueInputOption="USER_ENTERED",
                 body={"values": [[str(current)]]}
             ).execute()

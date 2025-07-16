@@ -15,6 +15,7 @@ from google_api import add_user_if_not_exists
 from fastapi import HTTPException
 from pydantic import BaseModel
 from typing import Optional
+from fastapi import Body
 
 class RateRequest(BaseModel):
     film_name: str
@@ -563,13 +564,14 @@ async def rate_film(data: RateRequest):
         col_idx = 12 if action == "like" else 13
         undo_col_idx = 12 if undo_action == "like" else 13 if undo_action == "dislike" else None
 
-        print(f"Починаємо пошук фільму у таблиці...")
+        found = False
+        new_value = 0  # щоб щось повернути після циклу
 
         for idx, row in enumerate(values, start=2):
             if len(row) == 0 or row[0] != film_name:
                 continue
 
-            print(f"Знайдено фільм у рядку {idx}: {row}")
+            found = True
 
             while len(row) <= max(col_idx, undo_col_idx if undo_col_idx is not None else 0):
                 row.append("0")
@@ -579,6 +581,11 @@ async def rate_film(data: RateRequest):
             except:
                 current = 0
             current += 1
+            new_value = current  # оновлюємо значення
+
+            data_batch = [
+                {"range": f"Sheet1!{chr(65+col_idx)}{idx}", "values": [[str(current)]]}
+            ]
 
             if undo_col_idx is not None:
                 try:
@@ -586,37 +593,28 @@ async def rate_film(data: RateRequest):
                 except:
                     undo_val = 0
                 undo_val = max(0, undo_val - 1)
+                data_batch.append(
+                    {"range": f"Sheet1!{chr(65+undo_col_idx)}{idx}", "values": [[str(undo_val)]]}
+                )
 
-                print(f"Оновлюємо колонки: {col_idx}={current}, {undo_col_idx}={undo_val}")
+            sheet.values().batchUpdate(
+                spreadsheetId=SPREADSHEET_ID,
+                body={
+                    "valueInputOption": "USER_ENTERED",
+                    "data": data_batch
+                }
+            ).execute()
 
-                sheet.values().batchUpdate(
-                    spreadsheetId=SPREADSHEET_ID,
-                    body={
-                        "valueInputOption": "USER_ENTERED",
-                        "data": [
-                            {"range": f"Sheet1!{chr(65+col_idx)}{idx}", "values": [[str(current)]]},
-                            {"range": f"Sheet1!{chr(65+undo_col_idx)}{idx}", "values": [[str(undo_val)]]}
-                        ]
-                    }
-                ).execute()
-            else:
-                print(f"Оновлюємо колонку: {col_idx}={current}")
-
-                sheet.values().update(
-                    spreadsheetId=SPREADSHEET_ID,
-                    range=f"Sheet1!{chr(65+col_idx)}{idx}",
-                    valueInputOption="USER_ENTERED",
-                    body={"values": [[str(current)]]}
-                ).execute()
-
-            return {"success": True, "new_value": current}
-
-        print("❌ Фільм не знайдено у таблиці")
-        return JSONResponse(status_code=404, content={"success": False, "error": "Фільм не знайдено"})
+        if found:
+            return {"success": True, "new_value": new_value}
+        else:
+            print("❌ Фільм не знайдено у таблиці")
+            return JSONResponse(status_code=404, content={"success": False, "error": "Фільм не знайдено"})
 
     except Exception as e:
         print(f"❌ Помилка в /rate: {e}")
         return JSONResponse(status_code=500, content={"success": False, "error": "Внутрішня помилка сервера"})
+
 
 
 

@@ -501,6 +501,41 @@ async def check_pro(req: Request):
     return {"isPro": False}
 
 
+@app.post("/rate")
+async def rate_film(req: Request):
+    data = await req.json()
+    file_id = data.get("file_id")
+    reaction_type = data.get("type")  # 'like' або 'dislike'
+
+    if not file_id or reaction_type not in ["like", "dislike"]:
+        return {"ok": False, "error": "Некоректні дані"}
+
+    service = get_google_service()
+    sheet = service.spreadsheets()
+
+    # Отримати всі рядки з Sheet1
+    values = sheet.values().get(
+        spreadsheetId=os.getenv("SHEET_ID"),
+        range="Sheet1!A2:Z1000"
+    ).execute().get("values", [])
+
+    headers = sheet.values().get(
+        spreadsheetId=os.getenv("SHEET_ID"),
+        range="Sheet1!A1:Z1"
+    ).execute().get("values", [])[0]
+
+    try:
+        file_id_index = headers.index("file_id")
+        column_index = headers.index("Лайки") if reaction_type == "like" else headers.index("Дизлайки")
+    except ValueError:
+        return {"ok": False, "error": "Колонки не знайдено"}
+
+    for i, row in enumerate(values):
+        if len(row) > file_id_index and row[file_id_index] == file_id:
+            current_value = int(row[column_index]) if len(row) > column_index and row[column_index] else 0
+            new_value = current_value + 1
+            sheet.values().update(
+                spreadsheetId=os.geten
 
 
 @app.post("/clean-pro")

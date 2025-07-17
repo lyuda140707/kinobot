@@ -469,6 +469,13 @@ async def check_pending_payments():
 
         await asyncio.sleep(60)
 
+def safe_parse_date(date_str):
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(date_str, fmt)
+        except ValueError:
+            continue
+    raise ValueError(f"Невідомий формат дати: {date_str}")
 
 @app.post("/check-pro")
 async def check_pro(req: Request):
@@ -495,7 +502,8 @@ async def check_pro(req: Request):
 
         if row_user_id == user_id:
             try:
-                expire_date = datetime.strptime(expire_str, "%Y-%m-%d %H:%M:%S")
+                expire_date = safe_parse_date(expire_str)
+
                 now = datetime.now()
 
                 if status == "Активно" and expire_date > now:

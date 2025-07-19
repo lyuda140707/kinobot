@@ -73,3 +73,9 @@ def add_user_if_not_exists(user_id: int, username: str, first_name: str):
         range_="Користувачі!A2:D2",
         values=[[str(user_id), username or "", first_name or "", now]]
     )
+
+def get_gsheet_data(sheet_range):
+    service = get_google_service()
+    SHEET_ID = os.getenv("SHEET_ID")
+    return safe_get_sheet_data(service, SHEET_ID, sheet_range)
+

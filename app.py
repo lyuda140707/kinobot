@@ -17,6 +17,7 @@ from pydantic import BaseModel
 from typing import Optional
 from fastapi import Body
 from pro_utils import has_active_pro
+from utils.date_utils import safe_parse_date
 
 
 class RateRequest(BaseModel):

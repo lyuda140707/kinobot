@@ -2,6 +2,7 @@ from google_api import get_google_service
 import os
 from datetime import datetime
 from pytz import timezone
+from app import safe_parse_date  # якщо функція вже є в app.py
 
 def has_active_pro(user_id: int) -> bool:
     service = get_google_service()
@@ -23,7 +24,7 @@ def has_active_pro(user_id: int) -> bool:
         uid, start_date = row[0], row[1]
         if str(user_id) == uid:
             try:
-                start = datetime.strptime(start_date, "%Y-%m-%d %H:%M:%S").replace(tzinfo=kyiv)
+                start = safe_parse_date(start_date).replace(tzinfo=kyiv)
                 if (now - start).days < 30:
                     return True
             except:

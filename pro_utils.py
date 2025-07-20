@@ -11,7 +11,7 @@ def has_active_pro(user_id: int) -> bool:
 
     result = sheet.values().get(
         spreadsheetId=SHEET_ID,
-        range="PRO!A2:C1000"
+        range="PRO!A2:D1000"
     ).execute()
 
     rows = result.get("values", [])
@@ -19,13 +19,13 @@ def has_active_pro(user_id: int) -> bool:
     now = datetime.now(kyiv)
 
     for row in rows:
-        if len(row) < 2:
+        if len(row) < 4:
             continue
-        uid, start_date = row[0], row[1]
-        if str(user_id) == uid:
+        uid, _, status, expire_date_str = row[:4]
+        if str(user_id) == uid and status.lower().strip() == "активно":
             try:
-                start = safe_parse_date(start_date).replace(tzinfo=kyiv)
-                if (now - start).days < 30:
+                expire = safe_parse_date(expire_date_str).replace(tzinfo=kyiv)
+                if expire >= now:
                     return True
             except:
                 pass

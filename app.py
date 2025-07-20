@@ -472,13 +472,7 @@ async def check_pending_payments():
 
         await asyncio.sleep(60)
 
-def safe_parse_date(date_str):
-    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
-        try:
-            return datetime.strptime(date_str, fmt)
-        except ValueError:
-            continue
-    raise ValueError(f"Невідомий формат дати: {date_str}")
+
 
 @app.post("/check-pro")
 async def check_pro(req: Request):

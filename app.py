@@ -16,6 +16,7 @@ from fastapi import HTTPException
 from pydantic import BaseModel
 from typing import Optional
 from fastapi import Body
+from pro_utils import has_active_pro
 
 class RateRequest(BaseModel):
     film_name: str

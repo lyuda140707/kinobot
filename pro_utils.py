@@ -2,7 +2,7 @@ from google_api import get_google_service
 import os
 from datetime import datetime
 from pytz import timezone
-from app import safe_parse_date  # якщо функція вже є в app.py
+from utils.date_utils import safe_parse_date
 
 def has_active_pro(user_id: int) -> bool:
     service = get_google_service()

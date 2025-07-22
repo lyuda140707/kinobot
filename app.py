@@ -132,7 +132,7 @@ async def request_film(req: Request):
                 if len(row) < 3 or row[0] != user_id:
                     continue
                 try:
-                    row_time = datetime.strptime(row[2], "%Y-%m-%d %H:%M:%S")
+                    row_time = timezone("Europe/Kyiv").localize(datetime.strptime(row[2], "%Y-%m-%d %H:%M:%S"))
                     if row_time >= one_month_ago:
                         user_requests.append(row)
                 except Exception as e:

@@ -111,6 +111,8 @@ async def request_film(req: Request):
         if not user_id or not film_name:
             return JSONResponse(status_code=400, content={"success": False, "error": "user_id або film_name відсутні"})
 
+        remaining = None
+
         # 🔒 Якщо користувач не має PRO — перевіряємо ліміт
         if not has_active_pro(user_id):
             service = get_google_service()
@@ -127,13 +129,10 @@ async def request_film(req: Request):
 
             user_requests = []
             for row in result:
-                if len(row) < 3:
-                    continue
-                if row[0] != user_id:
+                if len(row) < 3 or row[0] != user_id:
                     continue
                 try:
                     row_time = datetime.strptime(row[2], "%Y-%m-%d %H:%M:%S")
-                    row_time = kyiv.localize(row_time)  # 🛠 Додаємо таймзону!
                     if row_time >= one_month_ago:
                         user_requests.append(row)
                 except Exception as e:
@@ -149,7 +148,8 @@ async def request_film(req: Request):
                     "error": (
                         "⛔ Ви вже використали всі 5 безкоштовних запитів цього місяця.\n\n"
                         "🚀 Отримайте PRO — і замовляйте скільки завгодно!"
-                    )
+                    ),
+                    "remaining_requests": 0
                 })
             else:
                 print(f"✅ У користувача {user_id} ще {remaining} безкоштовних запитів")
@@ -168,16 +168,15 @@ async def request_film(req: Request):
 
         # 📨 Надсилаємо повідомлення адміну
         message = f"🎬 Користувач {user_id} хоче додати фільм: {film_name}"
-        telegram_response = requests.post(
+        requests.post(
             f"https://api.telegram.org/bot{os.getenv('BOT_TOKEN')}/sendMessage",
             data={"chat_id": os.getenv("ADMIN_ID", "7963871119"), "text": message}
         )
 
-        return JSONResponse(content={"success": True})
+        return {"success": True, "remaining_requests": remaining}
 
     except Exception as e:
         return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
-
 
 
 

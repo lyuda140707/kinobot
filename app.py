@@ -125,11 +125,20 @@ async def request_film(req: Request):
                 range="Замовлення!A2:C1000"
             ).execute().get("values", [])
 
-            user_requests = [
-                row for row in result
-                if row[0] == user_id and len(row) > 2 and
-                datetime.strptime(row[2], "%Y-%m-%d %H:%M:%S") >= one_month_ago
-            ]
+            user_requests = []
+            for row in result:
+                if len(row) < 3:
+                    continue
+                if row[0] != user_id:
+                    continue
+                try:
+                    row_time = datetime.strptime(row[2], "%Y-%m-%d %H:%M:%S")
+                    if row_time >= one_month_ago:
+                        user_requests.append(row)
+                except Exception as e:
+                        print(f"⚠️ Помилка розбору дати: {e}")
+                        continue
+                
 
             max_free_requests = 5
             remaining = max_free_requests - len(user_requests)

@@ -113,8 +113,11 @@ async def request_film(req: Request):
 
         remaining = None
 
-        # 🔒 Якщо користувач не має PRO — перевіряємо ліміт
-        if not has_active_pro(user_id):
+        # 🔍 Перевіряємо PRO
+        is_pro = has_active_pro(user_id)
+        print(f"🔍 Користувач {user_id} — PRO: {is_pro}")
+
+        if not is_pro:
             service = get_google_service()
             sheet = service.spreadsheets()
 
@@ -132,7 +135,8 @@ async def request_film(req: Request):
                 if len(row) < 3 or row[0] != user_id:
                     continue
                 try:
-                    row_time = timezone("Europe/Kyiv").localize(datetime.strptime(row[2], "%Y-%m-%d %H:%M:%S"))
+                    row_time = datetime.strptime(row[2], "%Y-%m-%d %H:%M:%S")
+                    row_time = timezone("Europe/Kyiv").localize(row_time)
                     if row_time >= one_month_ago:
                         user_requests.append(row)
                 except Exception as e:
@@ -143,6 +147,7 @@ async def request_film(req: Request):
             remaining = max_free_requests - len(user_requests)
 
             if remaining <= 0:
+                print(f"⛔ {user_id} перевищив ліміт. Запитів: {len(user_requests)}")
                 return JSONResponse(status_code=403, content={
                     "success": False,
                     "error": (
@@ -154,11 +159,20 @@ async def request_film(req: Request):
             else:
                 print(f"✅ У користувача {user_id} ще {remaining} безкоштовних запитів")
 
+        # 🧱 Додатковий захист (на випадок збою)
+        if remaining is not None and remaining <= 0:
+            print(f"❌ Не додаємо запис — у {user_id} вичерпано ліміт")
+            return JSONResponse(status_code=403, content={
+                "success": False,
+                "error": "⛔ Ви вже використали всі запити.",
+                "remaining_requests": 0
+            })
+
         # ✅ Записуємо замовлення
-        service = get_google_service()
-        sheet = service.spreadsheets()
         now_str = datetime.now(timezone("Europe/Kyiv")).strftime("%Y-%m-%d %H:%M:%S")
 
+        service = get_google_service()
+        sheet = service.spreadsheets()
         sheet.values().append(
             spreadsheetId=os.getenv("SHEET_ID"),
             range="Замовлення!A2:C2",
@@ -176,6 +190,7 @@ async def request_film(req: Request):
         return {"success": True, "remaining_requests": remaining}
 
     except Exception as e:
+        print(f"❌ Помилка у /request-film: {e}")
         return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
 
 

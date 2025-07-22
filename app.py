@@ -133,12 +133,12 @@ async def request_film(req: Request):
                     continue
                 try:
                     row_time = datetime.strptime(row[2], "%Y-%m-%d %H:%M:%S")
+                    row_time = kyiv.localize(row_time)  # 🛠 Додаємо таймзону!
                     if row_time >= one_month_ago:
                         user_requests.append(row)
                 except Exception as e:
-                        print(f"⚠️ Помилка розбору дати: {e}")
-                        continue
-                
+                    print(f"⚠️ Помилка розбору дати: {e}")
+                    continue
 
             max_free_requests = 5
             remaining = max_free_requests - len(user_requests)
@@ -153,7 +153,6 @@ async def request_film(req: Request):
                 })
             else:
                 print(f"✅ У користувача {user_id} ще {remaining} безкоштовних запитів")
-               
 
         # ✅ Записуємо замовлення
         service = get_google_service()
@@ -174,11 +173,10 @@ async def request_film(req: Request):
             data={"chat_id": os.getenv("ADMIN_ID", "7963871119"), "text": message}
         )
 
-        return {"success": True}
+        return JSONResponse(content={"success": True})
 
     except Exception as e:
         return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
-
 
 
 

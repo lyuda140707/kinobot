@@ -5,7 +5,7 @@ from pytz import timezone
 from utils.date_utils import safe_parse_date  # залишаємо
 # from utils.date_utils import make_aware_if_needed ← ВИДАЛИТИ
 
-def has_active_pro(user_id: int) -> bool:
+def has_active_pro(user_id: str) -> bool:
     service = get_google_service()
     sheet = service.spreadsheets()
     SHEET_ID = os.getenv("SHEET_ID")

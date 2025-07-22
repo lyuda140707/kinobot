@@ -46,6 +46,10 @@ async def lifespan(app: FastAPI):
     if webhook_url:
         await bot.set_webhook(webhook_url)
 
+    asyncio.create_task(clean_old_requests())
+    print("✅ Задача clean_old_requests стартувала")
+
+
     asyncio.create_task(background_deleter())
     print("✅ Задача background_deleter стартувала")
 
@@ -100,27 +104,71 @@ async def notify_payment(req: Request):
 async def request_film(req: Request):
     try:
         data = await req.json()
-        user_id = data.get('user_id')
+        user_id = str(data.get('user_id'))
         film_name = data.get('film_name')
 
         if not user_id or not film_name:
             return JSONResponse(status_code=400, content={"success": False, "error": "user_id або film_name відсутні"})
 
-        message = f"🎬 Користувач {user_id} хоче додати фільм: {film_name}"
+        # 🔒 Якщо користувач не має PRO — перевіряємо ліміт
+        if not has_active_pro(user_id):
+            service = get_google_service()
+            sheet = service.spreadsheets()
 
+            kyiv = timezone("Europe/Kyiv")
+            now = datetime.now(kyiv)
+            one_month_ago = now - timedelta(days=30)
+
+            result = sheet.values().get(
+                spreadsheetId=os.getenv("SHEET_ID"),
+                range="Замовлення!A2:C1000"
+            ).execute().get("values", [])
+
+            user_requests = [
+                row for row in result
+                if row[0] == user_id and len(row) > 2 and
+                datetime.strptime(row[2], "%Y-%m-%d %H:%M:%S") >= one_month_ago
+            ]
+
+            max_free_requests = 5
+            remaining = max_free_requests - len(user_requests)
+
+            if remaining <= 0:
+                return JSONResponse(status_code=403, content={
+                    "success": False,
+                    "error": (
+                        "⛔ Ви вже використали всі 5 безкоштовних запитів цього місяця.\n\n"
+                        "🚀 Отримайте PRO — і замовляйте скільки завгодно!"
+                    )
+                })
+            else:
+                print(f"✅ У користувача {user_id} ще {remaining} безкоштовних запитів")
+               
+
+        # ✅ Записуємо замовлення
+        service = get_google_service()
+        sheet = service.spreadsheets()
+        now_str = datetime.now(timezone("Europe/Kyiv")).strftime("%Y-%m-%d %H:%M:%S")
+
+        sheet.values().append(
+            spreadsheetId=os.getenv("SHEET_ID"),
+            range="Замовлення!A2:C2",
+            valueInputOption="USER_ENTERED",
+            body={"values": [[user_id, film_name, now_str]]}
+        ).execute()
+
+        # 📨 Надсилаємо повідомлення адміну
+        message = f"🎬 Користувач {user_id} хоче додати фільм: {film_name}"
         telegram_response = requests.post(
             f"https://api.telegram.org/bot{os.getenv('BOT_TOKEN')}/sendMessage",
-            data={"chat_id": "7963871119", "text": message}
+            data={"chat_id": os.getenv("ADMIN_ID", "7963871119"), "text": message}
         )
-
-        # Якщо не вдалося надіслати повідомлення
-        if telegram_response.status_code != 200:
-            return JSONResponse(status_code=500, content={"success": False, "error": "Помилка при надсиланні до Telegram"})
 
         return {"success": True}
 
     except Exception as e:
         return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
+
 
 
 
@@ -394,6 +442,50 @@ async def background_deleter():
                 ).execute()
                     
         await asyncio.sleep(60)
+async def clean_old_requests():
+    service = get_google_service()
+    sheet = service.spreadsheets()
+    kyiv = timezone("Europe/Kyiv")
+
+    while True:
+        try:
+            print("🧹 Очищення старих замовлень...")
+
+            result = sheet.values().get(
+                spreadsheetId=os.getenv("SHEET_ID"),
+                range="Замовлення!A2:C1000"
+            ).execute().get("values", [])
+
+            now = datetime.now(kyiv)
+            updated_rows = []
+
+            for i, row in enumerate(result):
+                if len(row) < 3:
+                    continue
+                try:
+                    row_date = datetime.strptime(row[2], "%Y-%m-%d %H:%M:%S")
+                    if (now - row_date).days > 31:
+                        # Замінити рядок на порожній
+                        row_num = i + 2
+                        updated_rows.append(f"Замовлення!A{row_num}:C{row_num}")
+                except Exception as e:
+                    print(f"⚠️ Помилка дати в рядку {i+2}: {e}")
+
+            for rng in updated_rows:
+                sheet.values().update(
+                    spreadsheetId=os.getenv("SHEET_ID"),
+                    range=rng,
+                    valueInputOption="RAW",
+                    body={"values": [["", "", ""]]}
+                ).execute()
+
+            print(f"🗑️ Видалено {len(updated_rows)} записів")
+
+        except Exception as e:
+            print(f"❌ Помилка в clean_old_requests: {e}")
+
+        await asyncio.sleep(3600 * 6)  # перевірка кожні 6 годин
+
 
 async def check_pending_payments():
     service = get_google_service()

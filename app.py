@@ -9,6 +9,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 import asyncio
 from datetime import datetime, timedelta
 import json
+
 from pytz import timezone
 import dateutil.parser
 from google_api import add_user_if_not_exists
@@ -442,6 +443,7 @@ async def background_deleter():
                 ).execute()
                     
         await asyncio.sleep(60)
+        
 async def clean_old_requests():
     service = get_google_service()
     sheet = service.spreadsheets()
@@ -463,7 +465,7 @@ async def clean_old_requests():
                 if len(row) < 3:
                     continue
                 try:
-                    row_date = datetime.strptime(row[2], "%Y-%m-%d %H:%M:%S")
+                    row_date = kyiv.localize(datetime.strptime(row[2], "%Y-%m-%d %H:%M:%S"))
                     if (now - row_date).days > 31:
                         # Замінити рядок на порожній
                         row_num = i + 2

@@ -22,6 +22,9 @@ from utils.date_utils import safe_parse_date
 from aiogram import Bot
 ADMIN_ID = int(os.getenv("ADMIN_ID"))
 
+
+app = FastAPI(lifespan=lifespan)
+
 class AdminMessage(BaseModel):
     user_id: int
     username: str | None
@@ -81,8 +84,6 @@ async def lifespan(app: FastAPI):
 
     
 
-# ✅ Оголошення FastAPI ДО використання декораторів
-app = FastAPI(lifespan=lifespan)
 
 
 @app.post("/notify-payment")

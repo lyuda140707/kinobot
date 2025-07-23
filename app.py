@@ -19,7 +19,27 @@ from typing import Optional
 from fastapi import Body
 from pro_utils import has_active_pro
 from utils.date_utils import safe_parse_date
+from aiogram import Bot
+ADMIN_ID = int(os.getenv("ADMIN_ID"))
 
+class AdminMessage(BaseModel):
+    user_id: int
+    username: str | None
+    message: str
+
+@app.post("/message-admin")
+async def message_admin(data: AdminMessage):
+    try:
+        text = (
+            f"📩 <b>Повідомлення від користувача</b>\n\n"
+            f"<b>ID:</b> <code>{data.user_id}</code>\n"
+            f"<b>Юзернейм:</b> @{data.username or 'немає'}\n\n"
+            f"<b>Повідомлення:</b>\n{data.message}"
+        )
+        await bot.send_message(ADMIN_ID, text, parse_mode="HTML")
+        return {"success": True}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 class RateRequest(BaseModel):
     film_name: str

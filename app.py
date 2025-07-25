@@ -64,6 +64,18 @@ async def lifespan(app: FastAPI):
 # ✅ Оголошення FastAPI ДО використання декораторів
 app = FastAPI(lifespan=lifespan)
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://lyuda140707.github.io",   # ваш фронтенд-домен
+        # при потребі додайте інші, напр.: "http://localhost:3000"
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
 
 @app.post("/notify-payment")
 async def notify_payment(req: Request):
@@ -725,11 +737,3 @@ async def rate_film(data: RateRequest):
 
 
 
-# Додаємо CORS для доступу WebApp
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Або конкретні домени, якщо треба безпечніше
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)

@@ -719,6 +719,7 @@ async def rate_film(data: RateRequest):
             return JSONResponse(status_code=404, content={"success": False, "error": "Фільм не знайдено"})
 
         # ✅ Надсилаємо всі оновлення за один раз
+        print("🔃 Оновлення Google Sheet:", updates)
         sheet.values().batchUpdate(
             spreadsheetId=SPREADSHEET_ID,
             body={

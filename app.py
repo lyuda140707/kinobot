@@ -14,13 +14,17 @@ from pytz import timezone
 import dateutil.parser
 from google_api import add_user_if_not_exists
 from fastapi import HTTPException
-
-
-
+from pydantic import BaseModel
+from typing import Optional
+from fastapi import Body
 from pro_utils import has_active_pro
 from utils.date_utils import safe_parse_date
 
 
+class RateRequest(BaseModel):
+    film_name: str
+    action: str            # наприклад, "like" або "dislike"
+    undo: Optional[str] = None  # опціональне, "like" або "dislike" або None
 
 class SearchRequest(BaseModel):
     user_id: int
@@ -227,7 +231,7 @@ async def search_in_bot(data: SearchRequest):
     else:
         return {"found": False}
 
-
+from fastapi.responses import JSONResponse
 
 @app.post("/send-film")
 async def send_film(request: Request):
@@ -660,6 +664,72 @@ async def reactivate_user(req: Request):
 
 from fastapi.responses import JSONResponse
 
+@app.post("/rate")
+async def rate_film(data: RateRequest):
+    try:
+        print("🔔 /rate запит отримано:", data.dict())
 
+        film_name = data.film_name
+        action = data.action
+        undo_action = data.undo
 
+        SPREADSHEET_ID = os.getenv("SHEET_ID")
+        if not SPREADSHEET_ID:
+            return JSONResponse(status_code=500, content={"success": False, "error": "SHEET_ID не визначено"})
 
+        service = get_google_service()
+        sheet = service.spreadsheets()
+        values = sheet.values().get(
+            spreadsheetId=SPREADSHEET_ID,
+            range="Sheet1!A2:Z1000"
+        ).execute().get("values", [])
+
+        col_idx = 12 if action == "like" else 13
+        undo_col_idx = 12 if undo_action == "like" else 13 if undo_action == "dislike" else None
+
+        updates = []
+
+        found = False
+        for idx, row in enumerate(values, start=2):
+            if len(row) == 0 or row[0].strip().lower() != film_name.strip().lower():
+                continue
+
+            found = True
+            while len(row) <= max(col_idx, undo_col_idx if undo_col_idx is not None else 0):
+                row.append("0")
+
+            current = int(row[col_idx]) if row[col_idx].isdigit() else 0
+            current += 1
+
+            updates.append({
+                "range": f"Sheet1!{chr(65+col_idx)}{idx}",
+                "values": [[str(current)]]
+            })
+
+            if undo_col_idx is not None:
+                undo_val = int(row[undo_col_idx]) if row[undo_col_idx].isdigit() else 0
+                undo_val = max(0, undo_val - 1)
+                updates.append({
+                    "range": f"Sheet1!{chr(65+undo_col_idx)}{idx}",
+                    "values": [[str(undo_val)]]
+                })
+
+        if not found:
+            print("❌ Фільм не знайдено у таблиці")
+            return JSONResponse(status_code=404, content={"success": False, "error": "Фільм не знайдено"})
+
+        # ✅ Надсилаємо всі оновлення за один раз
+        print("🔃 Оновлення Google Sheet:", updates)
+        sheet.values().batchUpdate(
+            spreadsheetId=SPREADSHEET_ID,
+            body={
+                "valueInputOption": "USER_ENTERED",
+                "data": updates
+            }
+        ).execute()
+
+        return {"success": True}
+
+    except Exception as e:
+        print(f"❌ Помилка в /rate: {e}")
+        return JSONResponse(status_code=500, content={"success": False, "error": "Внутрішня помилка сервера"})

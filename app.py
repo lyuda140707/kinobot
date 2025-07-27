@@ -20,7 +20,8 @@ from fastapi import Body
 from pro_utils import has_active_pro
 from utils.date_utils import safe_parse_date
 from google_api import fetch_with_retry
-
+import logging
+logging.getLogger('googleapiclient.discovery_cache').setLevel(logging.ERROR)
 
 class RateRequest(BaseModel):
     film_name: str
@@ -136,7 +137,9 @@ async def request_film(req: Request):
             now = datetime.now(kyiv)
             one_month_ago = now - timedelta(days=30)
 
+            SHEET_ID = os.getenv("SHEET_ID")
             result = fetch_with_retry(service, SHEET_ID, "Замовлення!A2:C1000").get("values", [])
+
             user_requests = []
             for row in result:
                 if len(row) < 3 or row[0] != user_id:
@@ -521,7 +524,7 @@ async def check_pending_payments():
         now = datetime.now(kyiv).replace(tzinfo=None)  # Часовий пояс Києва
         print(f"🕒 Поточний час: {now}")
 
-        data = fetch_with_retry(service, os.getenv("SHEET_ID"), "PRO!A2:D10000")
+        data = fetch_with_retry(service, os.getenv("SHEET_ID"), "PRO!A2:D")
         rows = data.get("values", [])
 
         print(f"📋 Знайдено записів для перевірки: {len(data)}")
@@ -595,7 +598,7 @@ async def check_pro(req: Request):
     service = get_google_service()
     sheet = service.spreadsheets()
 
-    data = fetch_with_retry(service, os.getenv("SHEET_ID"), "PRO!A2:D10000")
+    data = fetch_with_retry(service, os.getenv("SHEET_ID"), "PRO!A2:D")
     rows = data.get("values", [])
 
     for i, row in enumerate(rows):

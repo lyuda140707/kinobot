@@ -3,22 +3,15 @@ import os
 from datetime import datetime
 from pytz import timezone
 from utils.date_utils import safe_parse_date  # залишаємо
-# from utils.date_utils import make_aware_if_needed ← ВИДАЛИТИ
+from google_api import get_google_service, fetch_with_retry
 
 def has_active_pro(user_id: str) -> bool:
     service = get_google_service()
-    sheet = service.spreadsheets()
     SHEET_ID = os.getenv("SHEET_ID")
-
-    result = sheet.values().get(
-        spreadsheetId=SHEET_ID,
-        range="PRO!A2:D1000"
-    ).execute()
-
+    result = fetch_with_retry(service, SHEET_ID, "PRO!A2:D10000")
     rows = result.get("values", [])
     kyiv = timezone("Europe/Kyiv")
     now = datetime.now(kyiv)
-
     for row in rows:
         if len(row) < 4:
             continue

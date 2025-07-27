@@ -472,11 +472,14 @@ async def clean_old_requests():
         try:
             print("🧹 Очищення старих замовлень...")
 
-           existing_ids = [row[0] for row in fetch_with_retry(service, SHEET_ID, "Користувачі!A2:A1000") if row]
-
+            # тут правильний відступ і get("values", [])
+            existing_ids = [row[0] for row in fetch_with_retry(service, SHEET_ID, "Користувачі!A2:A1000").get("values", []) if row]
 
             now = datetime.now(kyiv)
             updated_rows = []
+
+            # ! Тут треба отримати всі записи з аркуша "Замовлення"
+            result = fetch_with_retry(service, SHEET_ID, "Замовлення!A2:C10000").get("values", [])
 
             for i, row in enumerate(result):
                 if len(row) < 3:

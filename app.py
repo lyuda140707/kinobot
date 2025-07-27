@@ -139,6 +139,7 @@ async def request_film(req: Request):
             result = fetch_with_retry(service, SHEET_ID, "Замовлення!A2:C1000").get("values", [])
             user_requests = []
             for row in result:
+                if len(row) < 3 or row[0] != user_id:
                     continue
                 try:
                     row_time = timezone("Europe/Kyiv").localize(datetime.strptime(row[2], "%Y-%m-%d %H:%M:%S"))
@@ -192,6 +193,7 @@ async def request_film(req: Request):
 
     except Exception as e:
         return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
+
 
 
 @app.post("/webhook")

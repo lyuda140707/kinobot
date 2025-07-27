@@ -525,7 +525,8 @@ async def check_pending_payments():
         now = datetime.now(kyiv).replace(tzinfo=None)  # Часовий пояс Києва
         print(f"🕒 Поточний час: {now}")
 
-        data = fetch_with_retry(service, os.getenv("SHEET_ID"), "PRO!A2:D")
+        response = fetch_with_retry(service, os.getenv("SHEET_ID"), "PRO!A2:D")
+        data = response.get("values", [])
         rows = data.get("values", [])
 
         print(f"📋 Знайдено записів для перевірки: {len(data)}")
@@ -599,7 +600,8 @@ async def check_pro(req: Request):
     service = get_google_service()
     sheet = service.spreadsheets()
 
-    data = fetch_with_retry(service, os.getenv("SHEET_ID"), "PRO!A2:D")
+    response = fetch_with_retry(service, os.getenv("SHEET_ID"), "PRO!A2:D")
+    data = response.get("values", [])
     rows = data.get("values", [])
 
     for i, row in enumerate(rows):

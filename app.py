@@ -21,6 +21,7 @@ from pro_utils import has_active_pro
 from utils.date_utils import safe_parse_date
 from google_api import fetch_with_retry
 import logging
+from fastapi.responses import JSONResponse
 
 service = get_google_service()
 sheet = service.spreadsheets()
@@ -614,7 +615,7 @@ async def check_pro(req: Request):
             try:
                 expire_date = safe_parse_date(expire_str)
 
-                now = datetime.now()
+                now = datetime.now(timezone("Europe/Kyiv"))
 
                 if status == "Активно" and expire_date > now:
                     return {"isPro": True, "expire_date": expire_str}
@@ -623,7 +624,7 @@ async def check_pro(req: Request):
                     row_number = i + 2
                     sheet.values().update(
                         spreadsheetId=os.getenv("SHEET_ID"),
-                        range=f"PRO!C{row_number}",
+                        range=f"PRO!C{row_number}:C{row_number}",
                         valueInputOption="RAW",
                         body={"values": [["Не активовано"]]}
                     ).execute()
@@ -675,7 +676,9 @@ async def rate_film(data: RateRequest):
 
         service = get_google_service()
         sheet = service.spreadsheets()
-        values = fetch_with_retry(service, SHEET_ID, "Sheet1!A2:Z10000").get("values", [])
+        SHEET_ID = os.getenv("SHEET_ID")
+        if not SHEET_ID:
+            return JSONResponse(status_code=500, content={"success": False, "error": "SHEET_ID не визначено"})
 
 
         col_idx = 12 if action == "like" else 13

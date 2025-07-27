@@ -74,13 +74,15 @@ app = FastAPI(lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://lyuda140707.github.io",   # ваш фронтенд-домен
-        # при потребі додайте інші, напр.: "http://localhost:3000"
+        "https://lyuda140707.github.io",   # твій фронтенд-домен
+        # тут можна додати інші домени, наприклад, для локального тесту:
+        # "http://localhost:3000"
     ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 
 

@@ -21,6 +21,10 @@ from pro_utils import has_active_pro
 from utils.date_utils import safe_parse_date
 from google_api import fetch_with_retry
 import logging
+
+service = get_google_service()
+sheet = service.spreadsheets()
+
 logging.getLogger('googleapiclient.discovery_cache').setLevel(logging.ERROR)
 
 class RateRequest(BaseModel):
@@ -423,13 +427,10 @@ async def background_deleter():
         now = datetime.now(utc)
 
         # Отримати всі записи з аркуша "Видалення"
-        data = fetch_with_retry(service, os.getenv("SHEET_ID"), "Видалення!A2:C1000")
-
-
+        response = fetch_with_retry(service, os.getenv("SHEET_ID"), "Видалення!A2:C1000")
+        data = response.get("values", [])
         print(f"🔍 Вміст таблиці Видалення:\n{data}")
-
         print(f"⏳ Перевірка на видалення: {len(data)} в черзі")
-
         for i, row in enumerate(data):
             if len(row) < 3:
                 continue

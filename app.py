@@ -526,8 +526,7 @@ async def check_pending_payments():
         print(f"🕒 Поточний час: {now}")
 
         response = fetch_with_retry(service, os.getenv("SHEET_ID"), "PRO!A2:D")
-        data = response.get("values", [])
-        rows = data.get("values", [])
+        rows = response.get("values", [])
 
         print(f"📋 Знайдено записів для перевірки: {len(data)}")
 
@@ -601,8 +600,7 @@ async def check_pro(req: Request):
     sheet = service.spreadsheets()
 
     response = fetch_with_retry(service, os.getenv("SHEET_ID"), "PRO!A2:D")
-    data = response.get("values", [])
-    rows = data.get("values", [])
+    rows = response.get("values", [])
 
     for i, row in enumerate(rows):
         if len(row) < 4:

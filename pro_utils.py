@@ -1,17 +1,24 @@
-from google_api import get_google_service, fetch_with_retry
+from google_api import get_google_service
 import os
 from datetime import datetime
 from pytz import timezone
 from utils.date_utils import safe_parse_date  # залишаємо
+# from utils.date_utils import make_aware_if_needed ← ВИДАЛИТИ
 
 def has_active_pro(user_id: str) -> bool:
     service = get_google_service()
+    sheet = service.spreadsheets()
     SHEET_ID = os.getenv("SHEET_ID")
-    # Діапазон розширений до D10000, через fetch_with_retry, обробка .get("values", [])
-    result = fetch_with_retry(service, SHEET_ID, "PRO!A2:D10000")
+
+    result = sheet.values().get(
+        spreadsheetId=SHEET_ID,
+        range="PRO!A2:D1000"
+    ).execute()
+
     rows = result.get("values", [])
     kyiv = timezone("Europe/Kyiv")
     now = datetime.now(kyiv)
+
     for row in rows:
         if len(row) < 4:
             continue
@@ -21,8 +28,8 @@ def has_active_pro(user_id: str) -> bool:
                 expire = make_aware_if_needed(safe_parse_date(expire_date_str), tz_name="Europe/Kyiv")
                 if expire >= now:
                     return True
-            except Exception as e:
-                print(f"❌ has_active_pro exception: {e}")
+            except:
+                pass
     return False
 
 def make_aware_if_needed(dt: datetime, tz_name="Europe/Kyiv") -> datetime:

@@ -19,14 +19,7 @@ from typing import Optional
 from fastapi import Body
 from pro_utils import has_active_pro
 from utils.date_utils import safe_parse_date
-from google_api import fetch_with_retry
-import logging
-from fastapi.responses import JSONResponse
 
-service = get_google_service()
-sheet = service.spreadsheets()
-
-logging.getLogger('googleapiclient.discovery_cache').setLevel(logging.ERROR)
 
 class RateRequest(BaseModel):
     film_name: str
@@ -74,15 +67,13 @@ app = FastAPI(lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://lyuda140707.github.io",   # твій фронтенд-домен
-        # тут можна додати інші домени, наприклад, для локального тесту:
-        # "http://localhost:3000"
+        "https://lyuda140707.github.io",   # ваш фронтенд-домен
+        # при потребі додайте інші, напр.: "http://localhost:3000"
     ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 
 
 
@@ -144,8 +135,10 @@ async def request_film(req: Request):
             now = datetime.now(kyiv)
             one_month_ago = now - timedelta(days=30)
 
-            SHEET_ID = os.getenv("SHEET_ID")
-            result = fetch_with_retry(service, SHEET_ID, "Замовлення!A2:C1000").get("values", [])
+            result = sheet.values().get(
+                spreadsheetId=os.getenv("SHEET_ID"),
+                range="Замовлення!A2:C1000"
+            ).execute().get("values", [])
 
             user_requests = []
             for row in result:
@@ -203,7 +196,6 @@ async def request_film(req: Request):
 
     except Exception as e:
         return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
-
 
 
 @app.post("/webhook")
@@ -430,10 +422,15 @@ async def background_deleter():
         now = datetime.now(utc)
 
         # Отримати всі записи з аркуша "Видалення"
-        response = fetch_with_retry(service, os.getenv("SHEET_ID"), "Видалення!A2:C1000")
-        data = response.get("values", [])
+        data = sheet.values().get(
+            spreadsheetId=os.getenv("SHEET_ID"),
+            range="Видалення!A2:C1000"
+        ).execute().get("values", [])
+
         print(f"🔍 Вміст таблиці Видалення:\n{data}")
+
         print(f"⏳ Перевірка на видалення: {len(data)} в черзі")
+
         for i, row in enumerate(data):
             if len(row) < 3:
                 continue
@@ -474,20 +471,18 @@ async def clean_old_requests():
     service = get_google_service()
     sheet = service.spreadsheets()
     kyiv = timezone("Europe/Kyiv")
-    SHEET_ID = os.getenv("SHEET_ID")
 
     while True:
         try:
             print("🧹 Очищення старих замовлень...")
 
-            # тут правильний відступ і get("values", [])
-            existing_ids = [row[0] for row in fetch_with_retry(service, SHEET_ID, "Користувачі!A2:A1000").get("values", []) if row]
+            result = sheet.values().get(
+                spreadsheetId=os.getenv("SHEET_ID"),
+                range="Замовлення!A2:C1000"
+            ).execute().get("values", [])
 
-            now = datetime.now(tz=kyiv)
+            now = datetime.now(kyiv)
             updated_rows = []
-
-            # ! Тут треба отримати всі записи з аркуша "Замовлення"
-            result = fetch_with_retry(service, SHEET_ID, "Замовлення!A2:C10000").get("values", [])
 
             for i, row in enumerate(result):
                 if len(row) < 3:
@@ -525,15 +520,17 @@ async def check_pending_payments():
 
     while True:
         print("🔎 Перевірка очікуючих платежів...")  
-        now = datetime.now(kyiv)
+        now = datetime.now(kyiv).replace(tzinfo=None)  # Часовий пояс Києва
         print(f"🕒 Поточний час: {now}")
 
-        response = fetch_with_retry(service, os.getenv("SHEET_ID"), "PRO!A2:D")
-        rows = response.get("values", [])
+        data = sheet.values().get(
+            spreadsheetId=os.getenv("SHEET_ID"),
+            range="PRO!A2:D1000"
+        ).execute().get("values", [])
 
-        print(f"📋 Знайдено записів для перевірки: {len(rows)}")
+        print(f"📋 Знайдено записів для перевірки: {len(data)}")
 
-        for i, row in enumerate(rows):
+        for i, row in enumerate(data):
             if len(row) < 4:
                 continue
 
@@ -546,8 +543,7 @@ async def check_pending_payments():
                 continue
 
             try:
-                created_at_naive = datetime.strptime(created_at_str, "%Y-%m-%d %H:%M:%S")
-                created_at = kyiv.localize(created_at_naive)
+                created_at = datetime.strptime(created_at_str, "%Y-%m-%d %H:%M:%S")
                 print(f"⏰ Запис створений о: {created_at}")
             except Exception as e:
                 print(f"⚠️ Помилка формату дати '{created_at_str}': {e}")
@@ -603,8 +599,12 @@ async def check_pro(req: Request):
     service = get_google_service()
     sheet = service.spreadsheets()
 
-    response = fetch_with_retry(service, os.getenv("SHEET_ID"), "PRO!A2:D")
-    rows = response.get("values", [])
+    req = sheet.values().get(
+        spreadsheetId=os.getenv("SHEET_ID"),
+        range="PRO!A2:D1000"
+    ).execute()
+
+    rows = req.get("values", [])
 
     for i, row in enumerate(rows):
         if len(row) < 4:
@@ -618,7 +618,7 @@ async def check_pro(req: Request):
             try:
                 expire_date = safe_parse_date(expire_str)
 
-                now = datetime.now(timezone("Europe/Kyiv"))
+                now = datetime.now()
 
                 if status == "Активно" and expire_date > now:
                     return {"isPro": True, "expire_date": expire_str}
@@ -627,7 +627,7 @@ async def check_pro(req: Request):
                     row_number = i + 2
                     sheet.values().update(
                         spreadsheetId=os.getenv("SHEET_ID"),
-                        range=f"PRO!C{row_number}:C{row_number}",
+                        range=f"PRO!C{row_number}",
                         valueInputOption="RAW",
                         body={"values": [["Не активовано"]]}
                     ).execute()
@@ -679,10 +679,10 @@ async def rate_film(data: RateRequest):
 
         service = get_google_service()
         sheet = service.spreadsheets()
-        SHEET_ID = os.getenv("SHEET_ID")
-        if not SHEET_ID:
-            return JSONResponse(status_code=500, content={"success": False, "error": "SHEET_ID не визначено"})
-
+        values = sheet.values().get(
+            spreadsheetId=SPREADSHEET_ID,
+            range="Sheet1!A2:Z1000"
+        ).execute().get("values", [])
 
         col_idx = 12 if action == "like" else 13
         undo_col_idx = 12 if undo_action == "like" else 13 if undo_action == "dislike" else None

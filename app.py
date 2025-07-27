@@ -467,6 +467,7 @@ async def clean_old_requests():
     service = get_google_service()
     sheet = service.spreadsheets()
     kyiv = timezone("Europe/Kyiv")
+    SHEET_ID = os.getenv("SHEET_ID")
 
     while True:
         try:

@@ -483,7 +483,7 @@ async def clean_old_requests():
             # тут правильний відступ і get("values", [])
             existing_ids = [row[0] for row in fetch_with_retry(service, SHEET_ID, "Користувачі!A2:A1000").get("values", []) if row]
 
-            now = datetime.now(tz=kyiv)
+            now = datetime.now(kyiv)
             updated_rows = []
 
             # ! Тут треба отримати всі записи з аркуша "Замовлення"
@@ -525,7 +525,7 @@ async def check_pending_payments():
 
     while True:
         print("🔎 Перевірка очікуючих платежів...")  
-        now = datetime.now(kyiv)
+        now = datetime.now(kyiv).replace(tzinfo=None)  # Часовий пояс Києва
         print(f"🕒 Поточний час: {now}")
 
         response = fetch_with_retry(service, os.getenv("SHEET_ID"), "PRO!A2:D")
@@ -546,8 +546,7 @@ async def check_pending_payments():
                 continue
 
             try:
-                created_at_naive = datetime.strptime(created_at_str, "%Y-%m-%d %H:%M:%S")
-                created_at = kyiv.localize(created_at_naive)
+                created_at = datetime.strptime(created_at_str, "%Y-%m-%d %H:%M:%S")
                 print(f"⏰ Запис створений о: {created_at}")
             except Exception as e:
                 print(f"⚠️ Помилка формату дати '{created_at_str}': {e}")

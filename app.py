@@ -528,9 +528,9 @@ async def check_pending_payments():
         response = fetch_with_retry(service, os.getenv("SHEET_ID"), "PRO!A2:D")
         rows = response.get("values", [])
 
-        print(f"📋 Знайдено записів для перевірки: {len(data)}")
+        print(f"📋 Знайдено записів для перевірки: {len(rows)}")
 
-        for i, row in enumerate(data):
+        for i, row in enumerate(rows):
             if len(row) < 4:
                 continue
 

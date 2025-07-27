@@ -19,6 +19,7 @@ from typing import Optional
 from fastapi import Body
 from pro_utils import has_active_pro
 from utils.date_utils import safe_parse_date
+from google_api import fetch_with_retry
 
 
 class RateRequest(BaseModel):
@@ -135,14 +136,9 @@ async def request_film(req: Request):
             now = datetime.now(kyiv)
             one_month_ago = now - timedelta(days=30)
 
-            result = sheet.values().get(
-                spreadsheetId=os.getenv("SHEET_ID"),
-                range="Замовлення!A2:C1000"
-            ).execute().get("values", [])
-
+            result = fetch_with_retry(service, SHEET_ID, "Замовлення!A2:C1000").get("values", [])
             user_requests = []
             for row in result:
-                if len(row) < 3 or row[0] != user_id:
                     continue
                 try:
                     row_time = timezone("Europe/Kyiv").localize(datetime.strptime(row[2], "%Y-%m-%d %H:%M:%S"))
@@ -422,10 +418,8 @@ async def background_deleter():
         now = datetime.now(utc)
 
         # Отримати всі записи з аркуша "Видалення"
-        data = sheet.values().get(
-            spreadsheetId=os.getenv("SHEET_ID"),
-            range="Видалення!A2:C1000"
-        ).execute().get("values", [])
+        data = fetch_with_retry(service, os.getenv("SHEET_ID"), "Видалення!A2:C1000")
+
 
         print(f"🔍 Вміст таблиці Видалення:\n{data}")
 
@@ -476,10 +470,8 @@ async def clean_old_requests():
         try:
             print("🧹 Очищення старих замовлень...")
 
-            result = sheet.values().get(
-                spreadsheetId=os.getenv("SHEET_ID"),
-                range="Замовлення!A2:C1000"
-            ).execute().get("values", [])
+           existing_ids = [row[0] for row in fetch_with_retry(service, SHEET_ID, "Користувачі!A2:A1000") if row]
+
 
             now = datetime.now(kyiv)
             updated_rows = []
@@ -523,10 +515,8 @@ async def check_pending_payments():
         now = datetime.now(kyiv).replace(tzinfo=None)  # Часовий пояс Києва
         print(f"🕒 Поточний час: {now}")
 
-        data = sheet.values().get(
-            spreadsheetId=os.getenv("SHEET_ID"),
-            range="PRO!A2:D1000"
-        ).execute().get("values", [])
+        data = fetch_with_retry(service, os.getenv("SHEET_ID"), "PRO!A2:D10000")
+        rows = data.get("values", [])
 
         print(f"📋 Знайдено записів для перевірки: {len(data)}")
 
@@ -599,12 +589,8 @@ async def check_pro(req: Request):
     service = get_google_service()
     sheet = service.spreadsheets()
 
-    req = sheet.values().get(
-        spreadsheetId=os.getenv("SHEET_ID"),
-        range="PRO!A2:D1000"
-    ).execute()
-
-    rows = req.get("values", [])
+    data = fetch_with_retry(service, os.getenv("SHEET_ID"), "PRO!A2:D10000")
+    rows = data.get("values", [])
 
     for i, row in enumerate(rows):
         if len(row) < 4:
@@ -679,10 +665,8 @@ async def rate_film(data: RateRequest):
 
         service = get_google_service()
         sheet = service.spreadsheets()
-        values = sheet.values().get(
-            spreadsheetId=SPREADSHEET_ID,
-            range="Sheet1!A2:Z1000"
-        ).execute().get("values", [])
+        values = fetch_with_retry(service, SHEET_ID, "Sheet1!A2:Z10000").get("values", [])
+
 
         col_idx = 12 if action == "like" else 13
         undo_col_idx = 12 if undo_action == "like" else 13 if undo_action == "dislike" else None

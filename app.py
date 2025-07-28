@@ -775,10 +775,10 @@ async def notify_pro_expiring():
                     expire_date = expire_date.replace(hour=23, minute=59, second=0)
                 else:
                     expire_date = datetime.strptime(expire_str, "%Y-%m-%d %H:%M:%S").replace(tzinfo=kyiv)
-                except Exception as e:
-                    print(f"Помилка парсингу дати {expire_str}: {e}")
-                    continue
-            
+            except Exception as e:
+                print(f"Помилка парсингу дати {expire_str}: {e}")
+                continue
+
             hours_left = (expire_date - now).total_seconds() / 3600
 
             if 0 < hours_left <= 24 and notified != "yes":
@@ -800,4 +800,3 @@ async def notify_pro_expiring():
                     print(f"❌ Не вдалося надіслати нагадування {user_id}: {e}")
 
         await asyncio.sleep(60 * 60 * 2)  # раз на 2 години
-

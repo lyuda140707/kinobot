@@ -50,14 +50,18 @@ async def lifespan(app: FastAPI):
     asyncio.create_task(clean_old_requests())
     print("✅ Задача clean_old_requests стартувала")
 
-
     asyncio.create_task(background_deleter())
     print("✅ Задача background_deleter стартувала")
 
     asyncio.create_task(check_pending_payments())
     print("✅ Задача check_pending_payments стартувала")
 
+    # ⬇️ Ось СЮДИ додаєш запуск нової задачі:
+    asyncio.create_task(notify_pro_expiring())
+    print("✅ Задача notify_pro_expiring стартувала")
+
     yield
+
 
     
 
@@ -733,3 +737,61 @@ async def rate_film(data: RateRequest):
     except Exception as e:
         print(f"❌ Помилка в /rate: {e}")
         return JSONResponse(status_code=500, content={"success": False, "error": "Внутрішня помилка сервера"})
+
+from pytz import timezone
+from datetime import datetime
+import asyncio
+import os
+from google_api import get_google_service
+from bot import bot
+
+async def notify_pro_expiring():
+    service = get_google_service()
+    sheet = service.spreadsheets()
+    kyiv = timezone("Europe/Kyiv")
+
+    while True:
+        print("🔔 Перевірка PRO, кому треба нагадати...")
+
+        data = sheet.values().get(
+            spreadsheetId=os.getenv("SHEET_ID"),
+            range="PRO!A2:E1000"
+        ).execute().get("values", [])
+
+        now = datetime.now(kyiv)
+
+        for i, row in enumerate(data):
+            if len(row) < 4:
+                continue
+
+            user_id, username, status, expire_str = row[:4]
+            notified = row[4] if len(row) > 4 else ""
+            if status != "Активно":
+                continue
+            try:
+                expire_date = datetime.strptime(expire_str, "%Y-%m-%d %H:%M:%S").replace(tzinfo=kyiv)
+            except Exception:
+                continue
+
+            hours_left = (expire_date - now).total_seconds() / 3600
+
+            if 0 < hours_left <= 24 and notified != "yes":
+                try:
+                    await bot.send_message(
+                        int(user_id),
+                        f"⚡️ Ваш PRO-доступ закінчиться {expire_date.strftime('%d.%m.%Y %H:%M')}!\n\n"
+                        "🔄 Продовжіть PRO, щоб не втратити доступ до фільмів!"
+                    )
+                    row_number = i + 2
+                    sheet.values().update(
+                        spreadsheetId=os.getenv("SHEET_ID"),
+                        range=f"PRO!E{row_number}",
+                        valueInputOption="RAW",
+                        body={"values": [["yes"]]}
+                    ).execute()
+                    print(f"✅ Оповістили {user_id}")
+                except Exception as e:
+                    print(f"❌ Не вдалося надіслати нагадування {user_id}: {e}")
+
+        await asyncio.sleep(60 * 60 * 2)  # раз на 2 години
+

@@ -781,7 +781,7 @@ async def notify_pro_expiring():
 
             hours_left = (expire_date - now).total_seconds() / 3600
 
-            if 0 < hours_left <= 24 and notified != "yes":
+            if 0 < hours_left <= 48 and notified != "yes":
                 try:
                     await bot.send_message(
                         int(user_id),

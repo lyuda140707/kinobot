@@ -79,7 +79,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
+# ✅ ДОДАЙ ОЦЕ СЮДИ
+@app.get("/")
+async def root():
+    return {"status": "alive"}
 
 @app.post("/notify-payment")
 async def notify_payment(req: Request):

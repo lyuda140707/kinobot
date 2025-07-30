@@ -19,6 +19,23 @@ from typing import Optional
 from fastapi import Body
 from pro_utils import has_active_pro
 from utils.date_utils import safe_parse_date
+import logging
+import sys
+from json_log_formatter import JSONFormatter
+
+# —————— JSON-логер ——————
+handler = logging.StreamHandler(sys.stdout)
+handler.setFormatter(JSONFormatter())
+
+access_logger = logging.getLogger("uvicorn.access")
+access_logger.setLevel(logging.INFO)
+access_logger.addHandler(handler)
+
+error_logger = logging.getLogger("uvicorn.error")
+error_logger.setLevel(logging.INFO)
+error_logger.addHandler(handler)
+# ————————————————
+
 
 
 class RateRequest(BaseModel):

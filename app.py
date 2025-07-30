@@ -9,7 +9,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 import asyncio
 from datetime import datetime, timedelta
 import json
-import httpx
+
 from pytz import timezone
 import dateutil.parser
 from google_api import add_user_if_not_exists
@@ -72,6 +72,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://lyuda140707.github.io",
+        "https://relax-time2.onrender.com",
+        # або просто "*" під час відладки
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -389,33 +391,34 @@ async def send_film_by_id(request: Request):
 @app.post("/check-subscription")
 async def check_subscription(request: Request):
     data = await request.json()
-    user_id = data.get("user_id")
+    user_id = data.get('user_id')
+
     if not user_id:
         raise HTTPException(status_code=400, detail="user_id відсутній")
 
     bot_token = os.getenv("BOT_TOKEN")
-    channels = os.getenv("CHANNEL_LIST", "").split(",")
+
+    channels = os.getenv("CHANNEL_LIST", "").split(",")  # ← тут заміни на свій другий канал
+
     subscribed_to_any = False
 
-    # налаштовуємо асинхронний клієнт з таймаутом у 5 секунд
-    async with httpx.AsyncClient(timeout=5.0) as client:
-        for channel_username in channels:
-            url = f"https://api.telegram.org/bot{bot_token}/getChatMember"
-            params = {"chat_id": channel_username, "user_id": user_id}
-            try:
-                resp = await client.get(url, params=params)
-                resp.raise_for_status()
-                result = resp.json()
-                if result.get("ok") and result["result"]["status"] in ["member", "administrator", "creator"]:
-                    subscribed_to_any = True
-                    break
-            except httpx.RequestError as e:
-                print(f"❗️Помилка запиту до Telegram API для {channel_username}: {e}")
-            except ValueError as e:
-                print(f"❗️Не вдалося розпарсити JSON для {channel_username}: {e}")
+    for channel_username in channels:
+        url = f"https://api.telegram.org/bot{bot_token}/getChatMember"
+        params = {
+            "chat_id": channel_username,
+            "user_id": user_id
+        }
+
+        try:
+            response = requests.get(url, params=params)
+            result = response.json()
+            if result.get("ok") and result["result"]["status"] in ["member", "administrator", "creator"]:
+                subscribed_to_any = True
+                break  # можна припинити перевірку, бо вже є підписка
+        except Exception as e:
+            print(f"❗️Помилка перевірки підписки на {channel_username}: {e}")
 
     return {"subscribed": subscribed_to_any}
-
 
 
 async def background_deleter():

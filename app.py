@@ -70,11 +70,7 @@ app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://lyuda140707.github.io",
-        "https://relax-time2.onrender.com",
-        # або просто "*" під час відладки
-    ],
+    allow_origins=["*"],      # ← дозволяємо всі Origin для дебагу
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

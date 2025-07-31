@@ -139,7 +139,7 @@ async def notify_payment(req: Request):
 async def contact_admin(msg: AdminMessage):
     admin_id = int(os.getenv("ADMIN_ID", "7963871119"))
     text = f"✉️ Нове повідомлення від користувача {msg.user_id}:\n\n{msg.text}\n\nДля відповіді: /reply {msg.user_id} ваш_текст"
-    await bot.send_message(admin_id, text)
+    await bot.send_message(admin_id, text, parse_mode=None)
     return {'ok': True}
 
 

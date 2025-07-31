@@ -49,6 +49,10 @@ class SearchRequest(BaseModel):
     username: Optional[str] = None
     first_name: Optional[str] = None
 
+class AdminMessage(BaseModel):
+    user_id: int
+    text: str
+
 
 
 # Список повідомлень, які потрібно буде видалити
@@ -131,7 +135,16 @@ async def notify_payment(req: Request):
     return {"ok": True}
 
 
+@app.post('/contact-admin')
+async def contact_admin(msg: AdminMessage):
+    admin_id = int(os.getenv("ADMIN_ID", "7963871119"))
+    text = f"✉️ Нове повідомлення від користувача {msg.user_id}:\n\n{msg.text}\n\nДля відповіді: /reply {msg.user_id} ваш_текст"
+    await bot.send_message(admin_id, text)
+    return {'ok': True}
 
+@app.post("/request-film")
+async def request_film(req: Request):
+    # ... (твій код)
 
 
 @app.post("/request-film")

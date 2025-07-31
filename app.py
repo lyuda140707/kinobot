@@ -142,10 +142,6 @@ async def contact_admin(msg: AdminMessage):
     await bot.send_message(admin_id, text)
     return {'ok': True}
 
-@app.post("/request-film")
-async def request_film(req: Request):
-    # ... (твій код)
-
 
 @app.post("/request-film")
 async def request_film(req: Request):
@@ -230,7 +226,6 @@ async def request_film(req: Request):
 
     except Exception as e:
         return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
-
 
 @app.post("/webhook")
 async def telegram_webhook(request: Request):

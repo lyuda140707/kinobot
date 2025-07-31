@@ -221,12 +221,12 @@ async def process_message(message: types.Message):
     if message.text and message.text.startswith('/reply '):
         parts = message.text.split(' ', 2)
         if len(parts) < 3:
-            await message.reply("❗ Формат: /reply user_id відповідь")
+            await message.reply("❗ Формат: /reply user_id відповідь", parse_mode=None)
             return
         user_id = parts[1]
         reply_text = parts[2]
         try:
-            await bot.send_message(user_id, f"Відповідь від адміністратора:\n\n{reply_text}")
+            await bot.send_message(user_id, f"Відповідь від адміністратора:\n\n{reply_text}", parse_mode=None)
             await message.reply("✅ Відповідь надіслана користувачу.")
         except Exception as e:
             await message.reply(f"❗ Не вдалося надіслати відповідь: {e}")

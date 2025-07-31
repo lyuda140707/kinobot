@@ -215,32 +215,27 @@ async def get_file_id(message: types.Message):
 
 
 
-# ==== ВСТАВ СЮДИ ХЕНДЛЕР /reply ====
-@dp.message_handler(lambda m: m.text and m.text.startswith('/reply '))
-async def reply_to_user(msg: types.Message):
-    parts = msg.text.split(' ', 2)
-    if len(parts) < 3:
-        await msg.reply("❗ Формат: /reply user_id відповідь")
-        return
-    user_id = parts[1]
-    reply_text = parts[2]
-    try:
-        await bot.send_message(user_id, f"Відповідь від адміністратора:\n\n{reply_text}")
-        await msg.reply("✅ Відповідь надіслана користувачу.")
-    except Exception as e:
-        await msg.reply(f"❗ Не вдалося надіслати відповідь: {e}")
-
-
-
-
-
-
 @dp.message(F.text)
-async def search_film(message: types.Message):
+async def process_message(message: types.Message):
+    # --- /reply (відповідь адміну)
+    if message.text and message.text.startswith('/reply '):
+        parts = message.text.split(' ', 2)
+        if len(parts) < 3:
+            await message.reply("❗ Формат: /reply user_id відповідь")
+            return
+        user_id = parts[1]
+        reply_text = parts[2]
+        try:
+            await bot.send_message(user_id, f"Відповідь від адміністратора:\n\n{reply_text}")
+            await message.reply("✅ Відповідь надіслана користувачу.")
+        except Exception as e:
+            await message.reply(f"❗ Не вдалося надіслати відповідь: {e}")
+        return  # Щоб не шукати далі як фільм
+
+    # --- Пошук фільму
     if not message.text:
         return
 
-    # ✅ Перевірка на наявність chat.id
     if not message.chat or not message.chat.id:
         print("❌ Немає message.chat.id — не надсилаємо відео")
         return
@@ -275,6 +270,3 @@ async def search_film(message: types.Message):
 
     await safe_send(bot, message.chat.id, "Фільм не знайдено 😢")
 
-
-    
-  

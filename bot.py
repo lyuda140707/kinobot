@@ -209,15 +209,11 @@ async def start_handler(message: types.Message):
 async def get_file_id(message: types.Message):
     file_id = message.video.file_id
     await message.answer(f"🎥 file_id:\n<code>{file_id}</code>", parse_mode="HTML")
-# ... твій код вище ...
 
-@dp.message(Command("start"))
-async def start_handler(message: types.Message):
-    # ... тут твій стартовий хендлер ...
 
-@dp.message(F.video)
-async def get_file_id(message: types.Message):
-    # ... твій код ...
+
+
+
 
 # ==== ВСТАВ СЮДИ ХЕНДЛЕР /reply ====
 @dp.message_handler(lambda m: m.text and m.text.startswith('/reply '))
@@ -234,11 +230,9 @@ async def reply_to_user(msg: types.Message):
     except Exception as e:
         await msg.reply(f"❗ Не вдалося надіслати відповідь: {e}")
 
-# ==== ДАЛІ залишай свій старий код! ====
 
-@dp.message(F.text)
-async def search_film(message: types.Message):
-    # ... твоя логіка ...
+
+
 
 
 @dp.message(F.text)

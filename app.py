@@ -777,15 +777,21 @@ async def notify_pro_expiring():
             if status != "Активно":
                 continue
             try:
-                # Якщо просто дата, додаємо час 23:59:00
-                if len(expire_str.strip()) == 10:  # Формат '2025-07-29'
-                    expire_date = datetime.strptime(expire_str, "%Y-%m-%d").replace(tzinfo=kyiv)
-                    expire_date = expire_date.replace(hour=23, minute=59, second=0)
+                # Розбираємо будь-яку ISO-дату з часовим поясом або без
+                expire_date = dateutil.parser.isoparse(expire_str)
+                # Переводимо в київський час
+                if expire_date.tzinfo is None:
+                    expire_date = kyiv.localize(expire_date)
                 else:
-                    expire_date = datetime.strptime(expire_str, "%Y-%m-%d %H:%M:%S").replace(tzinfo=kyiv)
+                    expire_date = expire_date.astimezone(kyiv)
+                # Якщо була лише дата без часу — встаємо на 23:59:00
+                if len(expire_str.strip()) == 10:
+                    expire_date = expire_date.replace(hour=23, minute=59, second=0)
             except Exception as e:
                 print(f"Помилка парсингу дати {expire_str}: {e}")
                 continue
+          
+                    
 
             hours_left = (expire_date - now).total_seconds() / 3600
 

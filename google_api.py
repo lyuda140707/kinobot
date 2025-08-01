@@ -57,6 +57,16 @@ def add_user_if_not_exists(user_id: int, username: str, first_name: str):
         body={"values": [[str(user_id), username or "", first_name or "", now]]}
     ).execute()
 
+def find_film_by_name(query: str):
+    """Пошук фільму по назві (повертає словник або None)"""
+    films = get_gsheet_data()
+    query = query.lower().strip()
+    for film in films:
+        if query in film.get("Назва", "").lower():
+            return film
+    return None
+
+
 def find_film_by_name(film_name):
     service = get_google_service()
     sheet = service.spreadsheets()

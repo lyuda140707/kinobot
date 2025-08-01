@@ -25,33 +25,28 @@ def clean_expired_pro():
         spreadsheetId=os.getenv("SHEET_ID"),
         range="PRO!A2:D1000"
     ).execute()
-
     rows = req.get("values", [])
     cleared = 0
 
     for i, row in enumerate(rows):
         if len(row) < 4:
             continue
-
-        user_id = row[0]
-        status = row[2]
         expire_date = row[3]
-
         try:
             expire_dt = datetime.strptime(expire_date, "%Y-%m-%d")
-            if expire_dt < datetime.now():
-                row_number = i + 2
-                sheet.values().update(
-                    spreadsheetId=os.getenv("SHEET_ID"),
-                    range=f"PRO!A{row_number}:C{row_number}",
-                    valueInputOption="RAW",
-                    body={"values": [["", "", ""]]}
-                ).execute()
-                cleared += 1
-        except Exception as e:
-            print(f"⚠️ Помилка обробки рядка {i+2}: {e}")
-
+        except Exception:
+            continue
+        if expire_dt.date() < datetime.now().date():
+            row_number = i + 2
+            sheet.values().update(
+                spreadsheetId=os.getenv("SHEET_ID"),
+                range=f"PRO!C{row_number}",
+                valueInputOption="RAW",
+                body={"values":[["Не активовано"]]}
+            ).execute()
+            cleared += 1
     print(f"✅ Очищено {cleared} прострочених записів")
+
 
 
 def add_blocked_user(user_id: int):

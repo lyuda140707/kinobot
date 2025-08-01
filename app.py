@@ -9,20 +9,17 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 import asyncio
 from datetime import datetime, timedelta
 import json
-
 from pytz import timezone
-import dateutil.parser
 from google_api import add_user_if_not_exists
-from fastapi import HTTPException
 from pydantic import BaseModel
 from typing import Optional
 from fastapi import Body
 from pro_utils import has_active_pro
-from utils.date_utils import safe_parse_date
 import logging
 import sys
 from json_log_formatter import JSONFormatter
 from bot import safe_send_admin
+import dateutil.parser
 
 # —————— JSON-логер ——————
 handler = logging.StreamHandler(sys.stdout)
@@ -82,6 +79,11 @@ async def lifespan(app: FastAPI):
     asyncio.create_task(notify_pro_expiring())
     print("✅ Задача notify_pro_expiring стартувала")
 
+    from bot import clean_expired_pro
+    # запускаємо вашу синхронну функцію в окремому потоці
+    await asyncio.to_thread(clean_expired_pro)
+    print("✅ Одноразова чистка прострочених PRO виконана")
+    
     yield
 
 
@@ -635,49 +637,18 @@ async def check_pending_payments():
 
 @app.post("/check-pro")
 async def check_pro(req: Request):
+    """
+    Перевіряє PRO-доступ користувача за допомогою has_active_pro().
+    Якщо прострочено — has_active_pro() оновить статус у таблиці.
+    """
     data = await req.json()
     user_id = str(data.get("user_id"))
 
-    service = get_google_service()
-    sheet = service.spreadsheets()
+    if not user_id:
+        return JSONResponse(status_code=400, content={"error": "user_id відсутній"})
 
-    req = sheet.values().get(
-        spreadsheetId=os.getenv("SHEET_ID"),
-        range="PRO!A2:D1000"
-    ).execute()
-
-    rows = req.get("values", [])
-
-    for i, row in enumerate(rows):
-        if len(row) < 4:
-            continue
-
-        row_user_id = row[0].strip()
-        status = row[2].strip()
-        expire_str = row[3].strip()
-
-        if row_user_id == user_id:
-            try:
-                expire_date = safe_parse_date(expire_str)
-
-                now = datetime.now()
-
-                if status == "Активно" and expire_date > now:
-                    return {"isPro": True, "expire_date": expire_str}
-                elif status == "Активно" and expire_date <= now:
-                    # якщо прострочено — змінити статус на "Не активовано"
-                    row_number = i + 2
-                    sheet.values().update(
-                        spreadsheetId=os.getenv("SHEET_ID"),
-                        range=f"PRO!C{row_number}",
-                        valueInputOption="RAW",
-                        body={"values": [["Не активовано"]]}
-                    ).execute()
-                    print(f"⛔ PRO закінчився для {user_id} — статус оновлено")
-            except Exception as e:
-                print(f"⚠️ Помилка розпізнавання дати {expire_str} — {e}")
-
-    return {"isPro": False}
+    is_pro = has_active_pro(user_id)
+    return {"isPro": is_pro}
 
 
 
@@ -704,7 +675,6 @@ async def reactivate_user(req: Request):
     
 
 
-from fastapi.responses import JSONResponse
 
 @app.post("/rate")
 async def rate_film(data: RateRequest):

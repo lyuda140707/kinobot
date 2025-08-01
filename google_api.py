@@ -56,3 +56,44 @@ def add_user_if_not_exists(user_id: int, username: str, first_name: str):
         valueInputOption="USER_ENTERED",
         body={"values": [[str(user_id), username or "", first_name or "", now]]}
     ).execute()
+
+def find_film_by_name(film_name):
+    service = get_google_service()
+    sheet = service.spreadsheets()
+    SHEET_ID = os.getenv("SHEET_ID")
+
+    # Завантажуємо всі назви з Sheet1!A2:A1000
+    result = sheet.values().get(
+        spreadsheetId=SHEET_ID,
+        range="Sheet1!A2:A1000"
+    ).execute()
+    rows = result.get("values", [])
+
+    found_row_idx = None
+    for idx, row in enumerate(rows):
+        if row and film_name.lower() in row[0].lower():
+            found_row_idx = idx + 2  # +2 бо починаємо з другого рядка
+            break
+
+    if found_row_idx:
+        film_row = sheet.values().get(
+            spreadsheetId=SHEET_ID,
+            range=f"Sheet1!A{found_row_idx}:L{found_row_idx}"  # до L (12 колонок)
+        ).execute().get("values", [[]])[0]
+
+        # Збираємо словник із колонок
+        return {
+            "Назва": film_row[0] if len(film_row) > 0 else "",
+            "Тип": film_row[1] if len(film_row) > 1 else "",
+            "Жанр": film_row[2] if len(film_row) > 2 else "",
+            "Опис": film_row[3] if len(film_row) > 3 else "",
+            "Фото": film_row[4] if len(film_row) > 4 else "",
+            "Посилання": film_row[5] if len(film_row) > 5 else "",
+            "Добірка": film_row[6] if len(film_row) > 6 else "",
+            "Країна": film_row[7] if len(film_row) > 7 else "",
+            "Рік": film_row[8] if len(film_row) > 8 else "",
+            "file_id": film_row[9] if len(film_row) > 9 else "",
+            "Доступ": film_row[10] if len(film_row) > 10 else "",
+            "IMDb": film_row[11] if len(film_row) > 11 else "",
+        }
+    return None

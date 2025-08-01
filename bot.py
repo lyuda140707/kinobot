@@ -94,6 +94,15 @@ webapp_keyboard = InlineKeyboardMarkup(inline_keyboard=[
 ])
 
 
+async def safe_send_admin(bot, admin_id, text, **kwargs):
+    try:
+        await bot.send_message(admin_id, text, **kwargs)
+        return True
+    except Exception as e:
+        print(f"❗ Не вдалося надіслати повідомлення адміну {admin_id}: {e}")
+        return False
+
+
 @dp.message(Command("webapp"))
 async def send_webapp(message: types.Message):
     keyboard = InlineKeyboardMarkup(inline_keyboard=[

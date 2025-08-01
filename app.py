@@ -20,6 +20,8 @@ import sys
 from json_log_formatter import JSONFormatter
 from bot import safe_send_admin
 import dateutil.parser
+from fastapi import Request
+from utils.date_utils import safe_parse_date
 
 # —————— JSON-логер ——————
 handler = logging.StreamHandler(sys.stdout)
@@ -635,20 +637,50 @@ async def check_pending_payments():
 
 
 
+from fastapi.responses import JSONResponse
+
 @app.post("/check-pro")
 async def check_pro(req: Request):
-    """
-    Перевіряє PRO-доступ користувача за допомогою has_active_pro().
-    Якщо прострочено — has_active_pro() оновить статус у таблиці.
-    """
     data = await req.json()
     user_id = str(data.get("user_id"))
-
     if not user_id:
         return JSONResponse(status_code=400, content={"error": "user_id відсутній"})
 
-    is_pro = has_active_pro(user_id)
-    return {"isPro": is_pro}
+    service = get_google_service()
+    sheet = service.spreadsheets()
+    res = sheet.values().get(
+        spreadsheetId=os.getenv("SHEET_ID"),
+        range="PRO!A2:D1000"
+    ).execute()
+    rows = res.get("values", [])
+
+    kyiv = timezone("Europe/Kyiv")
+    today = datetime.now(kyiv).date()
+
+    # Перебираємо з індексом, щоб мати правильний row_number
+    for idx, row in enumerate(rows, start=2):
+        if len(row) < 4:
+            continue
+        uid, _, status, exp_str = row[:4]
+        if uid.strip() == user_id and status.strip().lower() == "активно":
+            # Парсимо дату
+            expire_dt = safe_parse_date(exp_str)
+            exp_date = expire_dt.date() if isinstance(expire_dt, datetime) else expire_dt
+
+            if exp_date >= today:
+                # PRO дійсний — повертаємо дату
+                return {"isPro": True, "expire_date": exp_str.strip()}
+
+            # Прострочено — оновлюємо статус у таблиці
+            sheet.values().update(
+                spreadsheetId=os.getenv("SHEET_ID"),
+                range=f"PRO!C{idx}",
+                valueInputOption="RAW",
+                body={"values": [["Не активовано"]]}
+            ).execute()
+            break  # далі не шукаємо
+
+    return {"isPro": False, "expire_date": None}
 
 
 

@@ -1,0 +1,13 @@
+name: Wake up RelaxTime
+
+# Запускаємо за розкладом кожні 10 хвилин
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping backend
+        run: curl -m 5 https://relax-time2.onrender.com/ping

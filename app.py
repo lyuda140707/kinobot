@@ -225,13 +225,12 @@ async def request_film(req: Request):
             body={"values": [[user_id, film_name, now_str]]}
         ).execute()
 
-# 📨 Надсилаємо повідомлення адміну
-message = f"🎬 Користувач {user_id} хоче додати фільм: {film_name}"
-await safe_send_admin(
-    bot, int(os.getenv("ADMIN_ID", "7963871119")), message, parse_mode=None
-)
+        # 📨 Надсилаємо повідомлення адміну
+        message = f"🎬 Користувач {user_id} хоче додати фільм: {film_name}"
+        await safe_send_admin(
+            bot, int(os.getenv("ADMIN_ID", "7963871119")), message, parse_mode=None
+        )
         
-
         return {
             "success": True,
             "remaining_requests": remaining if remaining is not None else "∞",

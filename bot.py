@@ -174,35 +174,46 @@ async def approve_pro(message: types.Message):
 
 
 
+from google_api import find_film_by_name
+
 @dp.message(Command("start"))
 async def start_handler(message: types.Message):
     if message.text and len(message.text.split()) > 1:
-        query = message.text.split(maxsplit=1)[1]
+        query = message.text.split(maxsplit=1)[1].strip()
     else:
         query = None
 
     if query:
         print(f"🔍 Отримано запит: {query}")
-        films = get_gsheet_data()
-        for film in films:
-            if query.lower() in film.get("Назва", "").lower() or query.lower() in film.get("Опис", "").lower():
-                name = film["Назва"]
-                desc = film["Опис"]
-                file_id = film.get("file_id")
-                caption = f"*🎬 {name}*\n{desc}"
 
-                print(f"✅ Надсилаємо фільм: {name}")
-                print(f"🎞 file_id: {file_id}")
+        film = find_film_by_name(query)
+        if film:
+            name = film.get("Назва", "Без назви")
+            desc = film.get("Опис", "Без опису")
+            file_id = film.get("file_id")
+            caption = f"*🎬 {name}*\n{desc}"
 
-                if file_id:
-                    await bot.send_video(chat_id=message.chat.id, video=file_id, caption=caption, parse_mode="Markdown")
+            print(f"✅ Надсилаємо фільм: {name}")
+            print(f"🎞 file_id: {file_id}")
 
-                else:
-                    await message.answer(caption, parse_mode="Markdown")
-                return
-        await safe_send(bot, message.chat.id, "Фільм не знайдено 😢")
+            if file_id:
+                try:
+                    await bot.send_video(
+                        chat_id=message.chat.id,
+                        video=file_id,
+                        caption=caption,
+                        parse_mode="Markdown"
+                    )
+                except Exception as e:
+                    print(f"❌ Помилка надсилання відео: {e}")
+                    await safe_send(bot, message.chat.id, "⚠️ Не вдалося надіслати відео")
+            else:
+                await message.answer(caption, parse_mode="Markdown")
+        else:
+            await safe_send(bot, message.chat.id, "Фільм не знайдено 😢")
     else:
         await safe_send(bot, message.chat.id, "☕ Хочеш трохи відпочити? Натискай кнопку — усе вже готово!", reply_markup=webapp_keyboard)
+
 
 
 @dp.message(F.video)
@@ -240,33 +251,32 @@ async def process_message(message: types.Message):
         print("❌ Немає message.chat.id — не надсилаємо відео")
         return
 
-    query = message.text.lower()
-    films = get_gsheet_data()
+    query = message.text.strip()  # Можна .lower() — але find_film_by_name вже це робить
 
-    for film in films:
-        if query in film.get("Назва", "").lower():
-            name = film.get("Назва", "Без назви")
-            desc = film.get("Опис", "Без опису")
-            file_id = film.get("file_id")
+    film = find_film_by_name(query)
 
-            caption = f"*🎬 {name}*\n{desc}"
-            print(f"✅ Надсилаємо фільм: {name}")
-            print(f"🎞 file_id: {file_id}")
+    if film:
+        name = film.get("Назва", "Без назви")
+        desc = film.get("Опис", "Без опису")
+        file_id = film.get("file_id")
 
-            if file_id:
-                try:
-                    await bot.send_video(
-                        chat_id=message.chat.id,
-                        video=file_id,
-                        caption=caption,
-                        parse_mode="Markdown"
-                    )
-                except Exception as e:
-                    print(f"❌ Помилка надсилання відео: {e}")
-                    await safe_send(bot, message.chat.id, "⚠️ Не вдалося надіслати відео")
-            else:
-                await message.answer(caption, parse_mode="Markdown")
-            return
+        caption = f"*🎬 {name}*\n{desc}"
+        print(f"✅ Надсилаємо фільм: {name}")
+        print(f"🎞 file_id: {file_id}")
+
+        if file_id:
+            try:
+                await bot.send_video(
+                    chat_id=message.chat.id,
+                    video=file_id,
+                    caption=caption,
+                    parse_mode="Markdown"
+                )
+            except Exception as e:
+                print(f"❌ Помилка надсилання відео: {e}")
+                await safe_send(bot, message.chat.id, "⚠️ Не вдалося надіслати відео")
+        else:
+            await message.answer(caption, parse_mode="Markdown")
+        return
 
     await safe_send(bot, message.chat.id, "Фільм не знайдено 😢")
-

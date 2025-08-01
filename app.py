@@ -22,6 +22,7 @@ from utils.date_utils import safe_parse_date
 import logging
 import sys
 from json_log_formatter import JSONFormatter
+from bot import safe_send_admin
 
 # —————— JSON-логер ——————
 handler = logging.StreamHandler(sys.stdout)
@@ -126,8 +127,8 @@ async def notify_payment(req: Request):
     ).execute()
     
     admin_id = os.getenv("ADMIN_ID")
-    await bot.send_message(
-        admin_id, 
+    await safe_send_admin(
+        bot, admin_id,
         f"💳 Користувач [{first_name}](tg://user?id={user_id}) натиснув 'Я оплатив'\n\n✅ Щоб підтвердити PRO, надішли:\n`/ok {user_id}`",
         parse_mode="Markdown"
     )
@@ -138,9 +139,22 @@ async def notify_payment(req: Request):
 @app.post('/contact-admin')
 async def contact_admin(msg: AdminMessage):
     admin_id = int(os.getenv("ADMIN_ID", "7963871119"))
-    text = f"✉️ Нове повідомлення від користувача {msg.user_id}:\n\n{msg.text}\n\nДля відповіді: /reply {msg.user_id} ваш_текст"
-    await bot.send_message(admin_id, text, parse_mode=None)
+    reply_cmd = f"/reply {msg.user_id} "
+    text = (
+        f"✉️ Нове повідомлення від користувача {msg.user_id}:\n\n"
+        f"{msg.text}\n\n"
+        f"Для відповіді: <code>{reply_cmd}ваш_текст</code>"
+    )
+
+    # Додаємо кнопку для копіювання /reply
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="Скопіювати команду", switch_inline_query=reply_cmd)]
+        ]
+    )
+    await safe_send_admin(bot, admin_id, text, parse_mode="HTML", reply_markup=keyboard)
     return {'ok': True}
+
 
 
 @app.post("/request-film")
@@ -213,10 +227,10 @@ async def request_film(req: Request):
 
         # 📨 Надсилаємо повідомлення адміну
         message = f"🎬 Користувач {user_id} хоче додати фільм: {film_name}"
-        requests.post(
-            f"https://api.telegram.org/bot{os.getenv('BOT_TOKEN')}/sendMessage",
-            data={"chat_id": os.getenv("ADMIN_ID", "7963871119"), "text": message}
+       await safe_send_admin(
+           bot, int(os.getenv("ADMIN_ID", "7963871119")), message, parse_mode=None
         )
+        
 
         return {
             "success": True,

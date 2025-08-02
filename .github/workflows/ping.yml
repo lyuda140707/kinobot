@@ -1,6 +1,5 @@
 name: Maintenance tasks (every 10′)
 
-
 on:
   schedule:
     # кожні 10 хвилин
@@ -22,3 +21,5 @@ jobs:
       - name: 🗑️ Delete old messages
         run: curl -X POST -m 10 $BASE_URL/jobs/delete-old-messages
 
+      - name: 🕵️ Check pending payments
+        run: curl -X POST -m 10 $BASE_URL/jobs/check-payments

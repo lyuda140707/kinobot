@@ -22,6 +22,7 @@ from bot import safe_send_admin
 import dateutil.parser
 from fastapi import Request
 from utils.date_utils import safe_parse_date
+from contextlib import asynccontextmanager
 
 # singleton Google Sheets client
 from google_api import get_google_service
@@ -105,15 +106,21 @@ messages_to_delete = []
 
 from contextlib import asynccontextmanager
 
- @asynccontextmanager
- async def lifespan(app: FastAPI):
-     print("🚀 Запуск webhook (і нічого більше)…")
-     webhook_url = os.getenv("WEBHOOK_URL")
-     if webhook_url:
-         await bot.set_webhook(webhook_url)
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # 1) Налаштовуємо Telegram-webhook
+    webhook_url = os.getenv("WEBHOOK_URL")
+    if webhook_url:
+        await bot.set_webhook(webhook_url)
+        print("✅ Webhook встановлено:", webhook_url)
 
- 
-     yield
+    # 2) (опційно) Одноразова чистка прострочених PRO
+    from bot import clean_expired_pro
+    await asyncio.to_thread(clean_expired_pro)
+    print("✅ Одноразова чистка прострочених PRO виконана")
+
+    # 3) Тепер yield — FastAPI запустився
+    yield
 
 
     

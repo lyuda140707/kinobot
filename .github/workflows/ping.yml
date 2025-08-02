@@ -3,6 +3,7 @@ name: Maintenance tasks (every 10′)
 on:
   schedule:
     - cron: '*/10 * * * *'
+  workflow_dispatch:   # ← дозволяє запускати вручну через Actions → Run workflow
 
 env:
   BASE_URL: https://relax-time2.onrender.com

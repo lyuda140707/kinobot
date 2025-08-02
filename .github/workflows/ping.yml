@@ -1,4 +1,5 @@
-name: Scheduled maintenance
+name: Maintenance tasks (every 10′)
+
 
 on:
   schedule:

@@ -628,7 +628,8 @@ async def check_pending_payments_once():
             )
             print(f"✅ Сповіщено {user_id}, термін очікування минув")
 
-            # 3) змінюємо статус у Google Sheets
+            # 3) Оновлюємо статус у Google Sheets
+            print(f"🔧 Готуємо update PRO!A{idx}:C{idx} → ['{user_id}', '{username}', 'Не активовано']")
             sheet.values().update(
                 spreadsheetId=os.getenv("SHEET_ID"),
                 range=f"PRO!A{idx}:C{idx}",
@@ -636,6 +637,7 @@ async def check_pending_payments_once():
                 body={"values": [[user_id, username, "Не активовано"]]}
             ).execute()
             print(f"🔧 Статус у PRO!A{idx}:C{idx} змінено на 'Не активовано'")
+            print(f"✅ Виконано update PRO!A{idx}:C{idx}")
 
 
 @app.post("/jobs/check-payments")

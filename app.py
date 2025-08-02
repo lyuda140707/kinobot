@@ -577,6 +577,77 @@ async def background_deleter_once():
                 body={"values":[["","",""]]}
             ).execute()
 
+# … ваш background_deleter_once тут …
+
+async def check_pending_payments_once():
+    """
+    Одноразово перевіряє PRO!A2:D і обробляє всі записи
+    “Очікує підтвердження” старші за 10 хвилин.
+    """
+    service = get_google_service()
+    sheet = service.spreadsheets()
+    kyiv = timezone("Europe/Kyiv")
+    now = datetime.now(kyiv)
+
+    # 1) Зчитуємо всі рядки
+    rows = sheet.values().get(
+        spreadsheetId=os.getenv("SHEET_ID"),
+        range="PRO!A2:D1000"
+    ).execute().get("values", [])
+    for idx, row in enumerate(rows, start=2):
+        if len(row) < 4:
+            continue
+        user_id, username, status, created_at_str = row[:4]
+        if status != "Очікує підтвердження":
+            continue
+
+        # Парсимо дату і порівнюємо
+        try:
+            created_at = datetime.strptime(created_at_str, "%Y-%m-%d %H:%M:%S")
+            # локалізуємо під Київ
+            created_at = kyiv.localize(created_at)
+        except Exception as e:
+            print(f"⚠️ Не вдалося прочитати дату '{created_at_str}': {e}")
+            continue
+
+        if now - created_at > timedelta(minutes=10):
+            # 2) надсилаємо нагадування
+            from bot import safe_send
+            await safe_send(
+                bot, int(user_id),
+                "❗️ Ми не знайшли вашу оплату за PRO-доступ.\n\n"
+                "Натисніть «🚀 Повторити оплату» або спробуйте ще раз:",
+                reply_markup=InlineKeyboardMarkup(
+                    inline_keyboard=[[
+                        InlineKeyboardButton(
+                            text="🚀 Повторити оплату",
+                            web_app=WebAppInfo(url="https://lyuda140707.github.io/kinobot-webapp/")
+                        )
+                    ]]
+                )
+            )
+            print(f"✅ Сповіщено {user_id}, термін очікування минув")
+
+            # 3) змінюємо статус у Google Sheets
+            sheet.values().update(
+                spreadsheetId=os.getenv("SHEET_ID"),
+                range=f"PRO!A{idx}:C{idx}",
+                valueInputOption="RAW",
+                body={"values": [[user_id, username, "Не активовано"]]}
+            ).execute()
+            print(f"🔧 Статус у PRO!A{idx}:C{idx} змінено на 'Не активовано'")
+
+
+@app.post("/jobs/check-payments")
+async def job_check_payments():
+    """
+    HTTP-ендпоінт для одноразової перевірки PRO-платежів старших за 10 хв.
+    Викликайте через GitHub Actions cron.
+    """
+    await check_pending_payments_once()
+    return {"ok": True, "checked": "pending payments processed"}
+
+
 async def check_pending_payments():
     service = get_google_service()
     sheet = service.spreadsheets()

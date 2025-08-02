@@ -108,18 +108,18 @@ from contextlib import asynccontextmanager
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # 1) Налаштовуємо Telegram-webhook
+    # 1) Встановлюємо Telegram-webhook
     webhook_url = os.getenv("WEBHOOK_URL")
     if webhook_url:
         await bot.set_webhook(webhook_url)
         print("✅ Webhook встановлено:", webhook_url)
 
-    # 2) (опційно) Одноразова чистка прострочених PRO
+    # 2) Одноразова чистка прострочених PRO
     from bot import clean_expired_pro
     await asyncio.to_thread(clean_expired_pro)
     print("✅ Одноразова чистка прострочених PRO виконана")
 
-    # 3) Тепер yield — FastAPI запустився
+    # 3) Тепер лише yield
     yield
 
 

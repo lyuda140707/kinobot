@@ -1,35 +1,23 @@
-name: Scheduled tasks
+name: Scheduled maintenance
 
 on:
   schedule:
-    # кожні 10 хвилин – щоб Keep-Alive
-    - cron:  '*/10 * * * *'
-    # кожні 6 годин – щоб чистити старі замовлення
-    - cron:  '0 */6 * * *'
-    # щодня опівночі – щоб видаляти застарілі відеоповідомлення
-    - cron:  '0 0 * * *'
+    # кожні 10 хвилин
+    - cron: '*/10 * * * *'
+
+env:
+  BASE_URL: https://relax-time2.onrender.com
 
 jobs:
-  # 1) просто “прокинути” ваш backend
-  ping:
+  tasks:
     runs-on: ubuntu-latest
     steps:
-      - name: Wake up RelaxTime
-        run: |
-          curl -m 5 https://${{ secrets.RENDER_APP_URL }}/ping
+      - name: 🔆 Ping backend
+        run: curl -m 5 $BASE_URL/ping
 
-  # 2) очищення старих запитів
-  clean_requests:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Clean old requests
-        run: |
-          curl -X POST -m 60 https://${{ secrets.RENDER_APP_URL }}/jobs/clean-requests
+      - name: 🧹 Clean old requests
+        run: curl -X POST -m 10 $BASE_URL/jobs/clean-requests
 
-  # 3) видалення застарілих відеоповідомлень
-  delete_messages:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Delete old messages
-        run: |
-          curl -X POST -m 60 https://${{ secrets.RENDER_APP_URL }}/jobs/delete-old-messages
+      - name: 🗑️ Delete old messages
+        run: curl -X POST -m 10 $BASE_URL/jobs/delete-old-messages
+

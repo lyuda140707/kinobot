@@ -1,13 +1,19 @@
 name: Wake up RelaxTime
 
-# Запускаємо за розкладом кожні 10 хвилин
+# Запуск кожні 10 хвилин
 on:
   schedule:
     - cron: '*/10 * * * *'
 
 jobs:
-  ping:
+  wakeup:
     runs-on: ubuntu-latest
     steps:
       - name: Ping backend
         run: curl -m 5 https://relax-time2.onrender.com/ping
+
+      - name: Clean old requests
+        run: curl -X POST -m 10 https://relax-time2.onrender.com/jobs/clean-requests
+
+      - name: Delete old messages
+        run: curl -X POST -m 10 https://relax-time2.onrender.com/jobs/delete-old-messages

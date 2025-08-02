@@ -105,32 +105,15 @@ messages_to_delete = []
 
 from contextlib import asynccontextmanager
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    print("🚀 background_deleter запущено!")
-    webhook_url = os.getenv("WEBHOOK_URL")
-    if webhook_url:
-        await bot.set_webhook(webhook_url)
+ @asynccontextmanager
+ async def lifespan(app: FastAPI):
+     print("🚀 Запуск webhook (і нічого більше)…")
+     webhook_url = os.getenv("WEBHOOK_URL")
+     if webhook_url:
+         await bot.set_webhook(webhook_url)
 
-    asyncio.create_task(clean_old_requests())
-    print("✅ Задача clean_old_requests стартувала")
-
-    asyncio.create_task(background_deleter())
-    print("✅ Задача background_deleter стартувала")
-
-    asyncio.create_task(check_pending_payments())
-    print("✅ Задача check_pending_payments стартувала")
-
-    # ⬇️ Ось СЮДИ додаєш запуск нової задачі:
-    asyncio.create_task(notify_pro_expiring())
-    print("✅ Задача notify_pro_expiring стартувала")
-
-    from bot import clean_expired_pro
-    # запускаємо вашу синхронну функцію в окремому потоці
-    await asyncio.to_thread(clean_expired_pro)
-    print("✅ Одноразова чистка прострочених PRO виконана")
-    
-    yield
+ 
+     yield
 
 
     

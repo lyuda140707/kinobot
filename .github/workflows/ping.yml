@@ -2,7 +2,6 @@ name: Maintenance tasks (every 10′)
 
 on:
   schedule:
-    # кожні 10 хвилин
     - cron: '*/10 * * * *'
 
 env:
@@ -23,3 +22,6 @@ jobs:
 
       - name: 🕵️ Check pending payments
         run: curl -X POST -m 10 $BASE_URL/jobs/check-payments
+
+      - name: 🧹 Clean expired PRO
+        run: curl -X POST -m 10 $BASE_URL/clean-pro

@@ -549,7 +549,7 @@ async def background_deleter():
         
 async def background_deleter_once():
     """
-    Одноразово перевіряє аркуш Видалення і видаляє всі „старі“ відеоповідомлення.
+    Одноразово перевіряє аркуш 'Видалення' і видаляє всі «старі» відеоповідомлення.
     """
     from pytz import utc
     now = datetime.now(utc)
@@ -564,29 +564,36 @@ async def background_deleter_once():
     for idx, row in enumerate(rows, start=2):
         if len(row) < 3:
             continue
+
         user_id, message_id, delete_at_str = row
         # пропускаємо некоректні
         if not (user_id.isdigit() and message_id.isdigit()):
             continue
+
         try:
             delete_at = dateutil.parser.isoparse(delete_at_str)
-        except:
+        except Exception:
             continue
+
+        # <-- ДЕБАГ: показуємо таймстампи перед порівнянням
+        print(f"⏱️  Row {idx}: delete_at={delete_at.isoformat()}, now={now.isoformat()}")
 
         if now >= delete_at:
             # надсилаємо запит видалити
             try:
                 await bot.delete_message(chat_id=int(user_id), message_id=int(message_id))
-            except:
-                pass
+                # <-- ДЕБАГ: підтверджуємо успішне видалення
+                print(f"✅  Cleared row {idx}: message_id={message_id} for user={user_id}")
+            except Exception as e:
+                print(f"❌  Error deleting message {message_id} for user {user_id}: {e}")
+
             # очищаємо рядок у Google Sheets
             sheet.values().update(
                 spreadsheetId=os.getenv("SHEET_ID"),
                 range=f"Видалення!A{idx}:C{idx}",
                 valueInputOption="RAW",
-                body={"values":[["","",""]]}
+                body={"values": [["", "", ""]]}
             ).execute()
-
 
 async def check_pending_payments():
     service = get_google_service()

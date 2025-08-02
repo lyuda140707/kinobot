@@ -108,18 +108,15 @@ from contextlib import asynccontextmanager
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # 1) Встановлюємо Telegram-webhook
     webhook_url = os.getenv("WEBHOOK_URL")
     if webhook_url:
         await bot.set_webhook(webhook_url)
         print("✅ Webhook встановлено:", webhook_url)
 
-    # 2) Одноразова чистка прострочених PRO
+    # Одноразово почистили прострочені PRO
     from bot import clean_expired_pro
     await asyncio.to_thread(clean_expired_pro)
-    print("✅ Одноразова чистка прострочених PRO виконана")
 
-    # 3) Тепер лише yield
     yield
 
 
@@ -548,14 +545,10 @@ async def background_deleter():
 
         
 async def background_deleter_once():
-    """
-    Одноразово перевіряє аркуш 'Видалення' і видаляє всі «старі» відеоповідомлення.
-    """
     from pytz import utc
     now = datetime.now(utc)
-    sheet = SHEETS  # ваш singleton
+    sheet = SHEETS
 
-    # 1) Отримати всі записи з аркуша "Видалення"
     rows = sheet.values().get(
         spreadsheetId=os.getenv("SHEET_ID"),
         range="Видалення!A2:C1000"
@@ -564,35 +557,24 @@ async def background_deleter_once():
     for idx, row in enumerate(rows, start=2):
         if len(row) < 3:
             continue
-
         user_id, message_id, delete_at_str = row
-        # пропускаємо некоректні
         if not (user_id.isdigit() and message_id.isdigit()):
             continue
-
         try:
             delete_at = dateutil.parser.isoparse(delete_at_str)
-        except Exception:
+        except:
             continue
 
-        # <-- ДЕБАГ: показуємо таймстампи перед порівнянням
-        print(f"⏱️  Row {idx}: delete_at={delete_at.isoformat()}, now={now.isoformat()}")
-
-        if now >= delete_at:
-            # надсилаємо запит видалити
+        if datetime.now(utc) >= delete_at:
             try:
                 await bot.delete_message(chat_id=int(user_id), message_id=int(message_id))
-                # <-- ДЕБАГ: підтверджуємо успішне видалення
-                print(f"✅  Cleared row {idx}: message_id={message_id} for user={user_id}")
-            except Exception as e:
-                print(f"❌  Error deleting message {message_id} for user {user_id}: {e}")
-
-            # очищаємо рядок у Google Sheets
+            except:
+                pass
             sheet.values().update(
                 spreadsheetId=os.getenv("SHEET_ID"),
                 range=f"Видалення!A{idx}:C{idx}",
                 valueInputOption="RAW",
-                body={"values": [["", "", ""]]}
+                body={"values":[["","",""]]}
             ).execute()
 
 async def check_pending_payments():

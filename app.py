@@ -23,6 +23,50 @@ import dateutil.parser
 from fastapi import Request
 from utils.date_utils import safe_parse_date
 
+# singleton Google Sheets client
+from google_api import get_google_service
+SERVICE = get_google_service()
+SHEETS = SERVICE.spreadsheets()
+
+async def clean_old_requests_once():
+    """Одноразово видаляє записи старше 31 дня з аркуша 'Замовлення'."""
+    from pytz import timezone
+    from datetime import datetime, timedelta
+
+    kyiv = timezone("Europe/Kyiv")
+    sheet = SHEETS
+
+    # 1) Забираємо всі рядки
+    rows = sheet.values().get(
+        spreadsheetId=os.getenv("SHEET_ID"),
+        range="Замовлення!A2:C1000"
+    ).execute().get("values", [])
+
+    now = datetime.now(kyiv)
+    to_clear = []
+
+    for idx, row in enumerate(rows, start=2):
+        if len(row) < 3:
+            continue
+        ts_str = row[2]
+        try:
+            ts = kyiv.localize(datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S"))
+        except:
+            continue
+        # якщо старше 31 дня
+        if now - ts > timedelta(days=31):
+            to_clear.append(idx)
+
+    # 2) Очищаємо знайдені рядки
+    for row_num in to_clear:
+        sheet.values().update(
+            spreadsheetId=os.getenv("SHEET_ID"),
+            range=f"Замовлення!A{row_num}:C{row_num}",
+            valueInputOption="RAW",
+            body={"values": [["", "", ""]]}
+        ).execute()
+
+
 # —————— JSON-логер ——————
 handler = logging.StreamHandler(sys.stdout)
 handler.setFormatter(JSONFormatter())
@@ -511,51 +555,47 @@ async def background_deleter():
                     body={"values": [["", "", ""]]}
                 ).execute()
                     
-        await asyncio.sleep(60)
+
         
-async def clean_old_requests():
-    service = get_google_service()
-    sheet = service.spreadsheets()
-    kyiv = timezone("Europe/Kyiv")
+async def background_deleter_once():
+    """
+    Одноразово перевіряє аркуш Видалення і видаляє всі „старі“ відеоповідомлення.
+    """
+    from pytz import utc
+    now = datetime.now(utc)
+    sheet = SHEETS  # ваш singleton
 
-    while True:
+    # 1) Отримати всі записи з аркуша "Видалення"
+    rows = sheet.values().get(
+        spreadsheetId=os.getenv("SHEET_ID"),
+        range="Видалення!A2:C1000"
+    ).execute().get("values", [])
+
+    for idx, row in enumerate(rows, start=2):
+        if len(row) < 3:
+            continue
+        user_id, message_id, delete_at_str = row
+        # пропускаємо некоректні
+        if not (user_id.isdigit() and message_id.isdigit()):
+            continue
         try:
-            print("🧹 Очищення старих замовлень...")
+            delete_at = dateutil.parser.isoparse(delete_at_str)
+        except:
+            continue
 
-            result = sheet.values().get(
+        if now >= delete_at:
+            # надсилаємо запит видалити
+            try:
+                await bot.delete_message(chat_id=int(user_id), message_id=int(message_id))
+            except:
+                pass
+            # очищаємо рядок у Google Sheets
+            sheet.values().update(
                 spreadsheetId=os.getenv("SHEET_ID"),
-                range="Замовлення!A2:C1000"
-            ).execute().get("values", [])
-
-            now = datetime.now(kyiv)
-            updated_rows = []
-
-            for i, row in enumerate(result):
-                if len(row) < 3:
-                    continue
-                try:
-                    row_date = kyiv.localize(datetime.strptime(row[2], "%Y-%m-%d %H:%M:%S"))
-                    if (now - row_date).days > 31:
-                        # Замінити рядок на порожній
-                        row_num = i + 2
-                        updated_rows.append(f"Замовлення!A{row_num}:C{row_num}")
-                except Exception as e:
-                    print(f"⚠️ Помилка дати в рядку {i+2}: {e}")
-
-            for rng in updated_rows:
-                sheet.values().update(
-                    spreadsheetId=os.getenv("SHEET_ID"),
-                    range=rng,
-                    valueInputOption="RAW",
-                    body={"values": [["", "", ""]]}
-                ).execute()
-
-            print(f"🗑️ Видалено {len(updated_rows)} записів")
-
-        except Exception as e:
-            print(f"❌ Помилка в clean_old_requests: {e}")
-
-        await asyncio.sleep(3600 * 6)  # перевірка кожні 6 годин
+                range=f"Видалення!A{idx}:C{idx}",
+                valueInputOption="RAW",
+                body={"values":[["","",""]]}
+            ).execute()
 
 
 async def check_pending_payments():
@@ -697,6 +737,25 @@ async def clean_pro_endpoint():
 @app.api_route("/ping", methods=["GET", "HEAD"])
 async def ping():
     return {"status": "alive"}
+
+@app.post("/jobs/clean-requests")
+async def job_clean_requests():
+    """
+    HTTP-ендпоінт для одноразового запуску очищення старих замовлень.
+    Викликайте його CURL-ом або з GitHub Actions cron.
+    """
+    await clean_old_requests_once()
+    return {"ok": True, "cleared": "old orders cleaned"}
+
+@app.post("/jobs/delete-old-messages")
+async def job_delete_old_messages():
+    """
+    Одноразово видаляє всі застарілі відеоповідомлення за даними з аркуша 'Видалення'.
+    """
+    await background_deleter_once()
+    return {"ok": True, "deleted": "old messages removed"}
+
+
 @app.post("/reactivate-user")
 async def reactivate_user(req: Request):
     data = await req.json()

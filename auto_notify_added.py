@@ -116,7 +116,7 @@ async def check_and_notify():
 
         try:
             keyboard = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="☕ Підтримати RelaxTime", url="https://send.monobank.ua/jar/2FdmSYjoGo")],
+                [InlineKeyboardButton(text="☕ Підтримати RelaxTime", url="https://send.monobank.ua/jar/9wTjSL3xu2")],
                 [InlineKeyboardButton(text="📋 Скопіювати запрошення", switch_inline_query="Дивись фільми українською — @Relax_TimeBot")],
               
             ])

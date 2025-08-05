@@ -282,11 +282,14 @@ async def telegram_webhook(request: Request):
     await dp.feed_update(bot, update)
     return {"ok": True}
 
+from bot import bot, MEDIA_CHANNEL_ID
+from fastapi.responses import JSONResponse
+
 @app.post("/search-in-bot")
 async def search_in_bot(data: SearchRequest):
     user_id = data.user_id
-    query = data.query.lower()
-    username = data.username or ""
+    query   = data.query.lower().strip()
+    username  = data.username or ""
     first_name = data.first_name or ""
 
     if user_id:
@@ -295,18 +298,31 @@ async def search_in_bot(data: SearchRequest):
     if not user_id or not query:
         return {"found": False}
 
+    # знаходимо рядок, де є message_id
     films = get_gsheet_data()
+    found = next(
+        (f for f in films
+         if query in f.get("Назва", "").lower()
+         and f.get("message_id")), 
+        None
+    )
 
-    found_film = None
-    for film in films:
-        if query in film.get("Назва", "").lower() and film.get("Посилання"):
-            found_film = film
-            break
-
-    if found_film:
-        return {"found": True, "videoUrl": found_film["Посилання"]}
-    else:
+    if not found:
         return {"found": False}
+
+    # копіюємо це відео з вашого каналу-репозиторію в чат користувача
+    try:
+        await bot.copy_message(
+            chat_id=int(user_id),
+            from_chat_id=MEDIA_CHANNEL_ID,
+            message_id=int(found["message_id"]),
+        )
+    except Exception as e:
+        # якщо щось пішло не так — повертаємо помилку
+        return JSONResponse(status_code=500, content={"found": True, "error": str(e)})
+
+    # повертаємо фронтенду лише прапорець успіху
+    return {"found": True, "sent": True}
 
 from fastapi.responses import JSONResponse
 
@@ -331,8 +347,9 @@ async def send_film(request: Request):
         films = get_gsheet_data()
 
         found_film = None
+
         for film in films:
-            if film_name.lower() in film.get("Назва", "").lower() and film.get("file_id"):
+            if film_name.lower() in film.get("Назва", "").lower() and film.get("message_id"):
                 found_film = film
                 break
 
@@ -364,10 +381,10 @@ async def send_film(request: Request):
             f"🕓 Це повідомлення буде видалено о {delete_time_str} (за Києвом)."
         )
 
-        # Надсилаємо відео
-        sent_message = await bot.send_video(
+        sent_message = await bot.copy_message(
             chat_id=user_id,
-            video=found_film["file_id"],
+            from_chat_id=MEDIA_CHANNEL_ID,
+            message_id=int(found_film["message_id"]),  # тепер використовуємо message_id
             caption=caption,
             reply_markup=keyboard,
             parse_mode="Markdown"
@@ -402,7 +419,7 @@ async def send_film_by_id(request: Request):
     print(f"📽️ /send-film-id {file_id} від {user_id}")
 
     films = get_gsheet_data()  # ⬅️ додай це перед пошуком
-    found_film = next((f for f in films if f.get("file_id") == file_id), None)
+    found_film = next((f for f in films if f.get("message_id") == file_id), None)
 
     if not found_film:
         return {"success": False, "error": "Фільм не знайдено"}
@@ -424,9 +441,10 @@ async def send_film_by_id(request: Request):
 
     try:
         # Надсилаємо відео
-        sent_message = await bot.send_video(
-            chat_id=user_id,
-            video=file_id,
+        sent_message = await bot.copy_message(
+            chat_id=int(user_id),
+            from_chat_id=MEDIA_CHANNEL_ID,
+            message_id=int(found_film["message_id"]),
             caption=caption,
             reply_markup=keyboard,
             parse_mode="HTML"
@@ -895,6 +913,9 @@ import asyncio
 import os
 from google_api import get_google_service
 from bot import bot
+# ── ID приватного каналу-репозиторію з фільмами
+MEDIA_CHANNEL_ID = int(os.getenv("MEDIA_CHANNEL_ID"))
+
 
 async def notify_pro_expiring():
     service = get_google_service()

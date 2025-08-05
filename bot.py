@@ -15,6 +15,7 @@ from google_api import get_google_service
 from aiogram.exceptions import TelegramForbiddenError, TelegramBadRequest
 from datetime import datetime, timedelta
 from aiogram import types
+MEDIA_CHANNEL_ID = int(os.getenv("MEDIA_CHANNEL_ID"))
 
 
 def clean_expired_pro():
@@ -97,17 +98,7 @@ async def safe_send_admin(bot, admin_id, text, **kwargs):
         print(f"❗ Не вдалося надіслати повідомлення адміну {admin_id}: {e}")
         return False
 
-@dp.message()
-async def catch_forward(message: types.Message):
-    # Якщо це форвард з каналу — в message.forward_from_chat з’явиться об’єкт Chat
-    if message.forward_from_chat:
-        cid = message.forward_from_chat.id
-        await bot.send_message(
-            chat_id=int(os.getenv("ADMIN_ID")),
-            text=f"📢 ID вашого каналу = `{cid}`",
-            parse_mode="Markdown"
-        )
-    # Інакше пропустимо обробку далі
+
 
 
 @dp.message(Command("webapp"))
@@ -206,23 +197,26 @@ async def start_handler(message: types.Message):
         if film:
             name = film.get("Назва", "Без назви")
             desc = film.get("Опис", "Без опису")
-            file_id = film.get("file_id")
+            message_id = film.get("message_id")
             caption = f"*🎬 {name}*\n{desc}"
 
             print(f"✅ Надсилаємо фільм: {name}")
-            print(f"🎞 file_id: {file_id}")
+            print(f"🆔 message_id: {message_id}")
 
-            if file_id:
+            if message_id:
                 try:
-                    await bot.send_video(
+                    # копіюємо вже завантажене відео з вашого каналу-репозиторію
+                    await bot.copy_message(
                         chat_id=message.chat.id,
-                        video=file_id,
+                        from_chat_id=MEDIA_CHANNEL_ID,
+                        message_id=int(message_id),
                         caption=caption,
                         parse_mode="Markdown"
                     )
                 except Exception as e:
-                    print(f"❌ Помилка надсилання відео: {e}")
-                    await safe_send(bot, message.chat.id, "⚠️ Не вдалося надіслати відео")
+                    print(f"❌ Помилка копіювання відео: {e}")
+                    await safe_send(bot, message.chat.id, "⚠️ Не вдалося відправити відео")
+                    
             else:
                 await message.answer(caption, parse_mode="Markdown")
         else:
@@ -274,23 +268,26 @@ async def process_message(message: types.Message):
     if film:
         name = film.get("Назва", "Без назви")
         desc = film.get("Опис", "Без опису")
-        file_id = film.get("file_id")
+        message_id = film.get("message_id")
 
         caption = f"*🎬 {name}*\n{desc}"
         print(f"✅ Надсилаємо фільм: {name}")
-        print(f"🎞 file_id: {file_id}")
+        print(f"🆔 message_id: {message_id}")
 
-        if file_id:
+        if message_id:
             try:
-                await bot.send_video(
+                await bot.copy_message(
                     chat_id=message.chat.id,
-                    video=file_id,
+                    from_chat_id=MEDIA_CHANNEL_ID,
+                    message_id=int(message_id),
                     caption=caption,
                     parse_mode="Markdown"
                 )
             except Exception as e:
-                print(f"❌ Помилка надсилання відео: {e}")
-                await safe_send(bot, message.chat.id, "⚠️ Не вдалося надіслати відео")
+                print(f"❌ Помилка копіювання відео: {e}")
+                await safe_send(bot, message.chat.id, "⚠️ Не вдалося відправити відео")
+
+
         else:
             await message.answer(caption, parse_mode="Markdown")
         return

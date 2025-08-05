@@ -1,0 +1,28 @@
+name: 🚀 Щоденний пост у канал
+
+# Запускається щодня о 09:00 UTC і вручну по кнопці
+on:
+  schedule:
+    - cron: '0 9 * * *'
+  workflow_dispatch:
+
+jobs:
+  send_post:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Set up Python 3.x
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Run send_channel_post.py
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+        run: python send_channel_post.py

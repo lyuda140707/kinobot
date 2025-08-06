@@ -414,13 +414,25 @@ async def send_film(request: Request):
 async def send_film_by_id(request: Request):
     data = await request.json()
     user_id = str(data.get("user_id"))
-    message_id = data.get("message_id")
+    message_id = str(data.get("message_id")).strip()
 
     print(f"📽️ /send-film-id {message_id} від {user_id}")
 
+    films = get_gsheet_data()
 
-    films = get_gsheet_data()  # ⬅️ додай це перед пошуком
-    found_film = next((f for f in films if f.get("message_id") == message_id), None)
+    # ✨ Спочатку шукаємо за message_id
+    found_film = next(
+        (f for f in films if str(f.get("message_id", "")).strip() == message_id),
+        None
+    )
+
+    # 🔄 Якщо не знайдено — пробуємо знайти за file_id
+    if not found_film:
+        found_film = next(
+            (f for f in films if str(f.get("file_id", "")).strip() == message_id),
+            None
+        )
+
     if not found_film:
         return {"success": False, "error": "Фільм не знайдено"}
 
@@ -440,11 +452,14 @@ async def send_film_by_id(request: Request):
     )
 
     try:
+        # Визначаємо, яке ID використовувати для копіювання
+        original_message_id = found_film.get("message_id") or found_film.get("file_id")
+
         # Надсилаємо відео
         sent_message = await bot.copy_message(
             chat_id=int(user_id),
             from_chat_id=MEDIA_CHANNEL_ID,
-            message_id=int(found_film["message_id"]),
+            message_id=int(original_message_id),
             caption=caption,
             reply_markup=keyboard,
             parse_mode="HTML"
@@ -470,7 +485,6 @@ async def send_film_by_id(request: Request):
     except Exception as e:
         print(f"❌ Помилка надсилання: {e}")
         return {"success": False, "error": str(e)}
-
 
 
 

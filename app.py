@@ -414,13 +414,12 @@ async def send_film(request: Request):
 async def send_film_by_id(request: Request):
     data = await request.json()
     user_id = str(data.get("user_id"))
-    file_id = data.get("file_id")
+    message_id = data.get("message_id")
 
     print(f"📽️ /send-film-id {file_id} від {user_id}")
 
     films = get_gsheet_data()  # ⬅️ додай це перед пошуком
-    found_film = next((f for f in films if f.get("message_id") == file_id), None)
-
+    found_film = next((f for f in films if f.get("message_id") == message_id), None)
     if not found_film:
         return {"success": False, "error": "Фільм не знайдено"}
 

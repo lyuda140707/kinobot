@@ -15,6 +15,7 @@ from google_api import get_google_service
 from aiogram.exceptions import TelegramForbiddenError, TelegramBadRequest
 from datetime import datetime, timedelta
 from aiogram import types
+from google_api import add_user_if_not_exists
 MEDIA_CHANNEL_ID = int(os.getenv("MEDIA_CHANNEL_ID"))
 
 
@@ -185,6 +186,14 @@ from google_api import find_film_by_name
 
 @dp.message(Command("start"))
 async def start_handler(message: types.Message):
+    # ————— 1) Записуємо користувача в Google Sheets —————
+    add_user_if_not_exists(
+        user_id=message.from_user.id,
+        username=message.from_user.username or "",
+        first_name=message.from_user.first_name or ""
+    )
+
+    # ————— 2) Далі ваша існуюча логіка —————
     if message.text and len(message.text.split()) > 1:
         query = message.text.split(maxsplit=1)[1].strip()
     else:
@@ -192,7 +201,6 @@ async def start_handler(message: types.Message):
 
     if query:
         print(f"🔍 Отримано запит: {query}")
-
         film = find_film_by_name(query)
         if film:
             name = film.get("Назва", "Без назви")
@@ -205,7 +213,6 @@ async def start_handler(message: types.Message):
 
             if message_id:
                 try:
-                    # копіюємо вже завантажене відео з вашого каналу-репозиторію
                     await bot.copy_message(
                         chat_id=message.chat.id,
                         from_chat_id=MEDIA_CHANNEL_ID,
@@ -216,14 +223,17 @@ async def start_handler(message: types.Message):
                 except Exception as e:
                     print(f"❌ Помилка копіювання відео: {e}")
                     await safe_send(bot, message.chat.id, "⚠️ Не вдалося відправити відео")
-                    
             else:
                 await message.answer(caption, parse_mode="Markdown")
         else:
             await safe_send(bot, message.chat.id, "Фільм не знайдено 😢")
     else:
-        await safe_send(bot, message.chat.id, "☕ Хочеш трохи відпочити? Натискай кнопку — усе вже готово!", reply_markup=webapp_keyboard)
-
+        await safe_send(
+            bot,
+            message.chat.id,
+            "☕ Хочеш трохи відпочити? Натискай кнопку — усе вже готово!",
+            reply_markup=webapp_keyboard
+        )
 
 
 @dp.message(F.video)

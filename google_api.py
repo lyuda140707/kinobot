@@ -102,6 +102,8 @@ def find_film_by_name(film_name):
             "Добірка": film_row[6] if len(film_row) > 6 else "",
             "Країна": film_row[7] if len(film_row) > 7 else "",
             "Рік": film_row[8] if len(film_row) > 8 else "",
+            "file_id": film_row[9] if len(film_row) > 9 else "", 
+            
             "Доступ": film_row[10] if len(film_row) > 10 else "",
             "IMDb": film_row[11] if len(film_row) > 11 else "",
         }

@@ -248,6 +248,12 @@ async def get_file_id(message: types.Message):
 
 @dp.message(F.text)
 async def process_message(message: types.Message):
+    add_user_if_not_exists(
+        user_id=message.from_user.id,
+        username=message.from_user.username or "",
+        first_name=message.from_user.first_name or ""
+    )
+    
     # --- /reply (відповідь адміну)
     if message.text and message.text.startswith('/reply '):
         parts = message.text.split(' ', 2)

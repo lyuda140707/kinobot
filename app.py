@@ -416,7 +416,8 @@ async def send_film_by_id(request: Request):
     user_id = str(data.get("user_id"))
     message_id = data.get("message_id")
 
-    print(f"📽️ /send-film-id {file_id} від {user_id}")
+    print(f"📽️ /send-film-id {message_id} від {user_id}")
+
 
     films = get_gsheet_data()  # ⬅️ додай це перед пошуком
     found_film = next((f for f in films if f.get("message_id") == message_id), None)

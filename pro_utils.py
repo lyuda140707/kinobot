@@ -1,7 +1,6 @@
 from google_api import get_google_service
 import os
 from datetime import datetime
-from datetime import timedelta
 from pytz import timezone
 from utils.date_utils import safe_parse_date
 import logging
@@ -66,56 +65,3 @@ def has_active_pro(user_id: str) -> bool:
         return False
 
     return False
-
-from datetime import timedelta
-
-def add_pro_user(user_id: str) -> bool:
-    """
-    Додає або оновлює PRO-доступ для користувача в Google Таблиці
-    """
-    user_id = str(user_id).strip()
-
-    # 🔧 Прибираємо ".0", якщо є
-    if user_id.endswith(".0"):
-        user_id = user_id.replace(".0", "")
-
-    service = get_google_service()
-    sheet = service.spreadsheets()
-    sheet_id = os.getenv("SHEET_ID")
-
-    # Дата сьогодні + 30 днів
-    kyiv = timezone("Europe/Kyiv")
-    today = datetime.now(kyiv).date()
-    expire_date = (today + timedelta(days=30)).strftime("%Y-%m-%d")
-
-    # Зчитуємо таблицю
-    res = sheet.values().get(spreadsheetId=sheet_id, range="PRO!A2:D1000").execute()
-    rows = res.get("values", [])
-
-    # Шукаємо юзера
-    for idx, row in enumerate(rows, start=2):
-        if len(row) == 0:
-            continue
-        uid = row[0].strip()
-        if uid == user_id:
-            # 🔁 Якщо є — оновити статус і дату
-            sheet.values().update(
-                spreadsheetId=sheet_id,
-                range=f"PRO!B{idx}:D{idx}",
-                valueInputOption="RAW",
-                body={"values": [["", "Активно", expire_date]]}
-            ).execute()
-            logger.info(f"✅ PRO оновлено для {user_id} у рядку {idx}")
-            return True
-
-    # ➕ Якщо нового користувача ще немає — додаємо
-    sheet.values().append(
-        spreadsheetId=sheet_id,
-        range="PRO!A2",
-        valueInputOption="RAW",
-        insertDataOption="INSERT_ROWS",
-        body={"values": [[user_id, "", "Активно", expire_date]]}
-    ).execute()
-    logger.info(f"✅ PRO додано для нового користувача {user_id}")
-    return True
-

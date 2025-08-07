@@ -142,24 +142,26 @@ async def activate_pro(message: Message):
     rows = res.get("values", [])
 
     for idx, row in enumerate(rows, start=2):
-        if len(row) >= 1 and row[0] == user_id:
-            # Отримаємо username, якщо є
-            username = row[1] if len(row) > 1 else ""
+        if len(row) < 1:
+            continue
 
-            # 🔁 Оновлюємо ВСІ стовпці A–D
-            sheet.values().update(
-                spreadsheetId=os.getenv("SHEET_ID"),
-                range=f"PRO!A{idx}:D{idx}",
-                valueInputOption="RAW",
-                body={"values": [[user_id, username, "Активно", expire_str]]}
-            ).execute()
+        sheet_user_id = str(row[0]).split('.')[0]  # <- ось тут ключ
+        if sheet_user_id != user_id:
+            continue
 
-            await message.reply(f"✅ PRO активовано для {user_id} до {expire_str}")
-            return
+        username = row[1] if len(row) > 1 else ""
+
+        sheet.values().update(
+            spreadsheetId=os.getenv("SHEET_ID"),
+            range=f"PRO!A{idx}:D{idx}",
+            valueInputOption="RAW",
+            body={"values": [[user_id, username, "Активно", expire_str]]}
+        ).execute()
+
+        await message.reply(f"✅ PRO активовано для {user_id} до {expire_str}")
+        return
 
     await message.reply("❌ Користувача не знайдено в таблиці")
-
-
 from google_api import find_film_by_name
 
 @dp.message(Command("start"))

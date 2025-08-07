@@ -16,6 +16,7 @@ from aiogram.exceptions import TelegramForbiddenError, TelegramBadRequest
 from datetime import datetime, timedelta
 from aiogram import types
 from google_api import add_user_if_not_exists
+from aiogram.types import Message
 MEDIA_CHANNEL_ID = int(os.getenv("MEDIA_CHANNEL_ID"))
 
 

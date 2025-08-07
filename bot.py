@@ -115,58 +115,80 @@ async def send_webapp(message: types.Message):
 
 @dp.message(Command("ok"))
 async def approve_pro(message: types.Message):
+    print("✅ Стартував approve_pro")
+    print(f"From user id: {message.from_user.id}, text: {message.text}")
+
     if message.from_user.id != 7963871119:  # свій ID
+        print("⛔ Не твій адмінський ID, вихід.")
         return
 
     args = message.text.split()
     if len(args) != 2 or not args[1].isdigit():
+        print("⛔ Некоректний формат команди")
         await message.reply("⚠️ Формат: /ok user_id")
         return
 
     user_id = args[1].strip()
+    print(f"🔎 Шукаємо user_id = {user_id}")
+
     service = get_google_service()
     sheet = service.spreadsheets()
     spreadsheet_id = os.getenv("SHEET_ID")
-
     expire_date = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d")
 
-    # Отримати всі записи
-    res = sheet.values().get(
-        spreadsheetId=spreadsheet_id,
-        range="PRO!A2:D1000"
-    ).execute()
-    rows = res.get("values", [])
+    try:
+        res = sheet.values().get(
+            spreadsheetId=spreadsheet_id,
+            range="PRO!A2:D1000"
+        ).execute()
+        rows = res.get("values", [])
+        print(f"Знайдено {len(rows)} рядків у PRO")
+    except Exception as e:
+        print("❌ Не вдалося отримати записи з Google Sheets:", e)
+        await message.reply(f"❌ Помилка читання таблиці: {e}")
+        return
 
-    # Знайти всі рядки з цим user_id
     matched_rows = [(i + 2, row) for i, row in enumerate(rows) if len(row) >= 1 and row[0] == user_id]
+    print(f"matched_rows: {matched_rows}")
 
     if matched_rows:
-        # Оновлюємо перший, решту чистимо
         for idx, (row_number, row) in enumerate(matched_rows):
+            print(f"➡️ Оновлюємо рядок {row_number} (idx={idx})")
             if idx == 0:
                 username = row[1] if len(row) > 1 else ""
-                sheet.values().update(
-                    spreadsheetId=spreadsheet_id,
-                    range=f"PRO!A{row_number}:D{row_number}",
-                    valueInputOption="USER_ENTERED",
-                    body={"values": [[user_id, username, "Активно", expire_date]]}
-                ).execute()
+                try:
+                    sheet.values().update(
+                        spreadsheetId=spreadsheet_id,
+                        range=f"PRO!A{row_number}:D{row_number}",
+                        valueInputOption="USER_ENTERED",
+                        body={"values": [[user_id, username, "Активно", expire_date]]}
+                    ).execute()
+                    print(f"✅ Основний рядок оновлено ({row_number})")
+                except Exception as e:
+                    print("❌ Не вдалося оновити основний рядок:", e)
             else:
-                # Очистити дублі
-                sheet.values().update(
-                    spreadsheetId=spreadsheet_id,
-                    range=f"PRO!A{row_number}:D{row_number}",
-                    valueInputOption="RAW",
-                    body={"values": [["", "", "", ""]]}
-                ).execute()
+                try:
+                    sheet.values().update(
+                        spreadsheetId=spreadsheet_id,
+                        range=f"PRO!A{row_number}:D{row_number}",
+                        valueInputOption="RAW",
+                        body={"values": [["", "", "", ""]]}
+                    ).execute()
+                    print(f"🗑️ Дубль рядок очищено ({row_number})")
+                except Exception as e:
+                    print("❌ Не вдалося очистити дубль:", e)
     else:
-        # Якщо запису нема — додаємо
-        sheet.values().append(
-            spreadsheetId=spreadsheet_id,
-            range="PRO!A2:D2",
-            valueInputOption="USER_ENTERED",
-            body={"values": [[user_id, "", "Активно", expire_date]]}
-        ).execute()
+        print("⚠️ Не знайдено такого user_id, додаємо новий")
+        try:
+            sheet.values().append(
+                spreadsheetId=spreadsheet_id,
+                range="PRO!A2:D2",
+                valueInputOption="USER_ENTERED",
+                body={"values": [[user_id, "", "Активно", expire_date]]}
+            ).execute()
+            print("✅ Додано новий рядок")
+        except Exception as e:
+            print("❌ Не вдалося додати новий рядок:", e)
 
     await message.reply(f"✅ PRO активовано для {user_id} до {expire_date}")
 
@@ -175,12 +197,9 @@ async def approve_pro(message: types.Message):
             chat_id=int(user_id),
             text=f"🎉 Ваш PRO доступ активовано до {expire_date}! Дякуємо за підтримку 💛"
         )
+        print(f"✅ Сповіщення надіслано користувачу {user_id}")
     except Exception as e:
         print(f"⚠️ Не вдалося надіслати повідомлення користувачу {user_id}: {e}")
-
-
-
-
 
 from google_api import find_film_by_name
 

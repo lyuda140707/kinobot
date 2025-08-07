@@ -16,7 +16,6 @@ from aiogram.exceptions import TelegramForbiddenError, TelegramBadRequest
 from datetime import datetime, timedelta
 from aiogram import types
 from google_api import add_user_if_not_exists
-from aiogram.types import Message
 MEDIA_CHANNEL_ID = int(os.getenv("MEDIA_CHANNEL_ID"))
 
 
@@ -115,53 +114,74 @@ async def send_webapp(message: types.Message):
 
 
 @dp.message(Command("ok"))
-async def activate_pro(message: Message):
-    args = message.text.strip().split()
-    if len(args) != 2:
-        await message.reply("⚠️ Вкажи ID користувача: /ok 123456789")
+async def approve_pro(message: types.Message):
+    if message.from_user.id != 7963871119:  # свій ID
+        return
+
+    args = message.text.split()
+    if len(args) != 2 or not args[1].isdigit():
+        await message.reply("⚠️ Формат: /ok user_id")
         return
 
     user_id = args[1].strip()
-    if not user_id.isdigit():
-        await message.reply("❌ Некоректний ID")
-        return
-
     service = get_google_service()
     sheet = service.spreadsheets()
-    kyiv = timezone("Europe/Kyiv")
-    now = datetime.now(kyiv)
-    expire = now + timedelta(days=30)
-    expire_str = expire.strftime("%Y-%m-%d")
+    spreadsheet_id = os.getenv("SHEET_ID")
 
-    # Зчитуємо всі рядки з таблиці
+    expire_date = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d")
+
+    # Отримати всі записи
     res = sheet.values().get(
-        spreadsheetId=os.getenv("SHEET_ID"),
+        spreadsheetId=spreadsheet_id,
         range="PRO!A2:D1000"
     ).execute()
-
     rows = res.get("values", [])
 
-    for idx, row in enumerate(rows, start=2):
-        if len(row) < 1:
-            continue
+    # Знайти всі рядки з цим user_id
+    matched_rows = [(i + 2, row) for i, row in enumerate(rows) if len(row) >= 1 and row[0] == user_id]
 
-        sheet_user_id = str(row[0]).split('.')[0]  # <- ось тут ключ
-        if sheet_user_id != user_id:
-            continue
-
-        username = row[1] if len(row) > 1 else ""
-
-        sheet.values().update(
-            spreadsheetId=os.getenv("SHEET_ID"),
-            range=f"PRO!A{idx}:D{idx}",
-            valueInputOption="RAW",
-            body={"values": [[user_id, username, "Активно", expire_str]]}
+    if matched_rows:
+        # Оновлюємо перший, решту чистимо
+        for idx, (row_number, row) in enumerate(matched_rows):
+            if idx == 0:
+                username = row[1] if len(row) > 1 else ""
+                sheet.values().update(
+                    spreadsheetId=spreadsheet_id,
+                    range=f"PRO!A{row_number}:D{row_number}",
+                    valueInputOption="USER_ENTERED",
+                    body={"values": [[user_id, username, "Активно", expire_date]]}
+                ).execute()
+            else:
+                # Очистити дублі
+                sheet.values().update(
+                    spreadsheetId=spreadsheet_id,
+                    range=f"PRO!A{row_number}:D{row_number}",
+                    valueInputOption="RAW",
+                    body={"values": [["", "", "", ""]]}
+                ).execute()
+    else:
+        # Якщо запису нема — додаємо
+        sheet.values().append(
+            spreadsheetId=spreadsheet_id,
+            range="PRO!A2:D2",
+            valueInputOption="USER_ENTERED",
+            body={"values": [[user_id, "", "Активно", expire_date]]}
         ).execute()
 
-        await message.reply(f"✅ PRO активовано для {user_id} до {expire_str}")
-        return
+    await message.reply(f"✅ PRO активовано для {user_id} до {expire_date}")
 
-    await message.reply("❌ Користувача не знайдено в таблиці")
+    try:
+        await bot.send_message(
+            chat_id=int(user_id),
+            text=f"🎉 Ваш PRO доступ активовано до {expire_date}! Дякуємо за підтримку 💛"
+        )
+    except Exception as e:
+        print(f"⚠️ Не вдалося надіслати повідомлення користувачу {user_id}: {e}")
+
+
+
+
+
 from google_api import find_film_by_name
 
 @dp.message(Command("start"))
@@ -289,3 +309,4 @@ async def process_message(message: types.Message):
         return
 
     await safe_send(bot, message.chat.id, "Фільм не знайдено 😢")
+    

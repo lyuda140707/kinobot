@@ -1,16 +1,18 @@
-from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup
 import os
+from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup
 
 def main():
     token = os.getenv('BOT_TOKEN')
-    channel = os.getenv('CHANNEL_ID')  # наприклад: "@RelaxBoxUA"
+    channel = os.getenv('CHANNEL_ID')
 
     bot = Bot(token=token)
 
-    qr_path = "qr.png"  # бо він у корені, як і сам скрипт
+    qr_path = "qr.png"  # файл лежить у корені
 
     text = (
-        "📲 Скануй QR-код або тисни кнопку нижче, щоб відкрити бота 🎬"
+        "🎬 Привіт! Саме час поділитися нашим ботом 🎉\n\n"
+        "📲 Скануй QR-код або тисни кнопку нижче, щоб перейти до бота\n"
+        "👇👇👇"
     )
 
     keyboard = InlineKeyboardMarkup([

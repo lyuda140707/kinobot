@@ -9,3 +9,4 @@ pytz
 python-dateutil
 httpx>=0.23.0
 json-log-formatter
+python-telegram-bot==13.15

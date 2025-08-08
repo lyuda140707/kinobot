@@ -1,12 +1,12 @@
 import os
+import asyncio
 from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup
 
-def main():
+async def main():
     token = os.getenv('BOT_TOKEN')
-    channels = ["@KinoTochkaUA", "@KinoTochkaFilms"]  # список каналів
-
     bot = Bot(token=token)
 
+    channels = ["@KinoTochkaUA", "@KinoTochkaFilms"]
     qr_path = "qr.png"
 
     text = (
@@ -19,14 +19,18 @@ def main():
         [InlineKeyboardButton("🔓 Відкрити", url="https://t.me/RelaxBox_UA_bot")]
     ])
 
-    with open(qr_path, 'rb') as photo:
-        for channel in channels:
-            bot.send_photo(
-                chat_id=channel,
-                photo=photo,
-                caption=text,
-                reply_markup=keyboard
-            )
+    for ch in channels:
+        try:
+            with open(qr_path, 'rb') as photo:
+                await bot.send_photo(
+                    chat_id=ch,
+                    photo=photo,
+                    caption=text,
+                    reply_markup=keyboard
+                )
+                print(f"✅ Надіслано у {ch}")
+        except Exception as e:
+            print(f"❌ Помилка у {ch}: {e}")
 
 if __name__ == '__main__':
-    main()
+    asyncio.run(main())

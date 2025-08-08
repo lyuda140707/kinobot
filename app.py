@@ -125,6 +125,7 @@ async def lifespan(app: FastAPI):
 # ✅ Оголошення FastAPI ДО використання декораторів
 app = FastAPI(lifespan=lifespan)
 
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],      # ← дозволяємо всі Origin для дебагу
@@ -132,6 +133,20 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+BAD_BOTS = [
+    "Googlebot", "Bingbot", "AhrefsBot", "YandexBot", "SEMRushBot",
+    "DotBot", "MJ12bot", "facebookexternalhit", "Applebot", "DuckDuckBot"
+]
+
+@app.middleware("http")
+async def block_bots(request: Request, call_next):
+    user_agent = request.headers.get("User-Agent", "")
+    if any(bot.lower() in user_agent.lower() for bot in BAD_BOTS):
+        raise HTTPException(status_code=403, detail="Bots are not allowed")
+    return await call_next(request)
+
 
 # ✅ ДОДАЙ ОЦЕ СЮДИ
 @app.get("/")

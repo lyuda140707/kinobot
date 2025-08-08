@@ -86,7 +86,7 @@ dp = Dispatcher(storage=MemoryStorage())
 webapp_keyboard = InlineKeyboardMarkup(inline_keyboard=[
     [InlineKeyboardButton(
         text="🛋 Відкрити застосунок",
-        web_app=WebAppInfo(url="https://lyuda140707.github.io/kinobot-webapp/")
+        web_app=WebAppInfo(url="https://relaxbox.site/")
     )]
 ])
 
@@ -107,7 +107,7 @@ async def send_webapp(message: types.Message):
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(
             text="😎 Відкрити WebApp",
-            web_app=WebAppInfo(url="https://lyuda140707.github.io/kinobot-webapp/")
+            web_app=WebAppInfo(url="https://relaxbox.site/")
         )]
     ])
     await message.answer("Ось кнопка для відкриття WebApp:", reply_markup=keyboard)

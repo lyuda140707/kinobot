@@ -3,11 +3,11 @@ from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup
 
 def main():
     token = os.getenv('BOT_TOKEN')
-    channel = os.getenv('CHANNEL_ID')
+    channels = ["@KinoTochkaUA", "@KinoTochkaFilms"]  # список каналів
 
     bot = Bot(token=token)
 
-    qr_path = "qr.png"  # файл лежить у корені
+    qr_path = "qr.png"
 
     text = (
         "🎬 Привіт! Саме час поділитися нашим ботом 🎉\n\n"
@@ -20,12 +20,13 @@ def main():
     ])
 
     with open(qr_path, 'rb') as photo:
-        bot.send_photo(
-            chat_id=channel,
-            photo=photo,
-            caption=text,
-            reply_markup=keyboard
-        )
+        for channel in channels:
+            bot.send_photo(
+                chat_id=channel,
+                photo=photo,
+                caption=text,
+                reply_markup=keyboard
+            )
 
 if __name__ == '__main__':
     main()

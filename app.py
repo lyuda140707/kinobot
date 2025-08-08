@@ -381,7 +381,7 @@ async def send_film(request: Request):
             inline_keyboard=[
                 [InlineKeyboardButton(
                     text="🎥 Обрати інший фільм 📚",
-                    web_app=WebAppInfo(url="https://lyuda140707.github.io/kinobot-webapp/")
+                    web_app=WebAppInfo(url="https://relaxbox.site/")
                 )]
             ]
         )
@@ -461,7 +461,7 @@ async def send_film_by_id(request: Request):
         inline_keyboard=[
             [InlineKeyboardButton(
                 text="🎥 Обрати інший фільм 📚",
-                web_app=WebAppInfo(url="https://lyuda140707.github.io/kinobot-webapp/")
+                web_app=WebAppInfo(url="https://relaxbox.site/")
             )]
         ]
     )
@@ -668,7 +668,7 @@ async def check_pending_payments_once():
                     inline_keyboard=[[
                         InlineKeyboardButton(
                             text="🚀 Повторити оплату",
-                            web_app=WebAppInfo(url="https://lyuda140707.github.io/kinobot-webapp/")
+                            web_app=WebAppInfo(url="https://relaxbox.site/")
                         )
                     ]]
                 )
@@ -752,7 +752,7 @@ async def check_pending_payments():
                             inline_keyboard=[[
                                 InlineKeyboardButton(
                                     text="🚀 Повторити оплату",
-                                    web_app=WebAppInfo(url="https://lyuda140707.github.io/kinobot-webapp/")
+                                    web_app=WebAppInfo(url="https://relaxbox.site/")
                                 )
                             ]]
                         )

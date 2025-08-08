@@ -1,4 +1,3 @@
-# .github/workflows/send_post.yml
 name: 🚀 Щоденний пост у канал
 
 on:
@@ -25,34 +24,6 @@ jobs:
       - name: Run send_channel_post.py
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
-          CHANNEL_ID: ${{ secrets.CHANNEL_ID }}  # ваш CHANNEL_ID, наприклад @YourChannel
+          # Наприклад: @RelaxBoxUA
+          CHANNEL_ID: ${{ secrets.CHANNEL_ID }}
         run: python send_channel_post.py
-```
-
-```python
-# send_channel_post.py
-import os
-from telegram import Bot
-
-def main():
-    token = os.getenv('BOT_TOKEN')
-    channel = os.getenv('CHANNEL_ID')
-
-    bot = Bot(token=token)
-
-    text = (
-        "🎬 Привіт! Саме час поділитися нашими улюбленими каналами:
-"
-        "
-"  "— @KinoTochkaFilms
-"
-        "— @KinoTochkaUA
-"
-        "
-Не забувайте підписуватися, щоб бути в курсі всіх новинок! 🍿"
-    )
-
-    bot.send_message(chat_id=channel, text=text)
-
-if __name__ == '__main__':
-    main()

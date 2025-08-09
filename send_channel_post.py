@@ -12,8 +12,8 @@ async def main():
     channels = ["@KinoTochkaUA", "@KinoTochkaFilms"]
     qr_path = "qr.png"
 
-    # URL через твій домен-редіректор
-    button_url = "https://relaxbox.site/go?u=RelaxBox_UA_bot&s=promo"
+    # ✅ Прямий deep-link у Telegram без браузера
+    button_url = "tg://resolve?domain=RelaxBox_UA_bot&start=promo"
 
     text = (
         "🎬 Привіт! Саме час поділитися нашим ботом 🎉\n\n"

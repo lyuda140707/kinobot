@@ -3,7 +3,7 @@ import asyncio
 from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup
 
 async def main():
-    token = os.getenv("BOT_TOKEN")
+    token = os.getenv('BOT_TOKEN')
     if not token:
         raise RuntimeError("ENV BOT_TOKEN не заданий")
 
@@ -12,7 +12,7 @@ async def main():
     channels = ["@KinoTochkaUA", "@KinoTochkaFilms"]
     qr_path = "qr.png"
 
-    # ✅ Прямий deep-link у Telegram без браузера
+    # ✅ Прямий deep‑link у Telegram (без t.me у reply_markup)
     button_url = "tg://resolve?domain=RelaxBox_UA_bot&start=promo"
 
     text = (
@@ -28,7 +28,7 @@ async def main():
     for ch in channels:
         try:
             if os.path.exists(qr_path):
-                with open(qr_path, "rb") as photo:
+                with open(qr_path, 'rb') as photo:
                     await bot.send_photo(
                         chat_id=ch,
                         photo=photo,
@@ -45,5 +45,5 @@ async def main():
         except Exception as e:
             print(f"❌ Помилка у {ch}: {e}")
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     asyncio.run(main())

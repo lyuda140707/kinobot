@@ -203,56 +203,72 @@ async def approve_pro(message: types.Message):
 
 from google_api import find_film_by_name
 
+from aiogram.filters import Command
+
 @dp.message(Command("start"))
 async def start_handler(message: types.Message):
-    # ————— 1) Записуємо користувача в Google Sheets —————
+    # 1) Записуємо користувача
     add_user_if_not_exists(
         user_id=message.from_user.id,
         username=message.from_user.username or "",
         first_name=message.from_user.first_name or ""
     )
 
-    # ————— 2) Далі ваша існуюча логіка —————
+    # 2) Дістаємо payload після /start
+    payload = None
     if message.text and len(message.text.split()) > 1:
-        query = message.text.split(maxsplit=1)[1].strip()
-    else:
-        query = None
+        payload = message.text.split(maxsplit=1)[1].strip()
 
-    if query:
-        print(f"🔍 Отримано запит: {query}")
-        film = find_film_by_name(query)
-        if film:
-            name = film.get("Назва", "Без назви")
-            desc = film.get("Опис", "Без опису")
-            message_id = film.get("message_id")
-            caption = f"*🎬 {name}*\n{desc}"
-
-            print(f"✅ Надсилаємо фільм: {name}")
-            print(f"🆔 message_id: {message_id}")
-
-            if message_id:
-                try:
-                    await bot.copy_message(
-                        chat_id=message.chat.id,
-                        from_chat_id=MEDIA_CHANNEL_ID,
-                        message_id=int(message_id),
-                        caption=caption,
-                        parse_mode="Markdown"
-                    )
-                except Exception as e:
-                    print(f"❌ Помилка копіювання відео: {e}")
-                    await safe_send(bot, message.chat.id, "⚠️ Не вдалося відправити відео")
-            else:
-                await message.answer(caption, parse_mode="Markdown")
-        else:
-            await safe_send(bot, message.chat.id, "Фільм не знайдено 😢")
-    else:
+    # 3) Якщо payload відсутній або НЕ той формат, що ми очікуємо —
+    #    НЕ показуємо "Фільм не знайдено", а даємо кнопку WebApp.
+    if not payload or not (payload.startswith("film_") or payload.startswith("series_")):
         await safe_send(
             bot,
             message.chat.id,
             "☕ Хочеш трохи відпочити? Натискай кнопку — усе вже готово!",
             reply_markup=webapp_keyboard
         )
+        return
+
+    # 4) Якщо payload валідний — дістаємо id і шлемо відео з каналу
+    film_id = payload.split("_", 1)[1]  # все, що після 'film_' або 'series_'
+    # шукаємо рядок у таблиці, де message_id == film_id (або file_id як fallback)
+    films = get_gsheet_data()
+    found = next(
+        (f for f in films
+         if str(f.get("message_id", "")).strip() == film_id
+         or str(f.get("file_id", "")).strip() == film_id),
+        None
+    )
+
+    if not found:
+        # навіть у цьому випадку — краще не лякати користувача помилкою
+        await safe_send(
+            bot,
+            message.chat.id,
+            "🎬 Відкрий застосунок і обери фільм 👇",
+            reply_markup=webapp_keyboard
+        )
+        return
+
+    name = found.get("Назва", "Без назви")
+    desc = found.get("Опис", "Без опису")
+    original_message_id = found.get("message_id") or found.get("file_id")
+
+    caption = f"*🎬 {name}*\n{desc}"
+
+    try:
+        await bot.copy_message(
+            chat_id=message.chat.id,
+            from_chat_id=MEDIA_CHANNEL_ID,
+            message_id=int(original_message_id),
+            caption=caption,
+            parse_mode="Markdown"
+        )
+    except Exception as e:
+        print(f"❌ Помилка копіювання відео: {e}")
+        await safe_send(bot, message.chat.id, "⚠️ Не вдалося відправити відео")
+
 
 
 @dp.message(F.video)

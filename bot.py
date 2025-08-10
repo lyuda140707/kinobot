@@ -16,7 +16,12 @@ from aiogram.exceptions import TelegramForbiddenError, TelegramBadRequest
 from datetime import datetime, timedelta
 from aiogram import types
 from google_api import add_user_if_not_exists
+from updates_api import set_update_subscription, get_active_subscribers, set_inactive
+import asyncio
+
+
 MEDIA_CHANNEL_ID = int(os.getenv("MEDIA_CHANNEL_ID"))
+WEBAPP_URL = os.getenv("WEBAPP_URL", "https://relaxbox.site/")
 
 
 def clean_expired_pro():
@@ -86,9 +91,30 @@ dp = Dispatcher(storage=MemoryStorage())
 webapp_keyboard = InlineKeyboardMarkup(inline_keyboard=[
     [InlineKeyboardButton(
         text="🛋 Відкрити застосунок",
-        web_app=WebAppInfo(url="https://relaxbox.site/")
+        web_app=WebAppInfo(url=WEBAPP_URL)
+    )],
+    [InlineKeyboardButton(
+        text="🔔 Отримувати апдейти",
+        callback_data="sub_on"
     )]
 ])
+
+@dp.callback_query(F.data == "sub_on")
+async def on_subscribe_callback(c: types.CallbackQuery):
+    set_update_subscription(
+        user_id=c.from_user.id,
+        username=c.from_user.username or "",
+        allow=True
+    )
+    # забираємо кнопки, щоб не тиснули повторно
+    await c.message.edit_reply_markup(reply_markup=None)
+
+    # підтвердження в чат
+    await c.message.answer("✅ Готово! Якщо будемо переїжджати — напишемо тут.")
+
+    # коротка відповідь саме на callback (щоб не крутився спінер)
+    await bot.answer_callback_query(c.id)
+    # (або так, еквівалентно й більш «по-aiogram»): await c.answer()
 
 
 async def safe_send_admin(bot, admin_id, text, **kwargs):
@@ -99,6 +125,29 @@ async def safe_send_admin(bot, admin_id, text, **kwargs):
         print(f"❗ Не вдалося надіслати повідомлення адміну {admin_id}: {e}")
         return False
 
+# Адмін-список краще винести в одну змінну
+ADMIN_IDS = [8265377605, 7963871119]
+
+async def do_broadcast(text: str):
+    """
+    Шле повідомлення всім, хто підписаний (UPDATES.allow_updates=TRUE, active=TRUE).
+    Повертає (sent, fail).
+    """
+    uids = get_active_subscribers()
+    sent, fail = 0, 0
+    for uid in uids:
+        ok = await safe_send(bot, uid, text, reply_markup=webapp_keyboard)
+        if ok:
+            sent += 1
+        else:
+            fail += 1
+            # Позначаємо як неактивного, щоб надалі не пробувати
+            try:
+                set_inactive(uid)
+            except:
+                pass
+        await asyncio.sleep(0.06)  # щадний ліміт ~16/сек
+    return sent, fail
 
 
 
@@ -107,7 +156,8 @@ async def send_webapp(message: types.Message):
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(
             text="😎 Відкрити WebApp",
-            web_app=WebAppInfo(url="https://relaxbox.site/")
+            web_app=WebAppInfo(url=WEBAPP_URL)
+
         )]
     ])
     await message.answer("Ось кнопка для відкриття WebApp:", reply_markup=keyboard)
@@ -205,6 +255,32 @@ from google_api import find_film_by_name
 
 from aiogram.filters import Command
 
+@dp.message(Command("broadcast"))
+async def cmd_broadcast(message: types.Message):
+    # тільки для адмінів
+    if message.from_user.id not in ADMIN_IDS:
+        return
+
+    parts = message.text.split(maxsplit=1)
+    if len(parts) < 2:
+        await message.reply("Формат: /broadcast текст_повідомлення")
+        return
+
+    text = parts[1]
+    sent, fail = await do_broadcast(text)
+    await message.reply(f"Готово. Надіслано: {sent}, помилок: {fail}")
+
+@dp.message(Command("moved"))
+async def cmd_moved(message: types.Message):
+    # тільки для адмінів
+    if message.from_user.id not in ADMIN_IDS:
+        return
+
+    text = "🔔 Ми переїхали. Натисніть кнопку нижче, щоб відкрити застосунок 👉"
+    sent, fail = await do_broadcast(text)
+    await message.reply(f"Готово. Надіслано: {sent}, помилок: {fail}")
+
+
 @dp.message(Command("start"))
 async def start_handler(message: types.Message):
     # 1) Записуємо користувача
@@ -298,7 +374,7 @@ async def process_message(message: types.Message):
         user_id = parts[1]
         reply_text = parts[2]
         try:
-            await bot.send_message(user_id, f"Відповідь від адміністратора:\n\n{reply_text}", parse_mode=None)
+            await bot.send_message(int(user_id), f"Відповідь від адміністратора:\n\n{reply_text}", parse_mode=None)
             await message.reply("✅ Відповідь надіслана користувачу.")
         except Exception as e:
             await message.reply(f"❗ Не вдалося надіслати відповідь: {e}")
@@ -344,4 +420,24 @@ async def process_message(message: types.Message):
         return
 
     await safe_send(bot, message.chat.id, "Фільм не знайдено 😢")
+
+
+@dp.message(Command("subscribe"))
+async def cmd_subscribe(message: types.Message):
+    set_update_subscription(
+        user_id=message.from_user.id,
+        username=message.from_user.username or "",
+        allow=True
+    )
+    await safe_send(bot, message.chat.id, "🔔 Ви підписані на важливі апдейти. Якщо переїдемо — напишемо тут.")
+
+@dp.message(Command("unsubscribe"))
+async def cmd_unsubscribe(message: types.Message):
+    set_update_subscription(
+        user_id=message.from_user.id,
+        username=message.from_user.username or "",
+        allow=False
+    )
+    await safe_send(bot, message.chat.id, "🔕 Відписано від апдейтів. Повернутись: /subscribe")
+
     

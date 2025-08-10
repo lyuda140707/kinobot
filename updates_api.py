@@ -1,7 +1,7 @@
 # updates_api.py
 import os
+from typing import Optional, Dict
 from datetime import datetime
-from typing import List, Optional
 from pytz import timezone
 from google_api import get_google_service
 
@@ -11,94 +11,83 @@ SHEET_NAME = os.getenv("UPDATES_SHEET", "UPDATES")
 def _now_kyiv() -> str:
     return datetime.now(timezone("Europe/Kyiv")).strftime("%Y-%m-%d %H:%M:%S")
 
+def get_subscription(user_id: int) -> Optional[Dict]:
+    """
+    Повертає словник з даними підписки користувача (або None, якщо немає).
+    Додає службове поле '_row' з номером рядка для оновлення.
+    """
+    sheet = get_google_service().spreadsheets()
+    res = sheet.values().get(
+        spreadsheetId=SHEET_ID,
+        range=f"{SHEET_NAME}!A2:F10000"
+    ).execute()
+    rows = res.get("values", [])
+    su = str(user_id)
+
+    for idx, row in enumerate(rows, start=2):
+        if row and row[0] == su:
+            return {
+                "_row": idx,
+                "user_id": row[0],
+                "username": row[1] if len(row) > 1 else "",
+                "allow": row[2] if len(row) > 2 else "FALSE",
+                "active": row[3] if len(row) > 3 else "TRUE",
+                "added_at": row[4] if len(row) > 4 else "",
+                "updated_at": row[5] if len(row) > 5 else "",
+            }
+    return None
+
 def set_update_subscription(user_id: int,
                             username: Optional[str],
                             allow: bool,
                             *,
                             active: bool = True) -> None:
     """
-    Додає/оновлює рядок у UPDATES для user_id.
+    Додає або оновлює рядок у UPDATES для user_id.
     allow=True/False — згода на апдейти
-    active=True/False — чи вважаємо користувача «живим» для розсилок
+    active=True/False — чи враховуємо користувача як «живого» для розсилок
     """
-    service = get_google_service().spreadsheets()
+    sheet = get_google_service().spreadsheets()
+    existing = get_subscription(user_id)
+    now = _now_kyiv()
+    allow_str = "TRUE" if allow else "FALSE"
+    active_str = "TRUE" if active else "FALSE"
 
-    # зчитати існуючі рядки
-    res = service.values().get(
-        spreadsheetId=SHEET_ID,
-        range=f"{SHEET_NAME}!A2:E1000"
-    ).execute()
-    rows = res.get("values", [])
-
-    # пошук рядка користувача
-    row_num = None
-    for i, row in enumerate(rows, start=2):
-        if len(row) >= 1 and row[0].strip() == str(user_id):
-            row_num = i
-            break
-
-    values = [[
-        str(user_id),
-        (username or ""),
-        "TRUE" if allow else "FALSE",
-        _now_kyiv(),
-        "TRUE" if active else "FALSE",
-    ]]
-
-    if row_num:  # оновити існуючий
-        service.values().update(
+    if existing:
+        # Оновлюємо рядок
+        row = existing["_row"]
+        body = {
+            "values": [[
+                str(user_id),
+                username or "",
+                allow_str,
+                active_str,
+                existing.get("added_at") or now,
+                now
+            ]]
+        }
+        sheet.values().update(
             spreadsheetId=SHEET_ID,
-            range=f"{SHEET_NAME}!A{row_num}:E{row_num}",
-            valueInputOption="USER_ENTERED",
-            body={"values": values}
+            range=f"{SHEET_NAME}!A{row}:F{row}",
+            valueInputOption="RAW",
+            body=body
         ).execute()
-    else:       # додати новий
-        service.values().append(
+    else:
+        # Додаємо новий
+        body = {
+            "values": [[
+                str(user_id),
+                username or "",
+                allow_str,
+                active_str,
+                now,
+                now
+            ]]
+        }
+        sheet.values().append(
             spreadsheetId=SHEET_ID,
-            range=f"{SHEET_NAME}!A2",
-            valueInputOption="USER_ENTERED",
+            range=f"{SHEET_NAME}!A:F",
+            valueInputOption="RAW",
             insertDataOption="INSERT_ROWS",
-            body={"values": values}
+            body=body
         ).execute()
-
-
-def get_active_subscribers() -> List[int]:
-    """Повертає user_id усіх, хто allow_updates=TRUE і active=TRUE."""
-    service = get_google_service().spreadsheets()
-    res = service.values().get(
-        spreadsheetId=SHEET_ID,
-        range=f"{SHEET_NAME}!A2:E1000"
-    ).execute()
-    rows = res.get("values", [])
-
-    uids: List[int] = []
-    for row in rows:
-        if len(row) < 5:
-            continue
-        uid, _, allow, _, active = (row + ["", "", "", "", ""])[:5]
-        if allow.strip().upper() == "TRUE" and active.strip().upper() == "TRUE":
-            try:
-                uids.append(int(uid))
-            except:
-                pass
-    return uids
-
-
-def set_inactive(user_id: int) -> None:
-    """Позначає користувача як inactive=FALSE і оновлює updated_at."""
-    service = get_google_service().spreadsheets()
-    res = service.values().get(
-        spreadsheetId=SHEET_ID,
-        range=f"{SHEET_NAME}!A2:E1000"
-    ).execute()
-    rows = res.get("values", [])
-
-    for i, row in enumerate(rows, start=2):
-        if len(row) >= 1 and row[0].strip() == str(user_id):
-            service.values().update(
-                spreadsheetId=SHEET_ID,
-                range=f"{SHEET_NAME}!C{i}:E{i}",
-                valueInputOption="USER_ENTERED",
-                body={"values": [[row[2] if len(row) > 2 else "FALSE", _now_kyiv(), "FALSE"]]}
-            ).execute()
-            return

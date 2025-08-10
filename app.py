@@ -2,7 +2,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, Request, HTTPException
 from aiogram import types
 from bot import dp, bot
-from bot import WEBAPP_URL
 from google_api import get_gsheet_data, get_google_service
 import os
 import requests
@@ -24,13 +23,6 @@ import dateutil.parser
 from fastapi import Request
 from utils.date_utils import safe_parse_date
 from contextlib import asynccontextmanager
-from updates_api import set_update_subscription
-
-# ── ID приватного каналу-репозиторію з фільмами
-MEDIA_CHANNEL_ID = int(os.getenv("MEDIA_CHANNEL_ID", "0"))
-WEBAPP_URL = os.getenv("WEBAPP_URL", "https://relaxbox.site/")
-
-
 
 # singleton Google Sheets client
 from google_api import get_google_service
@@ -105,9 +97,6 @@ class SearchRequest(BaseModel):
 class AdminMessage(BaseModel):
     user_id: int
     text: str
-class SubReq(BaseModel):
-    user_id: int
-    allow_updates: bool
 
 
 
@@ -187,7 +176,7 @@ async def notify_payment(req: Request):
         body={"values": [[str(user_id), username, "Очікує підтвердження", now_kyiv]]}
     ).execute()
     
-    admin_id = int(os.getenv("ADMIN_ID", "0") or "0")
+    admin_id = os.getenv("ADMIN_ID")
     await safe_send_admin(
         bot, admin_id,
         f"💳 Користувач [{first_name}](tg://user?id={user_id}) натиснув 'Я оплатив'\n\n✅ Щоб підтвердити PRO, надішли:\n`/ok {user_id}`",
@@ -216,11 +205,6 @@ async def contact_admin(msg: AdminMessage):
     await safe_send_admin(bot, admin_id, text, parse_mode="HTML", reply_markup=keyboard)
     return {'ok': True}
 
-@app.post("/subscribe")
-def subscribe(req: SubReq):
-    # username тут не обовʼязковий — головне user_id + згода
-    set_update_subscription(req.user_id, "", req.allow_updates)
-    return {"ok": True}
 
 
 @app.post("/request-film")
@@ -397,7 +381,7 @@ async def send_film(request: Request):
             inline_keyboard=[
                 [InlineKeyboardButton(
                     text="🎥 Обрати інший фільм 📚",
-                    web_app=WebAppInfo(url=WEBAPP_URL)
+                    web_app=WebAppInfo(url="https://relaxbox.site/")
                 )]
             ]
         )
@@ -477,7 +461,7 @@ async def send_film_by_id(request: Request):
         inline_keyboard=[
             [InlineKeyboardButton(
                 text="🎥 Обрати інший фільм 📚",
-                web_app=WebAppInfo(url=WEBAPP_URL)
+                web_app=WebAppInfo(url="https://relaxbox.site/")
             )]
         ]
     )
@@ -684,7 +668,7 @@ async def check_pending_payments_once():
                     inline_keyboard=[[
                         InlineKeyboardButton(
                             text="🚀 Повторити оплату",
-                            web_app=WebAppInfo(url=WEBAPP_URL)
+                            web_app=WebAppInfo(url="https://relaxbox.site/")
                         )
                     ]]
                 )
@@ -768,7 +752,7 @@ async def check_pending_payments():
                             inline_keyboard=[[
                                 InlineKeyboardButton(
                                     text="🚀 Повторити оплату",
-                                    web_app=WebAppInfo(url=WEBAPP_URL)
+                                    web_app=WebAppInfo(url="https://relaxbox.site/")
                                 )
                             ]]
                         )
@@ -957,8 +941,9 @@ from datetime import datetime
 import asyncio
 import os
 from google_api import get_google_service
-
-
+from bot import bot
+# ── ID приватного каналу-репозиторію з фільмами
+MEDIA_CHANNEL_ID = int(os.getenv("MEDIA_CHANNEL_ID"))
 
 
 async def notify_pro_expiring():

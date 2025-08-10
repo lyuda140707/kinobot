@@ -23,6 +23,8 @@ import dateutil.parser
 from fastapi import Request
 from utils.date_utils import safe_parse_date
 from contextlib import asynccontextmanager
+from fastapi import Query
+from updates_api import set_update_subscription, get_subscription
 
 # singleton Google Sheets client
 from google_api import get_google_service
@@ -98,6 +100,12 @@ class AdminMessage(BaseModel):
     user_id: int
     text: str
 
+class UpdatesConsentBody(BaseModel):
+    user_id: int
+    username: Optional[str] = None
+    allow: bool
+
+
 
 
 # Список повідомлень, які потрібно буде видалити
@@ -152,6 +160,30 @@ async def block_bots(request: Request, call_next):
 @app.get("/")
 async def root():
     return {"status": "alive"}
+
+@app.get("/updates/status")
+async def updates_status(user_id: int = Query(...)):
+    sub = get_subscription(user_id)
+    if not sub:
+        return {"exists": False, "allow": False, "active": False}
+
+    allow = str(sub.get("allow", "")).strip().lower() in ("true", "1", "yes", "y")
+    active = str(sub.get("active", "")).strip().lower() in ("true", "1", "yes", "y")
+    return {"exists": True, "allow": allow, "active": active}
+
+@app.post("/updates/consent")
+async def updates_consent(body: UpdatesConsentBody):
+    try:
+        set_update_subscription(
+            user_id=body.user_id,
+            username=body.username,
+            allow=body.allow,
+            active=True
+        )
+        return {"ok": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.post("/notify-payment")
 async def notify_payment(req: Request):

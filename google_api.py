@@ -25,15 +25,14 @@ def get_gsheet_data():
 
 def get_google_service():
     creds_dict = json.loads(os.getenv("GOOGLE_SHEETS_CREDENTIALS_JSON"))
-    scopes = ["https://www.googleapis.com/auth/spreadsheets",
-              "https://www.googleapis.com/auth/drive"]
+    scopes = [
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive",
+    ]
     creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
 
-    # Важливо: таймаут на мережу
-    http = httplib2.Http(timeout=15)
-
-    # Важливо: cache_discovery=False прибирає warning про file_cache
-    service = build("sheets", "v4", credentials=creds, http=http, cache_discovery=False)
+    # ✅ Без http=...
+    service = build("sheets", "v4", credentials=creds, cache_discovery=False)
     return service
 
 def _exec_with_retry(request, tries=5):

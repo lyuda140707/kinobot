@@ -26,7 +26,8 @@ from contextlib import asynccontextmanager
 
 # singleton Google Sheets client
 from google_api import get_google_service
-
+SERVICE = get_google_service()
+SHEETS = SERVICE.spreadsheets()
 
 async def clean_old_requests_once():
     """Одноразово видаляє записи старше 31 дня з аркуша 'Замовлення'."""
@@ -34,7 +35,7 @@ async def clean_old_requests_once():
     from datetime import datetime, timedelta
 
     kyiv = timezone("Europe/Kyiv")
-    sheet = get_google_service().spreadsheets()
+    sheet = SHEETS
 
     # 1) Забираємо всі рядки
     rows = sheet.values().get(
@@ -307,10 +308,7 @@ async def search_in_bot(data: SearchRequest):
     first_name = data.first_name or ""
 
     if user_id:
-        try:
-            add_user_if_not_exists(user_id, username, first_name)
-        except Exception as e:
-                logging.warning(f"add_user_if_not_exists failed: {e}")
+        add_user_if_not_exists(user_id, username, first_name)
 
     if not user_id or not query:
         return {"found": False}
@@ -354,10 +352,7 @@ async def send_film(request: Request):
         first_name = data.get("first_name", "")
 
         if user_id:
-            try:
-                add_user_if_not_exists(user_id, username, first_name)
-            except Exception as e:
-                    logging.warning(f"add_user_if_not_exists failed: {e}")
+            add_user_if_not_exists(user_id, username, first_name)
 
 
 
@@ -519,8 +514,7 @@ async def check_subscription(request: Request):
 
     bot_token = os.getenv("BOT_TOKEN")
 
-    channels = [c.strip() for c in os.getenv("CHANNEL_LIST", "").split(",") if c.strip()]
-
+    channels = os.getenv("CHANNEL_LIST", "").split(",")  # ← тут заміни на свій другий канал
 
     subscribed_to_any = False
 
@@ -600,7 +594,7 @@ async def background_deleter():
 async def background_deleter_once():
     from pytz import utc
     now = datetime.now(utc)
-    sheet = get_google_service().spreadsheets()
+    sheet = SHEETS
 
     rows = sheet.values().get(
         spreadsheetId=os.getenv("SHEET_ID"),

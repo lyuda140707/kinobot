@@ -310,7 +310,7 @@ async def search_in_bot(data: SearchRequest):
     if user_id:
         try:
             add_user_if_not_exists(user_id, username, first_name)
-            except Exception as e:
+        except Exception as e:
                 logging.warning(f"add_user_if_not_exists failed: {e}")
 
     if not user_id or not query:
@@ -357,7 +357,7 @@ async def send_film(request: Request):
         if user_id:
             try:
                 add_user_if_not_exists(user_id, username, first_name)
-                except Exception as e:
+            except Exception as e:
                     logging.warning(f"add_user_if_not_exists failed: {e}")
 
 

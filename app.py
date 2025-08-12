@@ -26,8 +26,7 @@ from contextlib import asynccontextmanager
 
 # singleton Google Sheets client
 from google_api import get_google_service
-SERVICE = get_google_service()
-SHEETS = SERVICE.spreadsheets()
+
 
 async def clean_old_requests_once():
     """Одноразово видаляє записи старше 31 дня з аркуша 'Замовлення'."""
@@ -35,7 +34,7 @@ async def clean_old_requests_once():
     from datetime import datetime, timedelta
 
     kyiv = timezone("Europe/Kyiv")
-    sheet = SHEETS
+    sheet = get_google_service().spreadsheets()
 
     # 1) Забираємо всі рядки
     rows = sheet.values().get(
@@ -601,7 +600,7 @@ async def background_deleter():
 async def background_deleter_once():
     from pytz import utc
     now = datetime.now(utc)
-    sheet = SHEETS
+    sheet = get_google_service().spreadsheets()
 
     rows = sheet.values().get(
         spreadsheetId=os.getenv("SHEET_ID"),

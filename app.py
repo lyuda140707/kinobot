@@ -308,7 +308,10 @@ async def search_in_bot(data: SearchRequest):
     first_name = data.first_name or ""
 
     if user_id:
-        add_user_if_not_exists(user_id, username, first_name)
+        try:
+            add_user_if_not_exists(user_id, username, first_name)
+            except Exception as e:
+                logging.warning(f"add_user_if_not_exists failed: {e}")
 
     if not user_id or not query:
         return {"found": False}
@@ -352,7 +355,10 @@ async def send_film(request: Request):
         first_name = data.get("first_name", "")
 
         if user_id:
-            add_user_if_not_exists(user_id, username, first_name)
+            try:
+                add_user_if_not_exists(user_id, username, first_name)
+                except Exception as e:
+                    logging.warning(f"add_user_if_not_exists failed: {e}")
 
 
 
@@ -514,7 +520,8 @@ async def check_subscription(request: Request):
 
     bot_token = os.getenv("BOT_TOKEN")
 
-    channels = os.getenv("CHANNEL_LIST", "").split(",")  # ← тут заміни на свій другий канал
+    channels = [c.strip() for c in os.getenv("CHANNEL_LIST", "").split(",") if c.strip()]
+
 
     subscribed_to_any = False
 

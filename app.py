@@ -32,13 +32,20 @@ SHEETS = SERVICE.spreadsheets()
 
 # ==== Supabase REST helper ====
 SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
-SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY", "")
+SUPABASE_ANON_KEY = (
+    os.getenv("SUPABASE_ANON_KEY")
+    or os.getenv("SUPABASE_ANON")
+    or ""
+)
 
 def _sb_headers():
+    if not SUPABASE_URL or not SUPABASE_ANON_KEY:
+        raise RuntimeError("Supabase URL/KEY не задані в ENV")
     return {
         "apikey": SUPABASE_ANON_KEY,
         "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
     }
+
 
 def sb_find_by_name_like(name: str):
     # Пошук за частковою назвою

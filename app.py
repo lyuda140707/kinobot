@@ -23,11 +23,48 @@ import dateutil.parser
 from fastapi import Request
 from utils.date_utils import safe_parse_date
 from contextlib import asynccontextmanager
+from supabase_api import get_films
 
 # singleton Google Sheets client
 from google_api import get_google_service
 SERVICE = get_google_service()
 SHEETS = SERVICE.spreadsheets()
+
+# ==== Supabase REST helper ====
+SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
+SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY", "")
+
+def _sb_headers():
+    return {
+        "apikey": SUPABASE_ANON_KEY,
+        "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
+    }
+
+def sb_find_by_name_like(name: str):
+    # Пошук за частковою назвою
+    import urllib.parse
+    q = urllib.parse.quote(f"*{name}*")
+    url = f"{SUPABASE_URL}/rest/v1/films?select=*&title=ilike.{q}&limit=50"
+    r = requests.get(url, headers=_sb_headers(), timeout=10)
+    r.raise_for_status()
+    return r.json()
+
+def sb_find_by_message_id(mid: str):
+    import urllib.parse
+    mid = urllib.parse.quote(mid)
+    url = f"{SUPABASE_URL}/rest/v1/films?select=*&message_id=eq.{mid}&limit=1"
+    r = requests.get(url, headers=_sb_headers(), timeout=10)
+    r.raise_for_status()
+    return r.json()
+
+def sb_find_by_file_id(fid: str):
+    import urllib.parse
+    fid = urllib.parse.quote(fid)
+    url = f"{SUPABASE_URL}/rest/v1/films?select=*&file_id=eq.{fid}&limit=1"
+    r = requests.get(url, headers=_sb_headers(), timeout=10)
+    r.raise_for_status()
+    return r.json()
+
 
 async def clean_old_requests_once():
     """Одноразово видаляє записи старше 31 дня з аркуша 'Замовлення'."""
@@ -314,13 +351,8 @@ async def search_in_bot(data: SearchRequest):
         return {"found": False}
 
     # знаходимо рядок, де є message_id
-    films = get_gsheet_data()
-    found = next(
-        (f for f in films
-         if query in f.get("Назва", "").lower()
-         and f.get("message_id")), 
-        None
-    )
+    rows = sb_find_by_name_like(query)
+    found = next((f for f in rows if f.get("message_id")), None)
 
     if not found:
         return {"found": False}
@@ -359,14 +391,8 @@ async def send_film(request: Request):
         if not user_id or not film_name:
             return JSONResponse(status_code=400, content={"success": False, "error": "user_id або film_name відсутні"})
 
-        films = get_gsheet_data()
-
-        found_film = None
-
-        for film in films:
-            if film_name.lower() in film.get("Назва", "").lower() and film.get("message_id"):
-                found_film = film
-                break
+        rows = sb_find_by_name_like(film_name)
+        found_film = next((f for f in rows if f.get("message_id")), None)
 
         if not found_film:
             return JSONResponse(status_code=404, content={"success": False, "error": "Фільм не знайдено або немає file_id"})
@@ -429,48 +455,54 @@ async def send_film(request: Request):
 async def send_film_by_id(request: Request):
     data = await request.json()
     user_id = str(data.get("user_id"))
-    message_id = str(data.get("message_id")).strip()
+    message_id = str(data.get("message_id", "")).strip()
+
+    if not user_id or not message_id:
+        return {"success": False, "error": "user_id або message_id відсутні"}
 
     print(f"📽️ /send-film-id {message_id} від {user_id}")
 
-    films = get_gsheet_data()
+    # 1) Шукаємо в Supabase: спочатку за message_id, потім за file_id
+    try:
+        row = None
+        rows = sb_find_by_message_id(message_id)
+        if rows:
+            row = rows[0]
+        else:
+            rows = sb_find_by_file_id(message_id)
+            if rows:
+                row = rows[0]
+    except Exception as e:
+        print("❌ Помилка Supabase:", e)
+        return {"success": False, "error": "Помилка доступу до бази"}
 
-    # ✨ Спочатку шукаємо за message_id
-    found_film = next(
-        (f for f in films if str(f.get("message_id", "")).strip() == message_id),
-        None
-    )
-
-    # 🔄 Якщо не знайдено — пробуємо знайти за file_id
-    if not found_film:
-        found_film = next(
-            (f for f in films if str(f.get("file_id", "")).strip() == message_id),
-            None
-        )
-
-    if not found_film:
+    if not row:
         return {"success": False, "error": "Фільм не знайдено"}
 
-    # 🔒 Захист PRO
-    if found_film.get("Доступ") == "PRO" and not has_active_pro(user_id):
+    # 2) Перевірка PRO (у Supabase поле називається 'access')
+    if (row.get("access") == "PRO") and (not has_active_pro(user_id)):
         return {"success": False, "error": "⛔ Доступ лише для PRO користувачів"}
 
-    caption = f"🎬 {found_film.get('Назва', '')}\n\n{found_film.get('Опис', '')}".strip()
+    # 3) Формуємо підпис
+    title = row.get("title") or ""
+    description = row.get("description") or ""
+    caption = f"🎬 {title}\n\n{description}".strip()
+
+    # 4) Яке повідомлення копіювати
+    original_message_id = row.get("message_id") or row.get("file_id")
+    if not original_message_id:
+        return {"success": False, "error": "Немає message_id/file_id у записі"}
 
     keyboard = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(
+        inline_keyboard=[[
+            InlineKeyboardButton(
                 text="🎥 Обрати інший фільм 📚",
                 web_app=WebAppInfo(url="https://relaxbox.site/")
-            )]
-        ]
+            )
+        ]]
     )
 
     try:
-        # Визначаємо, яке ID використовувати для копіювання
-        original_message_id = found_film.get("message_id") or found_film.get("file_id")
-
-        # Надсилаємо відео
         sent_message = await bot.copy_message(
             chat_id=int(user_id),
             from_chat_id=MEDIA_CHANNEL_ID,
@@ -479,14 +511,15 @@ async def send_film_by_id(request: Request):
             reply_markup=keyboard,
             parse_mode="HTML"
         )
+    except Exception as e:
+        print(f"❌ Помилка надсилання: {e}")
+        return {"success": False, "error": str(e)}
 
-        # Зберігаємо для видалення
-        service = get_google_service()
-        sheet = service.spreadsheets()
-
+    # 5) Плануємо видалення (залишаємо Google Sheet 'Видалення' як було)
+    try:
         kyiv = timezone("Europe/Kyiv")
         delete_time = datetime.now(kyiv) + timedelta(hours=24)
-
+        sheet = get_google_service().spreadsheets()
         sheet.values().append(
             spreadsheetId=os.getenv("SHEET_ID"),
             range="Видалення!A2",
@@ -494,12 +527,11 @@ async def send_film_by_id(request: Request):
             insertDataOption="INSERT_ROWS",
             body={"values": [[str(user_id), str(sent_message.message_id), delete_time.isoformat()]]}
         ).execute()
-
-        return {"success": True}
-
     except Exception as e:
-        print(f"❌ Помилка надсилання: {e}")
-        return {"success": False, "error": str(e)}
+        # це не критично для користувача — просто логнемо
+        print("⚠️ Не записали в 'Видалення':", e)
+
+    return {"success": True}
 
 
 

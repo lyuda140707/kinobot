@@ -10,37 +10,29 @@ async def main():
     bot = Bot(token=token)
 
     channels = ["@KinoTochkaUA", "@KinoTochkaFilms"]
-    qr_path = "qr.png"
 
-    # ✅ Прямий deep‑link у Telegram (без t.me у reply_markup)
-    button_url = "tg://resolve?domain=RelaxBox_UA_bot&start=promo"
+    # ✅ Прямий запуск бота з deep-link (WebApp відкривається через /start)
+    button_url = "tg://resolve?domain=RelaxBox_UA_bot&start=app"
 
     text = (
-        "🎬 Привіт! Саме час поділитися нашим ботом 🎉\n\n"
-        "📲 Скануй QR-код або тисни кнопку нижче, щоб перейти\n"
-        "👇👇👇"
+        "✨ А ти вже пробував наш застосунок? 😉\n\n"
+        "🔎 Зручний пошук фільмів\n"
+        "📂 Улюблене завжди під рукою\n"
+        "🎥 Новинки щодня\n\n"
+        "👇 Спробуй прямо зараз!"
     )
 
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🔓 Відкрити", url=button_url)]
+        [InlineKeyboardButton("📲 Відкрити застосунок", url=button_url)]
     ])
 
     for ch in channels:
         try:
-            if os.path.exists(qr_path):
-                with open(qr_path, 'rb') as photo:
-                    await bot.send_photo(
-                        chat_id=ch,
-                        photo=photo,
-                        caption=text,
-                        reply_markup=keyboard
-                    )
-            else:
-                await bot.send_message(
-                    chat_id=ch,
-                    text=text,
-                    reply_markup=keyboard
-                )
+            await bot.send_message(
+                chat_id=ch,
+                text=text,
+                reply_markup=keyboard
+            )
             print(f"✅ Надіслано у {ch}")
         except Exception as e:
             print(f"❌ Помилка у {ch}: {e}")

@@ -71,6 +71,25 @@ def sb_find_by_file_id(fid: str):
     r = requests.get(url, headers=_sb_headers(), timeout=10)
     r.raise_for_status()
     return r.json()
+# === Mapping + simple cache for /films (Supabase only) ===
+def _map_supabase_row(r: dict) -> dict:
+    return {
+        "Назва":       r.get("title", ""),
+        "Тип":         r.get("type", ""),
+        "Жанр":        r.get("genre", ""),
+        "Опис":        r.get("description", ""),
+        "Фото":        r.get("photo", ""),
+        "IMDb":        r.get("imdb", ""),
+        "Добірка":     r.get("collection", ""),
+        "Доступ":      r.get("access", ""),
+        "Країна":      r.get("country", ""),
+        "Рік":         r.get("year", ""),
+        "message_id":  r.get("message_id", ""),
+        "file_id":     r.get("file_id", ""),
+    }
+
+FILMS_CACHE = {"data": None, "ts": 0}
+CACHE_TTL = int(os.getenv("FILMS_CACHE_TTL", "60"))  # сек
 
 
 async def clean_old_requests_once():
@@ -196,6 +215,39 @@ async def block_bots(request: Request, call_next):
 @app.get("/")
 async def root():
     return {"status": "alive"}
+
+from fastapi.responses import JSONResponse  # якщо ВЖЕ імпортовано вище — дубль не страшний
+
+@app.get("/films")
+def films_endpoint(limit: int = 1000, offset: int = 0):
+    """
+    Повертає список фільмів тільки з Supabase.
+    Є простий in-memory кеш на CACHE_TTL секунд.
+    """
+    import time
+    now = time.time()
+
+    # кеш
+    if FILMS_CACHE["data"] and now - FILMS_CACHE["ts"] < CACHE_TTL:
+        return JSONResponse(FILMS_CACHE["data"], headers={"Cache-Control": f"public, max-age={CACHE_TTL}"})
+
+    # читаємо з Supabase REST
+    url = f"{SUPABASE_URL}/rest/v1/films"
+    params = {
+        "select": "id,title,type,genre,description,photo,message_id,file_id,collection,country,year,access,imdb",
+        "order": "id.asc",
+        "limit": limit,
+        "offset": offset,
+    }
+    r = requests.get(url, headers=_sb_headers(), params=params, timeout=10)
+    r.raise_for_status()
+    rows = r.json()
+    data = [_map_supabase_row(x) for x in rows]
+
+    FILMS_CACHE["data"] = data
+    FILMS_CACHE["ts"] = now
+    return JSONResponse(data, headers={"Cache-Control": f"public, max-age={CACHE_TTL}"})
+
 
 @app.post("/notify-payment")
 async def notify_payment(req: Request):

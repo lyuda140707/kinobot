@@ -219,7 +219,7 @@ async def root():
 from fastapi.responses import JSONResponse  # якщо ВЖЕ імпортовано вище — дубль не страшний
 
 @app.get("/films")
-def films_endpoint(limit: int = 1000, offset: int = 0):
+def films_endpoint(limit: int = 10000, offset: int = 0):
     """
     Повертає список фільмів тільки з Supabase.
     Є простий in-memory кеш на CACHE_TTL секунд.

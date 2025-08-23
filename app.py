@@ -24,6 +24,8 @@ from fastapi import Request
 from utils.date_utils import safe_parse_date
 from contextlib import asynccontextmanager
 from supabase_api import get_films
+from starlette.middleware.gzip import GZipMiddleware
+from fastapi import Query
 
 # singleton Google Sheets client
 from google_api import get_google_service
@@ -88,8 +90,6 @@ def _map_supabase_row(r: dict) -> dict:
         "file_id":     r.get("file_id", ""),
     }
 
-FILMS_CACHE = {"data": None, "ts": 0}
-CACHE_TTL = int(os.getenv("FILMS_CACHE_TTL", "60"))  # сек
 
 
 async def clean_old_requests_once():
@@ -196,6 +196,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(GZipMiddleware, minimum_size=500)
 
 
 BAD_BOTS = [
@@ -218,35 +219,71 @@ async def root():
 
 from fastapi.responses import JSONResponse  # якщо ВЖЕ імпортовано вище — дубль не страшний
 
+from typing import Optional
+import urllib.parse
+
 @app.get("/films")
-def films_endpoint(limit: int = 10000, offset: int = 0):
+def films_endpoint(
+    limit: int = Query(10000, ge=1, le=10000),
+    cursor: Optional[int] = None,     # id останнього елемента з попередньої сторінки
+    offset: Optional[int] = None      # залишаємо для сумісності з фронтом (fallback)
+):
     """
-    Повертає список фільмів тільки з Supabase.
-    Є простий in-memory кеш на CACHE_TTL секунд.
+    Віддає фільми з Supabase з підтримкою курсора:
+    - якщо передано ?cursor=ID → беремо записи, де id > cursor
+    - інакше, якщо передано ?offset=... → класичний offset (fallback)
+    - завжди повертаємо { items: [...], next_cursor: <id або null> }
     """
-    import time
-    now = time.time()
+    # базові параметри вибірки
+    select = "id,title,type,genre,description,photo,message_id,file_id,collection,country,year,access,imdb"
 
-    # кеш
-    if FILMS_CACHE["data"] and now - FILMS_CACHE["ts"] < CACHE_TTL:
-        return JSONResponse(FILMS_CACHE["data"], headers={"Cache-Control": f"public, max-age={CACHE_TTL}"})
+    # збираємо URL
+    base = f"{SUPABASE_URL}/rest/v1/films?select={select}&order=id.asc&limit={limit}"
 
-    # читаємо з Supabase REST
-    url = f"{SUPABASE_URL}/rest/v1/films"
-    params = {
-        "select": "id,title,type,genre,description,photo,message_id,file_id,collection,country,year,access,imdb",
-        "order": "id.asc",
-        "limit": limit,
-        "offset": offset,
-    }
-    r = requests.get(url, headers=_sb_headers(), params=params, timeout=10)
+    if cursor is not None:
+        # курсор: беремо все, де id > cursor
+        base += f"&id=gt.{urllib.parse.quote(str(cursor))}"
+    elif offset is not None:
+        # fallback: offset/limit
+        base += f"&offset={offset}"
+
+    r = requests.get(base, headers=_sb_headers(), timeout=15)
     r.raise_for_status()
-    rows = r.json()
-    data = [_map_supabase_row(x) for x in rows]
+    rows = r.json()  # тут будуть dict-и з 'id' та іншими полями
 
-    FILMS_CACHE["data"] = data
-    FILMS_CACHE["ts"] = now
-    return JSONResponse(data, headers={"Cache-Control": f"public, max-age={CACHE_TTL}"})
+    # Мапимо у твій фронтовий формат (без 'id' у items)
+    items = []
+    for x in rows:
+        items.append({
+            "Назва":       x.get("title", ""),
+            "Тип":         x.get("type", ""),
+            "Жанр":        x.get("genre", ""),
+            "Опис":        x.get("description", ""),
+            "Фото":        x.get("photo", ""),
+            "IMDb":        x.get("imdb", ""),
+            "Добірка":     x.get("collection", ""),
+            "Доступ":      x.get("access", ""),
+            "Країна":      x.get("country", ""),
+            "Рік":         x.get("year", ""),
+            "message_id":  x.get("message_id", ""),
+            "file_id":     x.get("file_id", ""),
+        })
+
+    # Рахуємо next_cursor по останньому id
+    next_cursor = None
+    if rows and len(rows) == limit:
+        last_id = rows[-1].get("id")
+        if isinstance(last_id, int):
+            next_cursor = last_id
+
+    # Не кешуємо в пам'ять тут, щоб не залипати на одній сторінці
+    return JSONResponse(
+        {"items": items, "next_cursor": next_cursor},
+        headers={"Cache-Control": "public, max-age=30"}
+    )
+
+
+    
 
 
 @app.post("/notify-payment")

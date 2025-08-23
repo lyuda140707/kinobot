@@ -24,8 +24,6 @@ from fastapi import Request
 from utils.date_utils import safe_parse_date
 from contextlib import asynccontextmanager
 from supabase_api import get_films
-from starlette.middleware.gzip import GZipMiddleware
-from fastapi import Query
 
 # singleton Google Sheets client
 from google_api import get_google_service
@@ -73,23 +71,6 @@ def sb_find_by_file_id(fid: str):
     r = requests.get(url, headers=_sb_headers(), timeout=10)
     r.raise_for_status()
     return r.json()
-# === Mapping + simple cache for /films (Supabase only) ===
-def _map_supabase_row(r: dict) -> dict:
-    return {
-        "Назва":       r.get("title", ""),
-        "Тип":         r.get("type", ""),
-        "Жанр":        r.get("genre", ""),
-        "Опис":        r.get("description", ""),
-        "Фото":        r.get("photo", ""),
-        "IMDb":        r.get("imdb", ""),
-        "Добірка":     r.get("collection", ""),
-        "Доступ":      r.get("access", ""),
-        "Країна":      r.get("country", ""),
-        "Рік":         r.get("year", ""),
-        "message_id":  r.get("message_id", ""),
-        "file_id":     r.get("file_id", ""),
-    }
-
 
 
 async def clean_old_requests_once():
@@ -196,7 +177,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-app.add_middleware(GZipMiddleware, minimum_size=500)
 
 
 BAD_BOTS = [
@@ -216,75 +196,6 @@ async def block_bots(request: Request, call_next):
 @app.get("/")
 async def root():
     return {"status": "alive"}
-
-from fastapi.responses import JSONResponse  # якщо ВЖЕ імпортовано вище — дубль не страшний
-
-from typing import Optional
-import urllib.parse
-
-@app.get("/films")
-def films_endpoint(
-    limit: int = Query(10000, ge=1, le=10000),
-    cursor: Optional[int] = None,     # id останнього елемента з попередньої сторінки
-    offset: Optional[int] = None      # залишаємо для сумісності з фронтом (fallback)
-):
-    """
-    Віддає фільми з Supabase з підтримкою курсора:
-    - якщо передано ?cursor=ID → беремо записи, де id > cursor
-    - інакше, якщо передано ?offset=... → класичний offset (fallback)
-    - завжди повертаємо { items: [...], next_cursor: <id або null> }
-    """
-    # базові параметри вибірки
-    select = "id,title,type,genre,description,photo,message_id,file_id,collection,country,year,access,imdb"
-
-    # збираємо URL
-    base = f"{SUPABASE_URL}/rest/v1/films?select={select}&order=id.asc&limit={limit}"
-
-    if cursor is not None:
-        # курсор: беремо все, де id > cursor
-        base += f"&id=gt.{urllib.parse.quote(str(cursor))}"
-    elif offset is not None:
-        # fallback: offset/limit
-        base += f"&offset={offset}"
-
-    r = requests.get(base, headers=_sb_headers(), timeout=15)
-    r.raise_for_status()
-    rows = r.json()  # тут будуть dict-и з 'id' та іншими полями
-
-    # Мапимо у твій фронтовий формат (без 'id' у items)
-    items = []
-    for x in rows:
-        items.append({
-            "Назва":       x.get("title", ""),
-            "Тип":         x.get("type", ""),
-            "Жанр":        x.get("genre", ""),
-            "Опис":        x.get("description", ""),
-            "Фото":        x.get("photo", ""),
-            "IMDb":        x.get("imdb", ""),
-            "Добірка":     x.get("collection", ""),
-            "Доступ":      x.get("access", ""),
-            "Країна":      x.get("country", ""),
-            "Рік":         x.get("year", ""),
-            "message_id":  x.get("message_id", ""),
-            "file_id":     x.get("file_id", ""),
-        })
-
-    # Рахуємо next_cursor по останньому id
-    next_cursor = None
-    if rows and len(rows) == limit:
-        last_id = rows[-1].get("id")
-        if isinstance(last_id, int):
-            next_cursor = last_id
-
-    # Не кешуємо в пам'ять тут, щоб не залипати на одній сторінці
-    return JSONResponse(
-        {"items": items, "next_cursor": next_cursor},
-        headers={"Cache-Control": "public, max-age=30"}
-    )
-
-
-    
-
 
 @app.post("/notify-payment")
 async def notify_payment(req: Request):

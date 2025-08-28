@@ -3,11 +3,9 @@ import os
 from aiogram import Bot
 from google_api import get_google_service
 from dotenv import load_dotenv
-from datetime import datetime, timedelta
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.types import WebAppInfo
-
-
+from datetime import datetime, timedelta, timezone
 
 
 load_dotenv()
@@ -153,14 +151,15 @@ async def check_and_notify():
 
            
 
-            delete_at = datetime.utcnow() + timedelta(hours=24)
+            delete_at = datetime.now(timezone.utc) + timedelta(hours=24)
 
             # Зберегти час видалення
             sheet.values().update(
                 spreadsheetId=SPREADSHEET_ID,
                 range=f"Запити!D{row_number}",
                 valueInputOption="RAW",
-                body={"values": [[delete_at.isoformat()]]}
+                body={"values": [[delete_at.isoformat().replace("+00:00", "Z")]]}
+
             ).execute()
 
             # Зберегти message_id
@@ -191,7 +190,7 @@ async def background_deleter():
     print("🚀 Фоновий процес видалення запущено!")
 
     while True:
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         print(f"🔍 Перевірка на видалення повідомлень {now.isoformat()}")
 
         reqs = sheet.values().get(
@@ -212,7 +211,8 @@ async def background_deleter():
                 continue
 
             try:
-                delete_at = datetime.fromisoformat(delete_at_str)
+                delete_at = datetime.fromisoformat(delete_at_str.replace("Z", "+00:00"))
+
             except Exception as e:
                 print(f"⚠️ Некоректна дата у рядку {i + 2}: {delete_at_str} — {e}")
                 continue

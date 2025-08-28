@@ -24,12 +24,6 @@ from fastapi import Request
 from utils.date_utils import safe_parse_date
 from contextlib import asynccontextmanager
 from supabase_api import get_films
-from fastapi import APIRouter
-import datetime as dt       # тепер звертаємось як dt.datetime, dt.timezone
-from pytz import timezone   # це залишається для 'Europe/Kyiv'
-from pro_utils import add_pro_user
-from bot import MEDIA_CHANNEL_ID
-from fastapi.responses import JSONResponse
 
 # singleton Google Sheets client
 from google_api import get_google_service
@@ -170,103 +164,10 @@ async def lifespan(app: FastAPI):
     yield
 
 
-
-
-SPREADSHEET_ID = os.getenv("SHEET_ID")
-
-REF_SHEET = "Referrals!A:D"  # наш новий аркуш
-router = APIRouter()
-class RefHit(BaseModel):
-    referrer_id: int
-    referred_id: int
-
-class RefStatReq(BaseModel):
-    referrer_id: int
-
-class RefManualActivateReq(BaseModel):
-    user_id: int
-    days: int = 7
-
- # === helpers для рефералок ===
-# === helpers для рефералок ===
-def read_all_referrals():
-    resp = SHEETS.values().get(
-        spreadsheetId=SPREADSHEET_ID,
-        range=REF_SHEET
-    ).execute()
-    values = resp.get("values", [])
-    rows = []
-    # пропускаємо заголовок (рядок 1)
-    for row in values[1:]:
-        referrer = int(row[0]) if len(row) > 0 and row[0] else None
-        referred = int(row[1]) if len(row) > 1 and row[1] else None
-        ts = row[2] if len(row) > 2 else ""
-        counted = (row[3].strip().upper() == "TRUE") if len(row) > 3 else True
-        rows.append((referrer, referred, ts, counted))
-    return rows
-
-
-def append_referral(referrer_id: int, referred_id: int, counted: bool = True):
-    """
-    Додає рядок у Referrals: [referrer_id, referred_id, ISO-час (UTC), TRUE/FALSE]
-    """
-    SHEETS.values().append(
-        spreadsheetId=SPREADSHEET_ID,
-        range=REF_SHEET,
-        valueInputOption="USER_ENTERED",
-        insertDataOption="INSERT_ROWS",
-        body={
-            "values": [[
-                str(referrer_id),
-                str(referred_id),
-                dt.datetime.now(dt.timezone.utc).isoformat(),
-                "TRUE" if counted else "FALSE"
-            ]]
-        }
-    ).execute()
-
-@router.post("/ref-hit")
-async def ref_hit(payload: RefHit):
-    # ігноруємо самореф
-    if payload.referrer_id == payload.referred_id:
-        return {"ok": True, "ignored": "self"}
-
-    rows = read_all_referrals()
-    # ігноруємо дубль пари
-    if any(rf == payload.referrer_id and rd == payload.referred_id for rf, rd, *_ in rows):
-        return {"ok": True, "ignored": "duplicate"}
-
-    append_referral(payload.referrer_id, payload.referred_id, counted=True)
-    return {"ok": True, "counted": True}
-
-@router.post("/ref-status")
-async def ref_status(req: RefStatReq):
-    rows = read_all_referrals()
-    unique_referred = set(
-        rd for rf, rd, _, counted in rows
-        if rf == req.referrer_id and counted and rd is not None
-    )
-    return {"ok": True, "count": len(unique_referred)}
-   
-@router.post("/admin/activate-pro-from-referrals")
-async def activate_pro_from_referrals(req: RefManualActivateReq):
-    rows = read_all_referrals()
-    unique_referred = set(
-        rd for rf, rd, _, counted in rows
-        if rf == req.user_id and counted and rd is not None
-    )
-    if len(unique_referred) < 3:
-        return {"ok": False, "reason": "not_enough_referrals", "count": len(unique_referred)}
-    try:
-        add_pro_user(req.user_id, days=req.days)
-        return {"ok": True, "activated_days": req.days}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+    
 
 # ✅ Оголошення FastAPI ДО використання декораторів
 app = FastAPI(lifespan=lifespan)
-app.include_router(router)  # ↩️ підключаємо роутер рефералок
-
 
 
 app.add_middleware(
@@ -306,12 +207,13 @@ async def notify_payment(req: Request):
     if not user_id:
         raise HTTPException(status_code=400, detail="user_id відсутній")
 
-   
+    service = get_google_service()
+    sheet = service.spreadsheets()
 
     kyiv = timezone("Europe/Kyiv")
-    now_kyiv = dt.datetime.now(kyiv).strftime("%Y-%m-%d %H:%M:%S")
+    now_kyiv = datetime.now(kyiv).strftime("%Y-%m-%d %H:%M:%S")
 
-    SHEETS.values().append(
+    sheet.values().append(
         spreadsheetId=os.getenv("SHEET_ID"),
         range="PRO!A2:D2",
         valueInputOption="USER_ENTERED",
@@ -440,7 +342,7 @@ async def telegram_webhook(request: Request):
     return {"ok": True}
 
 from bot import bot, MEDIA_CHANNEL_ID
-
+from fastapi.responses import JSONResponse
 
 @app.post("/search-in-bot")
 async def search_in_bot(data: SearchRequest):
@@ -476,7 +378,7 @@ async def search_in_bot(data: SearchRequest):
     # повертаємо фронтенду лише прапорець успіху
     return {"found": True, "sent": True}
 
-
+from fastapi.responses import JSONResponse
 
 @app.post("/send-film")
 async def send_film(request: Request):
@@ -787,7 +689,7 @@ async def check_pending_payments_once():
 
         # Парсимо дату і порівнюємо
         try:
-            created_at = dt.datetime.strptime(created_at_str, "%Y-%m-%d %H:%M:%S")
+            created_at = datetime.strptime(created_at_str, "%Y-%m-%d %H:%M:%S")
             # локалізуємо під Київ
             created_at = kyiv.localize(created_at)
         except Exception as e:
@@ -865,7 +767,7 @@ async def check_pending_payments():
                 continue
 
             try:
-                created_at = dt.datetime.strptime(created_at_str, "%Y-%m-%d %H:%M:%S")
+                created_at = datetime.strptime(created_at_str, "%Y-%m-%d %H:%M:%S")
                 print(f"⏰ Запис створений о: {created_at}")
             except Exception as e:
                 print(f"⚠️ Помилка формату дати '{created_at_str}': {e}")
@@ -912,6 +814,8 @@ async def check_pending_payments():
         await asyncio.sleep(60)
 
 
+
+from fastapi.responses import JSONResponse
 
 @app.post("/check-pro")
 async def check_pro(req: Request):
@@ -1075,7 +979,10 @@ from pytz import timezone
 from datetime import datetime
 import asyncio
 import os
-
+from google_api import get_google_service
+from bot import bot
+# ── ID приватного каналу-репозиторію з фільмами
+MEDIA_CHANNEL_ID = int(os.getenv("MEDIA_CHANNEL_ID"))
 
 
 async def notify_pro_expiring():

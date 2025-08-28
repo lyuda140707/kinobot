@@ -12,12 +12,12 @@ async def main():
     channels = ["@KinoTochkaUA", "@KinoTochkaFilms"]
     qr_path = "qr.png"
 
-    # ✅ Прямий deep‑link у Telegram (без t.me у reply_markup)
+    # ✅ Прямий deep-link у Telegram
     button_url = "tg://resolve?domain=RelaxBox_UA_bot&start=promo"
 
     text = (
-        "🍿 Привіт! Поділися кіношним настроєм 🎬
-          Запроси друзів у наш бот — нехай теж мають, що дивитися 😉\n\n"
+        "🍿 Привіт! Поділися кіношним настроєм 🎬\n"
+        "Запроси друзів у наш бот — нехай теж мають, що дивитися 😉\n\n"
         "📲 Тисни кнопку або скануй QR-код і вперед! 🚀\n"
         "👇👇👇"
     )
@@ -40,7 +40,8 @@ async def main():
                 await bot.send_message(
                     chat_id=ch,
                     text=text,
-                    reply_markup=keyboard
+                    reply_markup=keyboard,
+                    disable_web_page_preview=True
                 )
             print(f"✅ Надіслано у {ch}")
         except Exception as e:

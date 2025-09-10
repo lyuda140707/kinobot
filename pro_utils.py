@@ -48,7 +48,7 @@ def has_active_pro(user_id: str) -> bool:
         exp_date = dt.date() if isinstance(dt, datetime) else dt
 
         # 6) Перевіряємо
-        if exp_date >= today:
+        if exp_date > today:
             return True
 
         # 7) Якщо прострочено — оновлюємо статус і виходимо

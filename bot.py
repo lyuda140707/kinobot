@@ -125,7 +125,7 @@ async def approve_pro(message: types.Message):
     args = message.text.split()
     if len(args) != 2 or not args[1].isdigit():
         print("⛔ Некоректний формат команди")
-        await message.reply("⚠️ Формат: /ok user_id")
+        await message.reply("⚠️ Формат: <code>/ok user_id</code>", parse_mode="HTML")
         return
 
     user_id = args[1].strip()

@@ -150,19 +150,12 @@ messages_to_delete = []
 
 from contextlib import asynccontextmanager
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
+@app.on_event("startup")
+async def startup_event():
     webhook_url = os.getenv("WEBHOOK_URL")
     if webhook_url:
         await bot.set_webhook(webhook_url)
         print("✅ Webhook встановлено:", webhook_url)
-
-    # Одноразово почистили прострочені PRO
-    from bot import clean_expired_pro
-    await asyncio.to_thread(clean_expired_pro)
-
-    yield
-
 
     
 

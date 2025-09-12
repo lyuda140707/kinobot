@@ -152,15 +152,9 @@ from contextlib import asynccontextmanager
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    webhook_url = os.getenv("WEBHOOK_URL")
-    if webhook_url:
-        await bot.set_webhook(webhook_url)
-        print("✅ Webhook встановлено:", webhook_url)
-
-    # Одноразово почистили прострочені PRO
+    # 🚫 НЕ ставимо webhook при старті, щоб не падало
     from bot import clean_expired_pro
     await asyncio.to_thread(clean_expired_pro)
-
     yield
 
 
@@ -177,6 +171,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+@app.get("/set-webhook")
+async def set_webhook():
+    webhook_url = os.getenv("WEBHOOK_URL")
+    if not webhook_url:
+        return {"error": "WEBHOOK_URL не задано"}
+    try:
+        await bot.set_webhook(webhook_url)
+        return {"status": "ok", "url": webhook_url}
+    except Exception as e:
+        return {"error": str(e)}
 
 
 BAD_BOTS = [

@@ -933,6 +933,23 @@ async def referral(request: Request):
         return {"success": True, "activated_pro": True, "expire_date": expire_date}
 
     return {"success": True, "activated_pro": False, "count": unique_count}
+@app.post("/check-referrals")
+async def check_referrals(request: Request):
+    data = await request.json()
+    user_id = str(data.get("user_id"))
+
+    sheet = get_google_service().spreadsheets()
+    SHEET_ID = os.getenv("SHEET_ID")
+
+    rows = sheet.values().get(
+        spreadsheetId=SHEET_ID,
+        range="Referral!A2:C1000"
+    ).execute().get("values", [])
+
+    # рахуємо унікальних друзів
+    count = len(set([r[1] for r in rows if len(r) >= 2 and r[0] == user_id]))
+
+    return {"success": True, "count": count}
 
 
 @app.api_route("/ping", methods=["GET", "HEAD"])

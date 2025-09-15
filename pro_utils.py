@@ -1,12 +1,11 @@
 from google_api import get_google_service
 import os
-from datetime import datetime, timedelta
+from datetime import datetime
 from pytz import timezone
 from utils.date_utils import safe_parse_date
 import logging
 
 logger = logging.getLogger(__name__)
-
 
 def has_active_pro(user_id: str) -> bool:
     """
@@ -14,19 +13,23 @@ def has_active_pro(user_id: str) -> bool:
     - Якщо expire_date ≥ сьогодні: повертає True.
     - Якщо прострочено: оновлює статус у Google Sheet на "Не активовано" і повертає False.
     """
+    # 1) Отримуємо доступ до Google Sheet
     service = get_google_service()
     sheet = service.spreadsheets()
     sheet_id = os.getenv("SHEET_ID")
 
+    # 2) Зчитуємо всі записи
     res = sheet.values().get(
         spreadsheetId=sheet_id,
         range="PRO!A2:D1000"
     ).execute()
     rows = res.get("values", [])
 
+    # 3) Готуємо дату «сьогодні» в Києві
     kyiv = timezone("Europe/Kyiv")
     today = datetime.now(kyiv).date()
 
+    # 4) Перебираємо рядки (номер у таблиці = idx)
     for idx, row in enumerate(rows, start=2):
         if len(row) < 4:
             continue
@@ -35,6 +38,7 @@ def has_active_pro(user_id: str) -> bool:
         if str(user_id) != uid or status.strip().lower() != "активно":
             continue
 
+        # 5) Парсимо дату
         try:
             dt = safe_parse_date(exp_str)
         except Exception as e:
@@ -43,10 +47,11 @@ def has_active_pro(user_id: str) -> bool:
 
         exp_date = dt.date() if isinstance(dt, datetime) else dt
 
+        # 6) Перевіряємо
         if exp_date > today:
             return True
 
-        # Якщо прострочено — оновлюємо статус
+        # 7) Якщо прострочено — оновлюємо статус і виходимо
         try:
             sheet.values().update(
                 spreadsheetId=sheet_id,
@@ -60,47 +65,3 @@ def has_active_pro(user_id: str) -> bool:
         return False
 
     return False
-
-
-def add_pro_user(user_id: str, days: int = 30):
-    """
-    Додає або продовжує PRO-доступ для користувача.
-    Якщо користувач вже є в таблиці — оновлює дату.
-    Якщо немає — створює новий запис.
-    """
-    service = get_google_service()
-    sheet = service.spreadsheets()
-    sheet_id = os.getenv("SHEET_ID")
-
-    res = sheet.values().get(
-        spreadsheetId=sheet_id,
-        range="PRO!A2:D1000"
-    ).execute()
-    rows = res.get("values", [])
-
-    kyiv = timezone("Europe/Kyiv")
-    now = datetime.now(kyiv)
-    expire_date = (now + timedelta(days=days)).strftime("%Y-%m-%d")
-
-    # Якщо користувач вже є — оновлюємо рядок
-    for idx, row in enumerate(rows, start=2):
-        if len(row) >= 1 and row[0] == str(user_id):
-            username = row[1] if len(row) > 1 else ""
-            sheet.values().update(
-                spreadsheetId=sheet_id,
-                range=f"PRO!A{idx}:D{idx}",
-                valueInputOption="USER_ENTERED",
-                body={"values": [[user_id, username, "Активно", expire_date]]}
-            ).execute()
-            logger.info(f"✅ PRO оновлено для {user_id} до {expire_date}")
-            return True
-
-    # Якщо немає — додаємо новий рядок
-    sheet.values().append(
-        spreadsheetId=sheet_id,
-        range="PRO!A2:D2",
-        valueInputOption="USER_ENTERED",
-        body={"values": [[user_id, "", "Активно", expire_date]]}
-    ).execute()
-    logger.info(f"✅ PRO створено для {user_id} до {expire_date}")
-    return True

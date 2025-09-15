@@ -228,16 +228,17 @@ async def start_handler(message: types.Message):
             try:
                 backend_url = os.getenv("WEBHOOK_URL_BACKEND") or os.getenv("WEBAPP_BACKEND_URL")
                 if backend_url:
-                    requests.post(
-                        backend_url.rstrip("/") + "/referral-join",
-                        json={
-                            "referrer_id": referrer_id,
-                            "new_user_id": str(message.from_user.id)
-                        },
-                        timeout=10
-                    )
-                except Exception as e:
-                    print(f"❌ Помилка виклику referral-join: {e}")
+                    try:
+                        requests.post(
+                            backend_url.rstrip("/") + "/referral-join",
+                            json={
+                                "referrer_id": referrer_id,
+                                "new_user_id": str(message.from_user.id)
+                            },
+                            timeout=10
+                        )
+                    except Exception as e:
+                        print(f"❌ Помилка виклику referral-join: {e}")
             await safe_send(
                 bot,
                 message.chat.id,

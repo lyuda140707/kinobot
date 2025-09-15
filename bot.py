@@ -221,6 +221,31 @@ async def start_handler(message: types.Message):
 
     # 3) Якщо payload відсутній або НЕ той формат, що ми очікуємо —
     #    НЕ показуємо "Фільм не знайдено", а даємо кнопку WebApp.
+    if payload and payload.startswith("ref_"):
+        referrer_id = payload.replace("ref_", "").strip()
+        if referrer_id != str(message.from_user.id):  # щоб не запрошував сам себе
+            import requests
+            try:
+                backend_url = os.getenv("WEBHOOK_URL_BACKEND") or os.getenv("WEBAPP_BACKEND_URL")
+                if backend_url:
+                    requests.post(
+                        backend_url.rstrip("/") + "/referral-join",
+                        json={
+                            "referrer_id": referrer_id,
+                            "new_user_id": str(message.from_user.id)
+                        },
+                        timeout=10
+                    )
+                except Exception as e:
+                    print(f"❌ Помилка виклику referral-join: {e}")
+            await safe_send(
+                bot,
+                message.chat.id,
+                "🎉 Дякую, що приєднався! Твій друг отримає бонус за запрошення 💛",
+                reply_markup=webapp_keyboard
+            )
+        return
+    # 4) Якщо payload відсутній або інший формат → даємо кнопку WebApp
     if not payload or not (payload.startswith("film_") or payload.startswith("series_")):
         await safe_send(
             bot,

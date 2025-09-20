@@ -233,6 +233,42 @@ async def notify_payment(req: Request):
 
     return {"ok": True}
 
+from uuid import uuid4
+
+@app.post("/create-payment")
+async def create_payment(req: Request):
+    data = await req.json()
+    user_id = data.get("user_id")
+    username = data.get("username", "")
+    first_name = data.get("first_name", "")
+    plan = data.get("plan", "pro30")
+
+    if not user_id:
+        raise HTTPException(status_code=400, detail="user_id відсутній")
+
+    invoice_id = str(uuid4())  # генеруємо унікальний ID заявки
+    kyiv = timezone("Europe/Kyiv")
+    now_kyiv = datetime.now(kyiv).strftime("%Y-%m-%d %H:%M:%S")
+
+    # 🔹 Записуємо у Google Таблицю (для історії)
+    sheet = get_google_service().spreadsheets()
+    sheet.values().append(
+        spreadsheetId=os.getenv("SHEET_ID"),
+        range="PRO!A2:E2",
+        valueInputOption="USER_ENTERED",
+        body={"values": [[str(user_id), username, f"Створив оплату ({plan})", now_kyiv, invoice_id]]}
+    ).execute()
+
+    # 🔹 Повідомляємо адміну
+    admin_id = os.getenv("ADMIN_ID")
+    await safe_send_admin(
+        bot, admin_id,
+        f"🟢 Користувач [{first_name}](tg://user?id={user_id}) натиснув 'Отримати PRO'\n"
+        f"📌 План: {plan}\n🆔 invoice: {invoice_id}",
+        parse_mode="Markdown"
+    )
+
+    return {"ok": True, "invoice_id": invoice_id}
 
 @app.post('/contact-admin')
 async def contact_admin(msg: AdminMessage):

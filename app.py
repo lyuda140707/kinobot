@@ -471,13 +471,18 @@ async def send_film(request: Request):
 
         file_id = found_film.get("file_id") or found_film.get("message_id")
 
+        from aiogram.types import InputFile
+
+        title = found_film.get("title", "film")
+        file_id = found_film.get("file_id") or found_film.get("message_id")
+        doc = InputFile(file_id, filename=f"{title}.mp4")
+
         sent_message = await bot.send_document(
             chat_id=int(user_id),
-            document=file_id,
+            document=doc,
             caption=caption,
             reply_markup=keyboard,
-            parse_mode="Markdown",
-            file_name=f"{found_film.get('title', 'film')}.mp4"
+            parse_mode="Markdown"
         )
 
         # Зберігаємо для видалення
@@ -553,14 +558,15 @@ async def send_film_by_id(request: Request):
 
     try:
         file_id = row.get("file_id") or row.get("message_id")
+        title = row.get("title", "film")
+        doc = InputFile(file_id, filename=f"{title}.mp4")
 
         sent_message = await bot.send_document(
             chat_id=int(user_id),
-            document=file_id,
+            document=doc,
             caption=caption,
             reply_markup=keyboard,
-            parse_mode="HTML",
-            file_name=f"{row.get('title', 'film')}.mp4"
+            parse_mode="HTML"
         )
     except Exception as e:
         print(f"❌ Помилка надсилання: {e}")

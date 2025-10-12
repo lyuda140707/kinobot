@@ -476,11 +476,10 @@ async def send_film(request: Request):
 
         title = found_film.get("title", "film")
         file_id = found_film.get("file_id") or found_film.get("message_id")
-        doc = InputFile(file_id, filename=f"{title}.mp4")
 
         sent_message = await bot.send_document(
             chat_id=int(user_id),
-            document=doc,
+            document=file_id,
             caption=caption,
             reply_markup=keyboard,
             parse_mode="Markdown"
@@ -558,13 +557,12 @@ async def send_film_by_id(request: Request):
     )
 
     try:
-        file_id = row.get("file_id") or row.get("message_id")
         title = row.get("title", "film")
-        doc = InputFile(file_id, filename=f"{title}.mp4")
+        file_id = row.get("file_id") or row.get("message_id")
 
         sent_message = await bot.send_document(
             chat_id=int(user_id),
-            document=doc,
+            document=file_id,
             caption=caption,
             reply_markup=keyboard,
             parse_mode="HTML"

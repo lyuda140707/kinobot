@@ -1,6 +1,5 @@
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, Request, HTTPException
-from aiogram.types import InputFile
 from aiogram import types
 from bot import dp, bot
 from google_api import get_gsheet_data, get_google_service
@@ -470,14 +469,10 @@ async def send_film(request: Request):
             f"🕓 Це повідомлення буде видалено о {delete_time_str} (за Києвом)."
         )
 
-        file_id = str(found_film.get("file_id") or found_film.get("message_id"))
-
-        title = found_film.get("title", "film")
-        file_id = str(found_film.get("file_id") or found_film.get("message_id"))
-
-        sent_message = await bot.send_document(
-            chat_id=int(user_id),
-            document=file_id,
+        sent_message = await bot.copy_message(
+            chat_id=user_id,
+            from_chat_id=MEDIA_CHANNEL_ID,
+            message_id=int(found_film["message_id"]),  # тепер використовуємо message_id
             caption=caption,
             reply_markup=keyboard,
             parse_mode="Markdown"
@@ -555,37 +550,14 @@ async def send_film_by_id(request: Request):
     )
 
     try:
-        title = row.get("title", "film")
-        message_id = int(row.get("message_id") or row.get("file_id"))
-
-        # надсилаємо копію відео з каналу
         sent_message = await bot.copy_message(
             chat_id=int(user_id),
             from_chat_id=MEDIA_CHANNEL_ID,
-            message_id=message_id
-        )
-        # додаємо підпис і кнопки
-        await bot.edit_message_caption(
-            chat_id=int(user_id),
-            message_id=sent_message.message_id,
+            message_id=int(original_message_id),
             caption=caption,
             reply_markup=keyboard,
             parse_mode="HTML"
         )
-        
-
-        # додаємо підпис і клавіатуру
-        await bot.edit_message_caption(
-            chat_id=int(user_id),
-            message_id=sent_message.message_id,
-            caption=caption,
-            reply_markup=keyboard,
-            parse_mode="HTML"
-        )
-            
-
-
-    
     except Exception as e:
         print(f"❌ Помилка надсилання: {e}")
         return {"success": False, "error": str(e)}

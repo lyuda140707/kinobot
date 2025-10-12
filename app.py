@@ -472,7 +472,7 @@ async def send_film(request: Request):
 
         file_id = found_film.get("file_id") or found_film.get("message_id")
 
-        from aiogram.types import InputFile
+        
 
         title = found_film.get("title", "film")
         file_id = found_film.get("file_id") or found_film.get("message_id")

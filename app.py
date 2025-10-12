@@ -469,13 +469,15 @@ async def send_film(request: Request):
             f"🕓 Це повідомлення буде видалено о {delete_time_str} (за Києвом)."
         )
 
-        sent_message = await bot.copy_message(
-            chat_id=user_id,
-            from_chat_id=MEDIA_CHANNEL_ID,
-            message_id=int(found_film["message_id"]),  # тепер використовуємо message_id
+        file_id = found_film.get("file_id") or found_film.get("message_id")
+
+        sent_message = await bot.send_document(
+            chat_id=int(user_id),
+            document=file_id,
             caption=caption,
             reply_markup=keyboard,
-            parse_mode="Markdown"
+            parse_mode="Markdown",
+            file_name="film.mp4"
         )
 
         # Зберігаємо для видалення
@@ -550,13 +552,15 @@ async def send_film_by_id(request: Request):
     )
 
     try:
-        sent_message = await bot.copy_message(
+        file_id = row.get("file_id") or row.get("message_id")
+
+        sent_message = await bot.send_document(
             chat_id=int(user_id),
-            from_chat_id=MEDIA_CHANNEL_ID,
-            message_id=int(original_message_id),
+            document=file_id,
             caption=caption,
             reply_markup=keyboard,
-            parse_mode="HTML"
+            parse_mode="HTML",
+            file_name="film.mp4"
         )
     except Exception as e:
         print(f"❌ Помилка надсилання: {e}")

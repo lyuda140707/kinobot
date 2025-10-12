@@ -556,15 +556,36 @@ async def send_film_by_id(request: Request):
 
     try:
         title = row.get("title", "film")
-        file_id = str(row.get("file_id") or row.get("message_id"))
+        message_id = int(row.get("message_id") or row.get("file_id"))
 
-        sent_message = await bot.send_document(
+        # надсилаємо копію відео з каналу
+        sent_message = await bot.copy_message(
             chat_id=int(user_id),
-            document=file_id,
+            from_chat_id=MEDIA_CHANNEL_ID,
+            message_id=message_id
+        )
+        # додаємо підпис і кнопки
+        await bot.edit_message_caption(
+            chat_id=int(user_id),
+            message_id=sent_message.message_id,
             caption=caption,
             reply_markup=keyboard,
             parse_mode="HTML"
         )
+        
+
+        # додаємо підпис і клавіатуру
+        await bot.edit_message_caption(
+            chat_id=int(user_id),
+            message_id=sent_message.message_id,
+            caption=caption,
+            reply_markup=keyboard,
+            parse_mode="HTML"
+        )
+            
+
+
+    
     except Exception as e:
         print(f"❌ Помилка надсилання: {e}")
         return {"success": False, "error": str(e)}

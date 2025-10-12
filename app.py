@@ -1,5 +1,6 @@
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, Request, HTTPException
+from aiogram.types import InputFile
 from aiogram import types
 from bot import dp, bot
 from google_api import get_gsheet_data, get_google_service

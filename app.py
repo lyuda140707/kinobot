@@ -470,12 +470,10 @@ async def send_film(request: Request):
             f"🕓 Це повідомлення буде видалено о {delete_time_str} (за Києвом)."
         )
 
-        file_id = found_film.get("file_id") or found_film.get("message_id")
-
-        
+        file_id = str(found_film.get("file_id") or found_film.get("message_id"))
 
         title = found_film.get("title", "film")
-        file_id = found_film.get("file_id") or found_film.get("message_id")
+        file_id = str(found_film.get("file_id") or found_film.get("message_id"))
 
         sent_message = await bot.send_document(
             chat_id=int(user_id),
@@ -558,7 +556,7 @@ async def send_film_by_id(request: Request):
 
     try:
         title = row.get("title", "film")
-        file_id = row.get("file_id") or row.get("message_id")
+        file_id = str(row.get("file_id") or row.get("message_id"))
 
         sent_message = await bot.send_document(
             chat_id=int(user_id),

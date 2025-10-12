@@ -381,7 +381,7 @@ async def telegram_webhook(request: Request):
     await dp.feed_update(bot, update)
     return {"ok": True}
 
-from bot import bot, MEDIA_CHANNEL_ID
+from bot import bot
 from fastapi.responses import JSONResponse
 
 @app.post("/search-in-bot")
@@ -408,7 +408,7 @@ async def search_in_bot(data: SearchRequest):
     try:
         await bot.copy_message(
             chat_id=int(user_id),
-            from_chat_id=MEDIA_CHANNEL_ID,
+            from_chat_id=int(found.get("channel_id") or os.getenv("MEDIA_CHANNEL_ID")),
             message_id=int(found["message_id"]),
         )
     except Exception as e:
@@ -470,9 +470,10 @@ async def send_film(request: Request):
         )
 
         message_id = int(found_film.get("message_id") or found_film.get("file_id"))
+        channel_id = int(found_film.get("channel_id") or os.getenv("MEDIA_CHANNEL_ID"))
         sent_message = await bot.copy_message(
             chat_id=int(user_id),
-            from_chat_id=MEDIA_CHANNEL_ID,
+            from_chat_id=channel_id,
             message_id=message_id
         )
         try:
@@ -560,9 +561,10 @@ async def send_film_by_id(request: Request):
 
     try:
         message_id = int(row.get("message_id") or row.get("file_id"))
+        channel_id = int(row.get("channel_id") or os.getenv("MEDIA_CHANNEL_ID"))
         sent_message = await bot.copy_message(
             chat_id=int(user_id),
-            from_chat_id=MEDIA_CHANNEL_ID,
+            from_chat_id=channel_id,
             message_id=message_id
         )
         try:

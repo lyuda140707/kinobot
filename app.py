@@ -477,7 +477,7 @@ async def send_film(request: Request):
             caption=caption,
             reply_markup=keyboard,
             parse_mode="Markdown",
-            file_name="film.mp4"
+            file_name=f"{found_film.get('title', 'film')}.mp4"
         )
 
         # Зберігаємо для видалення
@@ -560,7 +560,7 @@ async def send_film_by_id(request: Request):
             caption=caption,
             reply_markup=keyboard,
             parse_mode="HTML",
-            file_name="film.mp4"
+            file_name=f"{row.get('title', 'film')}.mp4"
         )
     except Exception as e:
         print(f"❌ Помилка надсилання: {e}")

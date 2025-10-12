@@ -469,14 +469,23 @@ async def send_film(request: Request):
             f"🕓 Це повідомлення буде видалено о {delete_time_str} (за Києвом)."
         )
 
+        message_id = int(found_film.get("message_id") or found_film.get("file_id"))
         sent_message = await bot.copy_message(
-            chat_id=user_id,
+            chat_id=int(user_id),
             from_chat_id=MEDIA_CHANNEL_ID,
-            message_id=int(found_film["message_id"]),  # тепер використовуємо message_id
-            caption=caption,
-            reply_markup=keyboard,
-            parse_mode="Markdown"
+            message_id=message_id
         )
+        try:
+            await bot.edit_message_caption(
+                chat_id=int(user_id),
+                message_id=sent_message.message_id,
+                caption=caption,
+                reply_markup=keyboard,
+                parse_mode="Markdown"
+            )
+        except Exception as e:
+            if "message is not modified" not in str(e):
+                print(f"⚠️ Не вдалося оновити caption: {e}")
 
         # Зберігаємо для видалення
         service = get_google_service()
@@ -550,14 +559,25 @@ async def send_film_by_id(request: Request):
     )
 
     try:
+        message_id = int(row.get("message_id") or row.get("file_id"))
         sent_message = await bot.copy_message(
             chat_id=int(user_id),
             from_chat_id=MEDIA_CHANNEL_ID,
-            message_id=int(original_message_id),
-            caption=caption,
-            reply_markup=keyboard,
-            parse_mode="HTML"
+            message_id=message_id
         )
+        try:
+            await bot.edit_message_caption(
+                chat_id=int(user_id),
+                message_id=sent_message.message_id,
+                caption=caption,
+                reply_markup=keyboard,
+                parse_mode="HTML"
+            )
+        except Exception as e:
+            if "message is not modified" not in str(e):
+                print(f"⚠️ Не вдалося оновити caption: {e}")
+
+    
     except Exception as e:
         print(f"❌ Помилка надсилання: {e}")
         return {"success": False, "error": str(e)}

@@ -584,6 +584,9 @@ async def send_film_by_id(request: Request):
     if not original_message_id:
         return {"success": False, "error": "Немає message_id/file_id у записі"}
 
+    used_channel = str(row.get("channel_id") or channel_in or os.getenv("MEDIA_CHANNEL_ID"))
+    print(f"➡️ send from_channel={used_channel} mid={row.get('message_id')} file_id={row.get('file_id')} title={row.get('title')}")
+
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[[
             InlineKeyboardButton(

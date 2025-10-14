@@ -545,21 +545,19 @@ async def send_film_by_id(request: Request):
             rows = sb_find_by_message_id(message_id)
             if rows:
                 row = rows[0]
-            if row is None:
-                rows = sb_find_by_file_id(message_id)
-                if rows:
-                    row = rows[0]
-            except Exception as e:
-                print("❌ Помилка Supabase:", e)
-                return {"success": False, "error": "Помилка доступу до бази"}
-            if not row:
-                return {"success": False, "error": "Фільм не знайдено"}
+
+        if row is None:
+            rows = sb_find_by_file_id(message_id)
+            if rows:
+                row = rows[0]
+
     except Exception as e:
         print("❌ Помилка Supabase:", e)
         return {"success": False, "error": "Помилка доступу до бази"}
 
     if not row:
         return {"success": False, "error": "Фільм не знайдено"}
+
 
     # 2) Перевірка PRO (у Supabase поле називається 'access')
     if (row.get("access") == "PRO") and (not has_active_pro(user_id)):

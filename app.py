@@ -525,11 +525,10 @@ async def send_film_by_id(request: Request):
     message_id = str(data.get("message_id", "")).strip()
     channel_id = str(data.get("channel_id", "")).strip()
 
-
     if not user_id or not message_id:
         return {"success": False, "error": "user_id або message_id відсутні"}
 
-    print(f"📽️ /send-film-id {message_id} від {user_id}")
+    print(f"📽️ /send-film-id {message_id} від {user_id}, канал={channel_id}")
 
     # 1) Шукаємо фільм точно по парі (message_id + channel_id)
     try:
@@ -537,16 +536,24 @@ async def send_film_by_id(request: Request):
 
         if channel_id:
             rows = sb_find_by_mid_and_channel(message_id, channel_id)
-            if rows:
+            if rows and len(rows) > 0:
                 row = rows[0]
+                print(f"🎯 Знайдено точний запис: message_id={message_id}, channel_id={channel_id}")
+            else:
+                print(f"⚠️ Не знайдено запис із message_id={message_id} і channel_id={channel_id}")
+
+        else:
+            print(f"⚠️ channel_id не передано для message_id={message_id}")
 
         # якщо не знайшли — пробуємо старими методами
         if row is None:
+            print(f"🔍 fallback → пошук лише за message_id={message_id}")
             rows = sb_find_by_message_id(message_id)
             if rows:
                 row = rows[0]
 
         if row is None:
+            print(f"🔍 fallback → пошук за file_id={message_id}")
             rows = sb_find_by_file_id(message_id)
             if rows:
                 row = rows[0]
@@ -556,10 +563,10 @@ async def send_film_by_id(request: Request):
         return {"success": False, "error": "Помилка доступу до бази"}
 
     if not row:
+        print(f"❌ Фільм не знайдено навіть після fallback (message_id={message_id})")
         return {"success": False, "error": "Фільм не знайдено"}
 
-
-    # 2) Перевірка PRO (у Supabase поле називається 'access')
+    # 2) Перевірка PRO
     if (row.get("access") == "PRO") and (not has_active_pro(user_id)):
         return {"success": False, "error": "⛔ Доступ лише для PRO користувачів"}
 
@@ -568,28 +575,28 @@ async def send_film_by_id(request: Request):
     description = row.get("description") or ""
     caption = f"🎬 {title}\n\n{description}".strip()
 
-    # 4) Яке повідомлення копіювати
-    original_message_id = row.get("message_id") or row.get("file_id")
-    if not original_message_id:
-        return {"success": False, "error": "Немає message_id/file_id у записі"}
-
-    keyboard = InlineKeyboardMarkup(
-        inline_keyboard=[[
-            InlineKeyboardButton(
-                text="🎥 Обрати інший фільм 📚",
-                web_app=WebAppInfo(url="https://relaxbox.site/")
-            )
-        ]]
-    )
-
+    # 4) Відправляємо відео
     try:
-        message_id = int(row.get("message_id") or row.get("file_id"))
-        channel_id = int(row.get("channel_id") or os.getenv("MEDIA_CHANNEL_ID"))
+        msg_id = int(row.get("message_id") or row.get("file_id"))
+        ch_id = int(row.get("channel_id") or os.getenv("MEDIA_CHANNEL_ID"))
+
+        print(f"🎬 Відправляємо фільм '{title}' з каналу {ch_id}, message_id={msg_id}")
+
         sent_message = await bot.copy_message(
             chat_id=int(user_id),
-            from_chat_id=channel_id,
-            message_id=message_id
+            from_chat_id=ch_id,
+            message_id=msg_id
         )
+
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[[
+                InlineKeyboardButton(
+                    text="🎥 Обрати інший фільм 📚",
+                    web_app=WebAppInfo(url="https://relaxbox.site/")
+                )
+            ]]
+        )
+
         try:
             await bot.edit_message_caption(
                 chat_id=int(user_id),
@@ -602,12 +609,11 @@ async def send_film_by_id(request: Request):
             if "message is not modified" not in str(e):
                 print(f"⚠️ Не вдалося оновити caption: {e}")
 
-    
     except Exception as e:
         print(f"❌ Помилка надсилання: {e}")
         return {"success": False, "error": str(e)}
 
-    # 5) Плануємо видалення (залишаємо Google Sheet 'Видалення' як було)
+    # 5) Плануємо видалення
     try:
         kyiv = timezone("Europe/Kyiv")
         delete_time = datetime.now(kyiv) + timedelta(hours=24)
@@ -620,13 +626,9 @@ async def send_film_by_id(request: Request):
             body={"values": [[str(user_id), str(sent_message.message_id), delete_time.isoformat()]]}
         ).execute()
     except Exception as e:
-        # це не критично для користувача — просто логнемо
         print("⚠️ Не записали в 'Видалення':", e)
 
     return {"success": True}
-
-
-
 
 @app.post("/check-subscription")
 async def check_subscription(request: Request):

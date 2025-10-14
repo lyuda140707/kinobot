@@ -72,6 +72,23 @@ def sb_find_by_file_id(fid: str):
     r.raise_for_status()
     return r.json()
 
+def sb_find_by_message_and_channel(mid: str, ch: str):
+    import urllib.parse
+    mid_q = urllib.parse.quote(str(mid))
+    ch_q  = urllib.parse.quote(str(ch))
+    url = f"{SUPABASE_URL}/rest/v1/films?select=*&message_id=eq.{mid_q}&channel_id=eq.{ch_q}&limit=1"
+    r = requests.get(url, headers=_sb_headers(), timeout=10)
+    r.raise_for_status()
+    return r.json()
+
+def sb_find_by_file_and_channel(fid: str, ch: str):
+    import urllib.parse
+    fid_q = urllib.parse.quote(str(fid))
+    ch_q  = urllib.parse.quote(str(ch))
+    url = f"{SUPABASE_URL}/rest/v1/films?select=*&file_id=eq.{fid_q}&channel_id=eq.{ch_q}&limit=1"
+    r = requests.get(url, headers=_sb_headers(), timeout=10)
+    r.raise_for_status()
+    return r.json()
 
 async def clean_old_requests_once():
     """Одноразово видаляє записи старше 31 дня з аркуша 'Замовлення'."""
@@ -516,25 +533,39 @@ async def send_film_by_id(request: Request):
     data = await request.json()
     user_id = str(data.get("user_id"))
     message_id = str(data.get("message_id", "")).strip()
+    channel_in  = str(data.get("channel_id", "")).strip()  # ⬅️ НОВЕ
 
     if not user_id or not message_id:
         return {"success": False, "error": "user_id або message_id відсутні"}
 
     print(f"📽️ /send-film-id {message_id} від {user_id}")
+    print(f"    channel_in={channel_in}")
 
-    # 1) Шукаємо в Supabase: спочатку за message_id, потім за file_id
+    # 1) Якщо фронт передав channel_id — шукаємо ТІЛЬКИ точний збіг по парі
     try:
         row = None
-        rows = sb_find_by_message_id(message_id)
-        if rows:
-            row = rows[0]
-        else:
-            rows = sb_find_by_file_id(message_id)
+        if channel_in:
+            rows = sb_find_by_message_and_channel(message_id, channel_in)
             if rows:
                 row = rows[0]
+            if not row:
+                # можливо, у message_id прийшов file_id — теж перевіримо
+                rows = sb_find_by_file_and_channel(message_id, channel_in)
+                if rows:
+                    row = rows[0]
+        # 2) Якщо channel_id НЕ прийшов — працюємо як раніше (може бути неоднозначність)
+        if not row:
+            rows = sb_find_by_message_id(message_id)
+            if rows:
+                row = rows[0]
+            if not row:
+                rows = sb_find_by_file_id(message_id)
+                if rows:
+                    row = rows[0]
     except Exception as e:
         print("❌ Помилка Supabase:", e)
         return {"success": False, "error": "Помилка доступу до бази"}
+    
 
     if not row:
         return {"success": False, "error": "Фільм не знайдено"}

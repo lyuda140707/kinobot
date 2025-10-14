@@ -17,6 +17,34 @@ from datetime import datetime, timedelta
 from aiogram import types
 from google_api import add_user_if_not_exists
 MEDIA_CHANNEL_ID = int(os.getenv("MEDIA_CHANNEL_ID"))
+import requests
+import urllib.parse
+
+SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
+SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY") or os.getenv("SUPABASE_ANON")
+
+def _sb_headers():
+    return {"apikey": SUPABASE_ANON_KEY, "Authorization": f"Bearer {SUPABASE_ANON_KEY}"}
+
+def sb_find_by_message_or_file(mid_or_fid: str):
+    """Шукає фільм або за message_id, або за file_id"""
+    q = urllib.parse.quote(mid_or_fid)
+    url1 = f"{SUPABASE_URL}/rest/v1/films?select=*&message_id=eq.{q}&limit=1"
+    url2 = f"{SUPABASE_URL}/rest/v1/films?select=*&file_id=eq.{q}&limit=1"
+
+    for url in (url1, url2):
+        r = requests.get(url, headers=_sb_headers(), timeout=10)
+        if r.ok and r.json():
+            return r.json()[0]
+    return None
+
+def sb_find_by_name_like(name: str):
+    q = urllib.parse.quote(f"*{name}*")
+    url = f"{SUPABASE_URL}/rest/v1/films?select=*&title=ilike.{q}&limit=50"
+    r = requests.get(url, headers=_sb_headers(), timeout=10)
+    r.raise_for_status()
+    return r.json()
+
 
 
 def clean_expired_pro():
@@ -219,8 +247,7 @@ async def start_handler(message: types.Message):
     if message.text and len(message.text.split()) > 1:
         payload = message.text.split(maxsplit=1)[1].strip()
 
-    # 3) Якщо payload відсутній або НЕ той формат, що ми очікуємо —
-    #    НЕ показуємо "Фільм не знайдено", а даємо кнопку WebApp.
+    # 3) Якщо payload відсутній — просто показуємо кнопку WebApp
     if not payload or not (payload.startswith("film_") or payload.startswith("series_")):
         await safe_send(
             bot,
@@ -230,10 +257,10 @@ async def start_handler(message: types.Message):
         )
         return
 
-    # 4) Якщо payload валідний — дістаємо id і шлемо відео з каналу
-    film_id = payload.split("_", 1)[1]  # все, що після 'film_' або 'series_'
-    # шукаємо рядок у таблиці, де message_id == film_id (або file_id як fallback)
+    # 4) Якщо payload валідний — дістаємо id і шукаємо фільм
+    film_id = payload.split("_", 1)[1]
     films = get_gsheet_data()
+
     found = next(
         (f for f in films
          if str(f.get("message_id", "")).strip() == film_id
@@ -242,7 +269,6 @@ async def start_handler(message: types.Message):
     )
 
     if not found:
-        # навіть у цьому випадку — краще не лякати користувача помилкою
         await safe_send(
             bot,
             message.chat.id,
@@ -253,18 +279,30 @@ async def start_handler(message: types.Message):
 
     name = found.get("Назва", "Без назви")
     desc = found.get("Опис", "Без опису")
-    original_message_id = found.get("message_id") or found.get("file_id")
+    msg_id = found.get("message_id")
+    file_id = found.get("file_id")
+    channel_id = int(found.get("channel_id") or os.getenv("MEDIA_CHANNEL_ID"))
 
     caption = f"*🎬 {name}*\n{desc}"
 
     try:
-        await bot.copy_message(
-            chat_id=message.chat.id,
-            from_chat_id=MEDIA_CHANNEL_ID,
-            message_id=int(original_message_id),
-            caption=caption,
-            parse_mode="Markdown"
-        )
+        if msg_id:
+            await bot.copy_message(
+                chat_id=message.chat.id,
+                from_chat_id=channel_id,
+                message_id=int(msg_id),
+                caption=caption,
+                parse_mode="Markdown"
+            )
+        elif file_id:
+            await bot.send_video(
+                chat_id=message.chat.id,
+                video=file_id,
+                caption=caption,
+                parse_mode="Markdown"
+            )
+        else:
+            await safe_send(bot, message.chat.id, "⚠️ Не знайдено message_id або file_id")
     except Exception as e:
         print(f"❌ Помилка копіювання відео: {e}")
         await safe_send(bot, message.chat.id, "⚠️ Не вдалося відправити відео")
@@ -288,7 +326,7 @@ async def process_message(message: types.Message):
         username=message.from_user.username or "",
         first_name=message.from_user.first_name or ""
     )
-    
+
     # --- /reply (відповідь адміну)
     if message.text and message.text.startswith('/reply '):
         parts = message.text.split(' ', 2)
@@ -302,46 +340,50 @@ async def process_message(message: types.Message):
             await message.reply("✅ Відповідь надіслана користувачу.")
         except Exception as e:
             await message.reply(f"❗ Не вдалося надіслати відповідь: {e}")
-        return  # Щоб не шукати далі як фільм
+        return
 
     # --- Пошук фільму
     if not message.text:
         return
 
-    if not message.chat or not message.chat.id:
-        print("❌ Немає message.chat.id — не надсилаємо відео")
+    query = message.text.strip()
+    films = get_gsheet_data()
+    found = find_film_by_name(query)  # твоя функція знаходить фільм за назвою
+
+    if not found:
+        await safe_send(bot, message.chat.id, "Фільм не знайдено 😢")
         return
 
-    query = message.text.strip()  # Можна .lower() — але find_film_by_name вже це робить
+    name = found.get("Назва", "Без назви")
+    desc = found.get("Опис", "Без опису")
+    msg_id = found.get("message_id")
+    file_id = found.get("file_id")
+    channel_id = int(found.get("channel_id") or os.getenv("MEDIA_CHANNEL_ID"))
 
-    film = find_film_by_name(query)
+    caption = f"*🎬 {name}*\n{desc}"
+    print(f"✅ Надсилаємо фільм: {name}")
+    print(f"🆔 message_id: {msg_id} | file_id: {file_id} | channel: {channel_id}")
 
-    if film:
-        name = film.get("Назва", "Без назви")
-        desc = film.get("Опис", "Без опису")
-        message_id = film.get("message_id")
-
-        caption = f"*🎬 {name}*\n{desc}"
-        print(f"✅ Надсилаємо фільм: {name}")
-        print(f"🆔 message_id: {message_id}")
-
-        if message_id:
-            try:
-                await bot.copy_message(
-                    chat_id=message.chat.id,
-                    from_chat_id=MEDIA_CHANNEL_ID,
-                    message_id=int(message_id),
-                    caption=caption,
-                    parse_mode="Markdown"
-                )
-            except Exception as e:
-                print(f"❌ Помилка копіювання відео: {e}")
-                await safe_send(bot, message.chat.id, "⚠️ Не вдалося відправити відео")
-
-
+    try:
+        if msg_id:
+            await bot.copy_message(
+                chat_id=message.chat.id,
+                from_chat_id=channel_id,
+                message_id=int(msg_id),
+                caption=caption,
+                parse_mode="Markdown"
+            )
+        elif file_id:
+            await bot.send_video(
+                chat_id=message.chat.id,
+                video=file_id,
+                caption=caption,
+                parse_mode="Markdown"
+            )
         else:
             await message.answer(caption, parse_mode="Markdown")
-        return
+    except Exception as e:
+        print(f"❌ Помилка копіювання відео: {e}")
+        await safe_send(bot, message.chat.id, "⚠️ Не вдалося відправити відео")
 
-    await safe_send(bot, message.chat.id, "Фільм не знайдено 😢")
     

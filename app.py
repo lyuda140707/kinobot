@@ -72,6 +72,16 @@ def sb_find_by_file_id(fid: str):
     r.raise_for_status()
     return r.json()
 
+def sb_find_by_mid_and_channel(mid: str, channel_id: str):
+    import urllib.parse
+    mid_q = urllib.parse.quote(mid)
+    ch_q = urllib.parse.quote(channel_id)
+    url = f"{SUPABASE_URL}/rest/v1/films?select=*&message_id=eq.{mid_q}&channel_id=eq.{ch_q}&limit=1"
+    r = requests.get(url, headers=_sb_headers(), timeout=10)
+    r.raise_for_status()
+    return r.json()
+
+
 
 async def clean_old_requests_once():
     """Одноразово видаляє записи старше 31 дня з аркуша 'Замовлення'."""
@@ -513,22 +523,37 @@ async def send_film_by_id(request: Request):
     data = await request.json()
     user_id = str(data.get("user_id"))
     message_id = str(data.get("message_id", "")).strip()
+    channel_id = str(data.get("channel_id", "")).strip()
+
 
     if not user_id or not message_id:
         return {"success": False, "error": "user_id або message_id відсутні"}
 
     print(f"📽️ /send-film-id {message_id} від {user_id}")
 
-    # 1) Шукаємо в Supabase: спочатку за message_id, потім за file_id
+    # 1) Шукаємо фільм точно по парі (message_id + channel_id)
     try:
         row = None
-        rows = sb_find_by_message_id(message_id)
-        if rows:
-            row = rows[0]
-        else:
-            rows = sb_find_by_file_id(message_id)
+
+        if channel_id:
+            rows = sb_find_by_mid_and_channel(message_id, channel_id)
             if rows:
                 row = rows[0]
+
+        # якщо не знайшли — пробуємо старими методами
+        if row is None:
+            rows = sb_find_by_message_id(message_id)
+            if rows:
+                row = rows[0]
+            if row is None:
+                rows = sb_find_by_file_id(message_id)
+                if rows:
+                    row = rows[0]
+            except Exception as e:
+                print("❌ Помилка Supabase:", e)
+                return {"success": False, "error": "Помилка доступу до бази"}
+            if not row:
+                return {"success": False, "error": "Фільм не знайдено"}
     except Exception as e:
         print("❌ Помилка Supabase:", e)
         return {"success": False, "error": "Помилка доступу до бази"}

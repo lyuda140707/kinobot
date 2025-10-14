@@ -58,13 +58,44 @@ def add_user_if_not_exists(user_id: int, username: str, first_name: str):
     ).execute()
 
 def find_film_by_name(query: str):
-    """Пошук фільму по назві (повертає словник або None)"""
-    films = get_gsheet_data()
-    query = query.lower().strip()
-    for film in films:
-        if query in film.get("Назва", "").lower():
-            return film
-    return None
+    """Пошук фільму у Supabase (з урахуванням channel_id, message_id, file_id)"""
+    import urllib.parse
+    import requests
+
+    SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
+    SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY") or os.getenv("SUPABASE_ANON")
+
+    if not SUPABASE_URL or not SUPABASE_ANON_KEY:
+        print("⚠️ SUPABASE_URL або ключ не задані — пошук через Google Sheets")
+        return None
+
+    def _sb_headers():
+        return {"apikey": SUPABASE_ANON_KEY, "Authorization": f"Bearer {SUPABASE_ANON_KEY}"}
+
+    q = urllib.parse.quote(f"*{query}*")
+    url = f"{SUPABASE_URL}/rest/v1/films?select=*&title=ilike.{q}&limit=10"
+
+    try:
+        r = requests.get(url, headers=_sb_headers(), timeout=10)
+        if not r.ok:
+            print(f"❌ Помилка Supabase: {r.status_code} {r.text}")
+            return None
+
+        films = r.json()
+        if not films:
+            print("⚠️ У Supabase нічого не знайдено")
+            return None
+
+        # Якщо є кілька — беремо той, у якого є channel_id
+        films_with_channel = [f for f in films if f.get("channel_id")]
+        found = films_with_channel[0] if films_with_channel else films[0]
+        print(f"✅ Знайдено фільм: {found.get('title')} | channel_id={found.get('channel_id')}")
+        return found
+
+    except Exception as e:
+        print("❌ Помилка запиту до Supabase:", e)
+        return None
+
 
 
 def find_film_by_name(film_name):

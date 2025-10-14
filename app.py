@@ -444,9 +444,12 @@ async def send_film(request: Request):
         if not found_film:
             return JSONResponse(status_code=404, content={"success": False, "error": "Фільм не знайдено або немає file_id"})
 
-                # 🔒 Перевірка доступу PRO
-        if found_film.get("Доступ") == "PRO" and not has_active_pro(str(user_id)):
-            return JSONResponse(status_code=403, content={"success": False, "error": "⛔ Доступ лише для PRO користувачів"})
+        # 🔒 Перевірка доступу PRO
+        if found_film.get("access") == "PRO" and not has_active_pro(str(user_id)):
+            return JSONResponse(
+                status_code=403,
+                content={"success": False, "error": "⛔ Доступ лише для PRO користувачів"}
+                )
 
 
         # Готуємо клавіатуру

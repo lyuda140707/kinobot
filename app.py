@@ -577,7 +577,11 @@ async def send_film_by_id(request: Request):
     # 3) Формуємо підпис
     title = row.get("title") or ""
     description = row.get("description") or ""
-    caption = f"🎬 {title}\n\n{description}".strip()
+    caption = (
+        f"🎬 {title}\n\n{description}\n\n"
+        "⚠️ Якщо відео раптом зупинилось або не реагує — це глюк Telegram 😅\n"
+        "Просто закрий Telegram і відкрий його знову — фільм продовжиться з того ж місця 🎬"
+    )
 
     # 4) Яке повідомлення копіювати
     original_message_id = row.get("message_id") or row.get("file_id")

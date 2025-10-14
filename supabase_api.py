@@ -17,7 +17,7 @@ def get_films():
     """
     url = (
         f"{SUPABASE_URL}/rest/v1/films"
-        "?select=title,type,genre,description,photo,message_id,collection,country,year,access,imdb,season,episode"
+        "?select=title,type,genre,description,photo,message_id,channel_id,collection,country,year,access,imdb,season,episode"
     )
     r = requests.get(url, headers=_headers(), timeout=20)
     r.raise_for_status()
@@ -35,6 +35,7 @@ def get_films():
             "Країна"    : row.get("country", "") or "",
             "Рік"       : row.get("year", "") or "",
             "message_id": row.get("message_id", "") or "",
+            "channel_id": row.get("channel_id", "") or "",
             "Сезон"     : row.get("season", "") or "",
             "Серія"     : row.get("episode", "") or "",
         }

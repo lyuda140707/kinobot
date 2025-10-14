@@ -1,14 +1,17 @@
 # supabase_api.py
-import os, requests
+import os
+import requests
 
-SUPABASE_URL  = os.getenv("https://zerlqvbmqszomlondlte.supabase.co")   # https://xxxx.supabase.co
-SUPABASE_ANON = os.getenv("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InplcmxxdmJtcXN6b21sb25kbHRlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUzMzg3NzQsImV4cCI6MjA3MDkxNDc3NH0.8wUBYIeQRC6KVp6vdzv0oqofIf4PeZyzbV5GcD0vxTE")  # anon key
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_ANON = os.getenv("SUPABASE_ANON_KEY")
 
 def _headers():
     return {
         "apikey": SUPABASE_ANON,
         "Authorization": f"Bearer {SUPABASE_ANON}",
     }
+
+
 
 def get_films():
     """

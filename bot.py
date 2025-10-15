@@ -291,24 +291,13 @@ async def start_handler(message: types.Message):
 
     try:
         if msg_id:
-            try:
-                # 🧪 Тест: надсилаємо відео напряму, а не копіюємо з каналу
-                await bot.send_video(
-                    chat_id=message.chat.id,
-                    video=file_id if file_id else msg_id,
-                    caption=caption,
-                    parse_mode="Markdown"
-                )
-                print(f"✅ send_video успішно для {msg_id}")
-            except Exception as e:
-                print(f"⚠️ send_video не вдалось ({e}), пробуємо copy_message")
-                await bot.copy_message(
-                    chat_id=message.chat.id,
-                    from_chat_id=channel_id,
-                    message_id=int(msg_id),
-                    caption=caption,
-                    parse_mode="Markdown"
-                )
+            await bot.copy_message(
+                chat_id=message.chat.id,
+                from_chat_id=channel_id,
+                message_id=int(msg_id),
+                caption=caption,
+                parse_mode="Markdown"
+            )
         elif file_id:
             await bot.send_video(
                 chat_id=message.chat.id,
@@ -385,24 +374,13 @@ async def process_message(message: types.Message):
 
     try:
         if msg_id:
-            try:
-                # 🧪 Тест: надсилаємо напряму замість копіювання
-                await bot.send_video(
-                    chat_id=message.chat.id,
-                    video=file_id if file_id else msg_id,
-                    caption=caption,
-                    parse_mode="Markdown"
-                )
-                print(f"✅ send_video успішно для {msg_id}")
-            except Exception as e:
-                print(f"⚠️ send_video не вдалось ({e}), пробуємо copy_message")
-                await bot.copy_message(
-                    chat_id=message.chat.id,
-                    from_chat_id=channel_id,
-                    message_id=int(msg_id),
-                    caption=caption,
-                    parse_mode="Markdown"
-                )
+            await bot.copy_message(
+                chat_id=message.chat.id,
+                from_chat_id=channel_id,
+                message_id=int(msg_id),
+                caption=caption,
+                parse_mode="Markdown"
+            )
         elif file_id:
             await bot.send_video(
                 chat_id=message.chat.id,
@@ -412,7 +390,6 @@ async def process_message(message: types.Message):
             )
         else:
             await message.answer(caption, parse_mode="Markdown")
-                
     except Exception as e:
         print(f"❌ Помилка копіювання відео: {e}")
         await safe_send(bot, message.chat.id, "⚠️ Не вдалося відправити відео")

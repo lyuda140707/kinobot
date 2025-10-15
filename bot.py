@@ -283,11 +283,7 @@ async def start_handler(message: types.Message):
     file_id = found.get("file_id")
     channel_id = int(found.get("channel_id") or os.getenv("MEDIA_CHANNEL_ID"))
 
-    caption = (
-        f"*🎬 {name}*\n{desc}\n\n"
-        "⚠️ Якщо відео раптом зупинилось або не реагує — це глюк Telegram 😅\n"
-        "Просто закрий Telegram і відкрий його знову — фільм продовжиться з того ж місця 🎬"
-    )
+    caption = f"*🎬 {name}*\n{desc}"
 
     try:
         if msg_id:
@@ -364,11 +360,7 @@ async def process_message(message: types.Message):
     file_id = found.get("file_id")
     channel_id = int(found.get("channel_id") or os.getenv("MEDIA_CHANNEL_ID"))
 
-    caption = (
-        f"*🎬 {name}*\n{desc}\n\n"
-        "⚠️ Якщо відео раптом зупинилось або не реагує — це глюк Telegram 😅\n"
-        "Просто закрий Telegram і відкрий його знову — фільм продовжиться з того ж місця 🎬"
-    )
+    caption = f"*🎬 {name}*\n{desc}"
     print(f"✅ Надсилаємо фільм: {name}")
     print(f"🆔 message_id: {msg_id} | file_id: {file_id} | channel: {channel_id}")
 

@@ -491,11 +491,24 @@ async def send_film(request: Request):
 
         message_id = int(found_film.get("message_id") or found_film.get("file_id"))
         channel_id = int(found_film.get("channel_id") or os.getenv("MEDIA_CHANNEL_ID"))
-        sent_message = await bot.copy_message(
-            chat_id=int(user_id),
-            from_chat_id=channel_id,
-            message_id=message_id
-        )
+
+        if found_film.get("file_id"):
+            print(f"🎬 Відправка через file_id={found_film['file_id']} → {found_film.get('title')}")
+            sent_message = await bot.send_video(
+                chat_id=int(user_id),
+                video=found_film["file_id"],
+                caption=caption,
+                reply_markup=keyboard,
+                parse_mode="HTML",
+                supports_streaming=True
+            )
+        else:
+            print(f"📦 Відправка копією (message_id={message_id}) → {found_film.get('title')}")
+            sent_message = await bot.copy_message(
+                chat_id=int(user_id),
+                from_chat_id=channel_id,
+                message_id=message_id
+            )
         try:
             await bot.edit_message_caption(
                 chat_id=int(user_id),
@@ -603,11 +616,36 @@ async def send_film_by_id(request: Request):
     try:
         message_id = int(row.get("message_id") or row.get("file_id"))
         channel_id = int(row.get("channel_id") or os.getenv("MEDIA_CHANNEL_ID"))
-        sent_message = await bot.copy_message(
-            chat_id=int(user_id),
-            from_chat_id=channel_id,
-            message_id=message_id
-        )
+
+        file_id = str(row.get("file_id", "")).strip()
+        title = row.get("title", "")
+        print(f"🎬 Відправка через file_id={file_id} → {title}")
+
+        try:
+            if file_id and len(file_id) > 20:
+                # 🟢 Основний спосіб — надсилати напряму через file_id
+                sent_message = await bot.send_video(
+                    chat_id=int(user_id),
+                    video=file_id,
+                    caption=caption,
+                    reply_markup=keyboard,
+                    parse_mode="HTML",
+                    supports_streaming=True
+                )
+            else:
+                # 🔄 Якщо file_id відсутній або короткий — резервно копіюємо з каналу
+                print("⚠️ file_id порожній або некоректний — використовуємо copy_message()")
+                sent_message = await bot.copy_message(
+                    chat_id=int(user_id),
+                    from_chat_id=int(row.get("channel_id") or os.getenv("MEDIA_CHANNEL_ID")),
+                    message_id=int(row.get("message_id"))
+                )
+        except Exception as e:
+            print(f"❌ Помилка при надсиланні відео: {e}")
+            sent_message = await bot.send_message(
+                chat_id=int(user_id),
+                text="⚠️ Сталася помилка при надсиланні відео. Спробуй пізніше 🎬"
+            )
         try:
             await bot.edit_message_caption(
                 chat_id=int(user_id),

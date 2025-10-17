@@ -491,10 +491,10 @@ async def send_film(request: Request):
 
         message_id = int(found_film.get("message_id") or found_film.get("file_id"))
         channel_id = int(found_film.get("channel_id") or os.getenv("MEDIA_CHANNEL_ID"))
-        if row.get("file_id"):
+        if found_film.get("file_id"):
             sent_message = await bot.send_video(
                 chat_id=int(user_id),
-                video=row["file_id"],
+                video=found_film["file_id"],
                 caption=caption,
                 reply_markup=keyboard,
                 parse_mode="HTML",

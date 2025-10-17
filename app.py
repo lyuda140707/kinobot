@@ -546,7 +546,7 @@ async def send_film_by_id(request: Request):
     data = await request.json()
     user_id = str(data.get("user_id"))
     message_id = str(data.get("message_id", "")).strip()
-    channel_in  = str(data.get("channel_id", "")).strip()  # ⬅️ НОВЕ
+    channel_in = str(data.get("channel_id", "")).strip()
 
     if not user_id or not message_id:
         return {"success": False, "error": "user_id або message_id відсутні"}
@@ -554,56 +554,35 @@ async def send_film_by_id(request: Request):
     print(f"📽️ /send-film-id {message_id} від {user_id}")
     print(f"    channel_in={channel_in}")
 
-    # 1) Визначаємо тип ID і шукаємо відповідно
+    # 🔍 Визначаємо, file_id це чи message_id
     try:
         row = None
         if len(message_id) > 20:
-            # 📦 Це file_id (довгий рядок)
             print("🔍 Виявлено file_id — шукаємо по колонці file_id")
-            if channel_in:
-                rows = sb_find_by_file_and_channel(message_id, channel_in)
-            else:
-                rows = sb_find_by_file_id(message_id)
+            rows = sb_find_by_file_and_channel(message_id, channel_in) if channel_in else sb_find_by_file_id(message_id)
         else:
-            # 🔢 Це message_id (число)
             print("🔍 Виявлено message_id — шукаємо по колонці message_id")
-            if channel_in:
-                rows = sb_find_by_message_and_channel(message_id, channel_in)
-            else:
-                rows = sb_find_by_message_id(message_id)
+            rows = sb_find_by_message_and_channel(message_id, channel_in) if channel_in else sb_find_by_message_id(message_id)
         if rows:
             row = rows[0]
     except Exception as e:
         print("❌ Помилка Supabase:", e)
         return {"success": False, "error": "Помилка доступу до бази"}
-    except Exception as e:
-        print("❌ Помилка Supabase:", e)
-        return {"success": False, "error": "Помилка доступу до бази"}
-    
 
     if not row:
         return {"success": False, "error": "Фільм не знайдено"}
 
-    # 2) Перевірка PRO (у Supabase поле називається 'access')
+    # 🔒 Перевірка PRO
     if (row.get("access") == "PRO") and (not has_active_pro(user_id)):
         return {"success": False, "error": "⛔ Доступ лише для PRO користувачів"}
 
-    # 3) Формуємо підпис
     title = row.get("title") or ""
     description = row.get("description") or ""
     caption = (
         f"🎬 {title}\n\n{description}\n\n"
-        "⚠️ Якщо відео раптом зупинилось або не реагує — це глюк Telegram 😅\n"
-        "Просто закрий Telegram і відкрий його знову — фільм продовжиться з того ж місця 🎬"
+        "🎞️🤩 Попкорн є? Світло вимкнено?\n"
+        "🚀 Бо цей фільм точно не дасть засумувати!"
     )
-
-    # 4) Яке повідомлення копіювати
-    original_message_id = row.get("message_id") or row.get("file_id")
-    if not original_message_id:
-        return {"success": False, "error": "Немає message_id/file_id у записі"}
-
-    used_channel = str(row.get("channel_id") or channel_in or os.getenv("MEDIA_CHANNEL_ID"))
-    print(f"➡️ send from_channel={used_channel} mid={row.get('message_id')} file_id={row.get('file_id')} title={row.get('title')}")
 
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[[
@@ -615,12 +594,12 @@ async def send_film_by_id(request: Request):
     )
 
     try:
-        channel_id = int(row.get("channel_id") or os.getenv("MEDIA_CHANNEL_ID"))
+        channel_id = int(row.get("channel_id") or channel_in or os.getenv("MEDIA_CHANNEL_ID"))
         file_id = str(row.get("file_id", "")).strip()
 
-        # 🧠 Якщо є file_id — відправляємо напряму через send_video
+        # 🧠 1️⃣ Основний спосіб — через file_id
         if file_id and len(file_id) > 20:
-            print(f"🎬 Відправка через file_id={file_id} → {row.get('title')}")
+            print(f"🎬 Відправка через file_id={file_id} → {title}")
             try:
                 sent_message = await bot.send_video(
                     chat_id=int(user_id),
@@ -634,6 +613,7 @@ async def send_film_by_id(request: Request):
                 print(f"⚠️ Помилка send_video: {e}")
                 # fallback — якщо file_id не спрацював
                 if row.get("message_id"):
+                    print("🔁 Використовуємо резервний copy_message()")
                     sent_message = await bot.copy_message(
                         chat_id=int(user_id),
                         from_chat_id=channel_id,
@@ -641,63 +621,16 @@ async def send_film_by_id(request: Request):
                     )
                 else:
                     raise e
-            else:
-                # якщо file_id немає — резервна копія
-                print(f"📦 Відправка копією (message_id={row.get('message_id')}) → {row.get('title')}")
-                sent_message = await bot.copy_message(
-                    chat_id=int(user_id),
-                    from_chat_id=channel_id,
-                    message_id=int(row.get("message_id"))
-                )
-
-        file_id = str(row.get("file_id", "")).strip()
-        title = row.get("title", "")
-        print(f"🎬 Відправка через file_id={file_id} → {title}")
-
-        try:
-            if file_id and len(file_id) > 20:
-                # 🟢 Основний спосіб — надсилати напряму через file_id
-                sent_message = await bot.send_video(
-                    chat_id=int(user_id),
-                    video=file_id,
-                    caption=caption,
-                    reply_markup=keyboard,
-                    parse_mode="HTML",
-                    supports_streaming=True
-                )
-            else:
-                # 🔄 Якщо file_id відсутній або короткий — резервно копіюємо з каналу
-                print("⚠️ file_id порожній або некоректний — використовуємо copy_message()")
-                sent_message = await bot.copy_message(
-                    chat_id=int(user_id),
-                    from_chat_id=int(row.get("channel_id") or os.getenv("MEDIA_CHANNEL_ID")),
-                    message_id=int(row.get("message_id"))
-                )
-        except Exception as e:
-            print(f"❌ Помилка при надсиланні відео: {e}")
-            sent_message = await bot.send_message(
+        else:
+            # 🧩 2️⃣ Якщо file_id немає — резервна копія
+            print(f"📦 Відправка копією (message_id={row.get('message_id')}) → {title}")
+            sent_message = await bot.copy_message(
                 chat_id=int(user_id),
-                text="⚠️ Сталася помилка при надсиланні відео. Спробуй пізніше 🎬"
+                from_chat_id=channel_id,
+                message_id=int(row.get("message_id"))
             )
-        try:
-            await bot.edit_message_caption(
-                chat_id=int(user_id),
-                message_id=sent_message.message_id,
-                caption=caption,
-                reply_markup=keyboard,
-                parse_mode="HTML"
-            )
-        except Exception as e:
-            if "message is not modified" not in str(e):
-                print(f"⚠️ Не вдалося оновити caption: {e}")
 
-    
-    except Exception as e:
-        print(f"❌ Помилка надсилання: {e}")
-        return {"success": False, "error": str(e)}
-
-    # 5) Плануємо видалення (залишаємо Google Sheet 'Видалення' як було)
-    try:
+        # 🕓 3️⃣ Запис у таблицю видалення
         kyiv = timezone("Europe/Kyiv")
         delete_time = datetime.now(kyiv) + timedelta(hours=24)
         sheet = get_google_service().spreadsheets()
@@ -708,11 +641,14 @@ async def send_film_by_id(request: Request):
             insertDataOption="INSERT_ROWS",
             body={"values": [[str(user_id), str(sent_message.message_id), delete_time.isoformat()]]}
         ).execute()
-    except Exception as e:
-        # це не критично для користувача — просто логнемо
-        print("⚠️ Не записали в 'Видалення':", e)
 
-    return {"success": True}
+        print(f"✅ Відео надіслано користувачу {user_id}")
+        return {"success": True}
+
+    except Exception as e:
+        print(f"❌ Помилка надсилання: {e}")
+        return {"success": False, "error": str(e)}
+
 
 
 

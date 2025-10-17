@@ -394,4 +394,85 @@ async def process_message(message: types.Message):
         print(f"❌ Помилка копіювання відео: {e}")
         await safe_send(bot, message.chat.id, "⚠️ Не вдалося відправити відео")
 
+import os
+import asyncio
+import requests
+from aiogram.filters import Command
+
+SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
+SUPABASE_KEY = os.getenv("SUPABASE_ANON_KEY") or os.getenv("SUPABASE_ANON")
+MEDIA_STAGING_CHAT_ID = int(os.getenv("MEDIA_STAGING_CHAT_ID"))
+ADMIN_ID = int(os.getenv("ADMIN_ID"))
+
+def _sb_headers():
+    return {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "Prefer": "return=representation"
+    }
+
+def sb_find_without_fileid(limit=20):
+    url = f"{SUPABASE_URL}/rest/v1/films"
+    params = {
+        "select": "id,title,message_id,channel_id,file_id",
+        "or": "(file_id.is.null,file_id.eq.)",
+        "limit": str(limit)
+    }
+    r = requests.get(url, headers=_sb_headers(), params=params, timeout=15)
+    r.raise_for_status()
+    return r.json()
+
+def sb_update_fileid_by_id(row_id: int, new_file_id: str):
+    url = f"{SUPABASE_URL}/rest/v1/films"
+    params = {"id": f"eq.{row_id}"}
+    payload = {"file_id": new_file_id}
+    r = requests.patch(url, headers=_sb_headers(), params=params, json=payload, timeout=15)
+    r.raise_for_status()
+    return r.json()
+
+@dp.message(Command("refresh_fileid_missing"))
+async def refresh_fileid_missing(message: types.Message):
+    if message.from_user.id != ADMIN_ID:
+        return await message.reply("⛔ Команда доступна лише адміну.")
+
+    await message.answer("🔎 Шукаю фільми без file_id...")
+    rows = sb_find_without_fileid(limit=10)
+
+    if not rows:
+        return await message.answer("✅ Усі фільми вже мають file_id!")
+
+    ok, fail = 0, 0
+    for row in rows:
+        try:
+            ch_id = int(row["channel_id"])
+            msg_id = int(row["message_id"])
+            title = row.get("title") or f"id={row['id']}"
+
+            forwarded = await bot.copy_message(
+                chat_id=MEDIA_STAGING_CHAT_ID,
+                from_chat_id=ch_id,
+                message_id=msg_id
+            )
+
+            # дістаємо новий file_id
+            if forwarded.video:
+                new_fid = forwarded.video.file_id
+            elif forwarded.document and forwarded.document.mime_type.startswith("video/"):
+                new_fid = forwarded.document.file_id
+            else:
+                raise Exception("Немає відео")
+
+            sb_update_fileid_by_id(row["id"], new_fid)
+            ok += 1
+            await message.answer(f"✅ {title}\n<code>{new_fid}</code>", parse_mode="HTML")
+            await asyncio.sleep(0.5)
+        except Exception as e:
+            fail += 1
+            await message.answer(f"⚠️ {row.get('title')} — помилка: {e}")
+
+    await message.answer(f"🏁 Готово! ✅ {ok} успішно, ❌ {fail} з помилками.")
+
+
     

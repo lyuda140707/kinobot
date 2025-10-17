@@ -321,6 +321,11 @@ async def get_file_id(message: types.Message):
 
 
 
+# 🚫 Ігноруємо всі команди (щоб не йшли в пошук фільмів)
+@dp.message(lambda m: m.text and m.text.startswith("/"))
+async def ignore_commands(message: types.Message):
+    # просто пропускаємо команду, якщо її обробляє інша функція
+    return
 
 
 @dp.message(F.text)

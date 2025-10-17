@@ -491,21 +491,11 @@ async def send_film(request: Request):
 
         message_id = int(found_film.get("message_id") or found_film.get("file_id"))
         channel_id = int(found_film.get("channel_id") or os.getenv("MEDIA_CHANNEL_ID"))
-        if found_film.get("file_id"):
-            sent_message = await bot.send_video(
-                chat_id=int(user_id),
-                video=found_film["file_id"],
-                caption=caption,
-                reply_markup=keyboard,
-                parse_mode="HTML",
-                supports_streaming=True
-            )
-        else:
-            sent_message = await bot.copy_message(
-                chat_id=int(user_id),
-                from_chat_id=channel_id,
-                message_id=message_id
-            )
+        sent_message = await bot.copy_message(
+            chat_id=int(user_id),
+            from_chat_id=channel_id,
+            message_id=message_id
+        )
         try:
             await bot.edit_message_caption(
                 chat_id=int(user_id),
@@ -589,8 +579,8 @@ async def send_film_by_id(request: Request):
     description = row.get("description") or ""
     caption = (
         f"🎬 {title}\n\n{description}\n\n"
-        "🎞️🤩 Попкорн є? Світло вимкнено?\n"
-        "🚀 Бо цей фільм точно не дасть засумувати!"
+        "⚠️ Якщо відео раптом зупинилось або не реагує — це глюк Telegram 😅\n"
+        "Просто закрий Telegram і відкрий його знову — фільм продовжиться з того ж місця 🎬"
     )
 
     # 4) Яке повідомлення копіювати
@@ -613,21 +603,11 @@ async def send_film_by_id(request: Request):
     try:
         message_id = int(row.get("message_id") or row.get("file_id"))
         channel_id = int(row.get("channel_id") or os.getenv("MEDIA_CHANNEL_ID"))
-        if row.get("file_id"):
-            sent_message = await bot.send_video(
-                chat_id=int(user_id),
-                video=row["file_id"],
-                caption=caption,
-                reply_markup=keyboard,
-                parse_mode="HTML",
-                supports_streaming=True
-            )
-        else:
-            sent_message = await bot.copy_message(
-                chat_id=int(user_id),
-                from_chat_id=channel_id,
-                message_id=message_id
-            )
+        sent_message = await bot.copy_message(
+            chat_id=int(user_id),
+            from_chat_id=channel_id,
+            message_id=message_id
+        )
         try:
             await bot.edit_message_caption(
                 chat_id=int(user_id),

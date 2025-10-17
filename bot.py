@@ -432,7 +432,7 @@ def sb_update_fileid_by_id(row_id: int, new_file_id: str):
     r.raise_for_status()
     return r.json()
 
-@dp.message(Command("refresh_fileid_missing"))
+@dp.message(Command("update_fileid"))
 async def refresh_fileid_missing(message: types.Message):
     if message.from_user.id != ADMIN_ID:
         return await message.reply("⛔ Команда доступна лише адміну.")

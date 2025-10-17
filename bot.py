@@ -479,13 +479,5 @@ async def refresh_fileid_missing(message: types.Message):
 
     await message.answer(f"🏁 Готово! ✅ {ok} успішно, ❌ {fail} з помилками.")
 
-if __name__ == "__main__":
-    import asyncio
-
-    async def main():
-        print("🚀 Бот запущено!")
-        await dp.start_polling(bot)
-
-    asyncio.run(main())
 
     

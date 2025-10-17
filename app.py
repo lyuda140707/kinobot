@@ -615,8 +615,40 @@ async def send_film_by_id(request: Request):
     )
 
     try:
-        message_id = int(row.get("message_id") or row.get("file_id"))
         channel_id = int(row.get("channel_id") or os.getenv("MEDIA_CHANNEL_ID"))
+        file_id = str(row.get("file_id", "")).strip()
+
+        # 🧠 Якщо є file_id — відправляємо напряму через send_video
+        if file_id and len(file_id) > 20:
+            print(f"🎬 Відправка через file_id={file_id} → {row.get('title')}")
+            try:
+                sent_message = await bot.send_video(
+                    chat_id=int(user_id),
+                    video=file_id,
+                    caption=caption,
+                    reply_markup=keyboard,
+                    parse_mode="HTML",
+                    supports_streaming=True
+                )
+            except Exception as e:
+                print(f"⚠️ Помилка send_video: {e}")
+                # fallback — якщо file_id не спрацював
+                if row.get("message_id"):
+                    sent_message = await bot.copy_message(
+                        chat_id=int(user_id),
+                        from_chat_id=channel_id,
+                        message_id=int(row.get("message_id"))
+                    )
+                else:
+                    raise e
+            else:
+                # якщо file_id немає — резервна копія
+                print(f"📦 Відправка копією (message_id={row.get('message_id')}) → {row.get('title')}")
+                sent_message = await bot.copy_message(
+                    chat_id=int(user_id),
+                    from_chat_id=channel_id,
+                    message_id=int(row.get("message_id"))
+                )
 
         file_id = str(row.get("file_id", "")).strip()
         title = row.get("title", "")

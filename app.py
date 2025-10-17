@@ -609,6 +609,7 @@ async def send_film_by_id(request: Request):
                     parse_mode="HTML",
                     supports_streaming=True
                 )
+                print(f"✅ Надіслано напряму через file_id ({user_id}) → {title}")
             except Exception as e:
                 print(f"⚠️ Помилка send_video: {e}")
                 # fallback — якщо file_id не спрацював
@@ -619,6 +620,7 @@ async def send_film_by_id(request: Request):
                         from_chat_id=channel_id,
                         message_id=int(row.get("message_id"))
                     )
+                    print(f"✅ Відправлено копією після помилки file_id ({user_id}) → {title}")
                 else:
                     raise e
         else:
@@ -629,6 +631,7 @@ async def send_film_by_id(request: Request):
                 from_chat_id=channel_id,
                 message_id=int(row.get("message_id"))
             )
+            print(f"✅ Відправлено копією ({user_id}) → {title}")
 
         # 🕓 3️⃣ Запис у таблицю видалення
         kyiv = timezone("Europe/Kyiv")
@@ -642,15 +645,12 @@ async def send_film_by_id(request: Request):
             body={"values": [[str(user_id), str(sent_message.message_id), delete_time.isoformat()]]}
         ).execute()
 
-        print(f"✅ Відео надіслано користувачу {user_id}")
+        print(f"🧾 Записано у 'Видалення' для користувача {user_id}")
         return {"success": True}
 
     except Exception as e:
         print(f"❌ Помилка надсилання: {e}")
         return {"success": False, "error": str(e)}
-
-
-
 
 
 @app.post("/check-subscription")

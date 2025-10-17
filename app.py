@@ -554,27 +554,28 @@ async def send_film_by_id(request: Request):
     print(f"📽️ /send-film-id {message_id} від {user_id}")
     print(f"    channel_in={channel_in}")
 
-    # 1) Якщо фронт передав channel_id — шукаємо ТІЛЬКИ точний збіг по парі
+    # 1) Визначаємо тип ID і шукаємо відповідно
     try:
         row = None
-        if channel_in:
-            rows = sb_find_by_message_and_channel(message_id, channel_in)
-            if rows:
-                row = rows[0]
-            if not row:
-                # можливо, у message_id прийшов file_id — теж перевіримо
+        if len(message_id) > 20:
+            # 📦 Це file_id (довгий рядок)
+            print("🔍 Виявлено file_id — шукаємо по колонці file_id")
+            if channel_in:
                 rows = sb_find_by_file_and_channel(message_id, channel_in)
-                if rows:
-                    row = rows[0]
-        # 2) Якщо channel_id НЕ прийшов — працюємо як раніше (може бути неоднозначність)
-        if not row:
-            rows = sb_find_by_message_id(message_id)
-            if rows:
-                row = rows[0]
-            if not row:
+            else:
                 rows = sb_find_by_file_id(message_id)
-                if rows:
-                    row = rows[0]
+        else:
+            # 🔢 Це message_id (число)
+            print("🔍 Виявлено message_id — шукаємо по колонці message_id")
+            if channel_in:
+                rows = sb_find_by_message_and_channel(message_id, channel_in)
+            else:
+                rows = sb_find_by_message_id(message_id)
+        if rows:
+            row = rows[0]
+    except Exception as e:
+        print("❌ Помилка Supabase:", e)
+        return {"success": False, "error": "Помилка доступу до бази"}
     except Exception as e:
         print("❌ Помилка Supabase:", e)
         return {"success": False, "error": "Помилка доступу до бази"}

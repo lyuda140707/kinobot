@@ -316,7 +316,14 @@ async def start_handler(message: types.Message):
 @dp.message(F.video)
 async def get_file_id(message: types.Message):
     file_id = message.video.file_id
-    await message.answer(f"🎥 file_id:\n<code>{file_id}</code>", parse_mode="HTML")
+    title = message.caption or "Без назви 🎞️"
+
+    await message.answer(
+        f"🎬 <b>{title}</b>\n\n📎 <b>file_id:</b>\n<code>{file_id}</code>",
+        parse_mode="HTML"
+    )
+
+
 
 
 

@@ -282,10 +282,12 @@ async def watch_film(film_id: str):
         if not mirror_channel:
             return {"error": "Немає дзеркального каналу"}, 500
 
-        # 🎬 Формуємо inline-кнопку для переходу назад у WebApp
-        webapp_url = os.getenv("WEBAPP_URL", "https://relaxbox.site/")
+        # 🎬 Кнопка для відкриття прямо у Telegram WebApp
         keyboard = InlineKeyboardMarkup(inline_keyboard=[[
-            InlineKeyboardButton(text="🎬 Відкрити у WebApp", url=webapp_url)
+            InlineKeyboardButton(
+                text="🎬 Відкрити у WebApp",
+                web_app=WebAppInfo(url=os.getenv("WEBAPP_URL", "https://relaxbox.site/"))
+            )
         ]])
 
         # 🧩 Копіюємо пост у дзеркальний канал із кнопкою

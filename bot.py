@@ -111,32 +111,28 @@ bot = Bot(
 )
 dp = Dispatcher(storage=MemoryStorage())
 
-# 🧩 Функція перевірки і автоматичного додавання користувача у канал
-async def ensure_user_in_channel(user_id: int) -> bool:
+# 🧩 Перевірка і автоматичне додавання користувача у канал
+async def ensure_user_in_channel(user_id: int, channel_id: int | str = None) -> bool:
     """
-    Перевіряє, чи користувач є учасником приватного каналу.
+    Перевіряє, чи користувач є учасником заданого приватного каналу.
     Якщо ні — намагається додати його.
     """
     try:
-        member = await bot.get_chat_member(chat_id=MEDIA_CHANNEL_ID, user_id=user_id)
+        target_channel = int(channel_id or os.getenv("MEDIA_CHANNEL_ID"))
+        member = await bot.get_chat_member(chat_id=target_channel, user_id=user_id)
+
         if member.status in ["member", "administrator", "creator"]:
-            print(f"✅ Користувач {user_id} вже у каналі.")
+            print(f"✅ Користувач {user_id} вже у каналі {target_channel}")
             return True
         else:
-            print(f"🔄 Додаємо користувача {user_id} у канал…")
-            await bot.add_chat_member(chat_id=MEDIA_CHANNEL_ID, user_id=user_id)
+            print(f"🔄 Додаємо користувача {user_id} у канал {target_channel}…")
+            await bot.add_chat_member(chat_id=target_channel, user_id=user_id)
+            print(f"✅ Користувача {user_id} додано у канал {target_channel}")
             return True
     except Exception as e:
         print(f"⚠️ Не вдалося перевірити/додати користувача {user_id}: {e}")
         return False
 
-
-webapp_keyboard = InlineKeyboardMarkup(inline_keyboard=[
-    [InlineKeyboardButton(
-        text="🛋 Відкрити застосунок",
-        web_app=WebAppInfo(url="https://relaxbox.site/")
-    )]
-])
 
 
 async def safe_send_admin(bot, admin_id, text, **kwargs):

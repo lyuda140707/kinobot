@@ -1,5 +1,7 @@
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, Request, HTTPException
+from fastapi.responses import JSONResponse
+from fastapi.responses import RedirectResponse
 from aiogram import types
 from bot import dp, bot
 from google_api import get_gsheet_data, get_google_service
@@ -217,6 +219,44 @@ async def block_bots(request: Request, call_next):
 @app.get("/")
 async def root():
     return {"status": "alive"}
+@app.get("/watch/{film_id}")
+async def watch_film(film_id: str):
+    """
+    Редіректить користувача на пост у Telegram-каналі з відео.
+    """
+    try:
+        import urllib.parse, requests, os
+        SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
+        SUPABASE_ANON_KEY = (
+            os.getenv("SUPABASE_ANON_KEY") or os.getenv("SUPABASE_ANON") or ""
+        )
+        headers = {
+            "apikey": SUPABASE_ANON_KEY,
+            "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
+        }
+
+        film_id_q = urllib.parse.quote(str(film_id))
+        url = f"{SUPABASE_URL}/rest/v1/films?select=*&id=eq.{film_id_q}&limit=1"
+        r = requests.get(url, headers=headers, timeout=10)
+        r.raise_for_status()
+        films = r.json()
+        if not films:
+            return {"error": "Фільм не знайдено"}
+
+        film = films[0]
+        channel_id = str(film.get("channel_id") or "").replace("-100", "")
+        message_id = film.get("message_id")
+
+        if not channel_id or not message_id:
+            return {"error": "Немає даних для переходу"}
+
+        # 2. Редірект на пост у Telegram
+        tg_url = f"https://t.me/c/{channel_id}/{message_id}"
+        return RedirectResponse(url=tg_url)
+
+    except Exception as e:
+        print(f"❌ Помилка у /watch/{film_id}: {e}")
+        return {"error": str(e)}
 
 @app.post("/notify-payment")
 async def notify_payment(req: Request):
@@ -971,6 +1011,47 @@ async def check_pro(req: Request):
     return {"isPro": False, "expire_date": None}
 
 
+
+
+@app.get("/watch/{film_id}")
+async def watch_film(film_id: str):
+    """
+    Редіректить користувача на пост у Telegram-каналі з відео.
+    """
+    try:
+        # 1. Знаходимо фільм у Supabase
+        import urllib.parse, requests, os
+        SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
+        SUPABASE_ANON_KEY = (
+            os.getenv("SUPABASE_ANON_KEY") or os.getenv("SUPABASE_ANON") or ""
+        )
+        headers = {
+            "apikey": SUPABASE_ANON_KEY,
+            "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
+        }
+
+        film_id_q = urllib.parse.quote(str(film_id))
+        url = f"{SUPABASE_URL}/rest/v1/films?select=*&id=eq.{film_id_q}&limit=1"
+        r = requests.get(url, headers=headers, timeout=10)
+        r.raise_for_status()
+        films = r.json()
+        if not films:
+            return {"error": "Фільм не знайдено"}
+
+        film = films[0]
+        channel_id = str(film.get("channel_id") or "").replace("-100", "")
+        message_id = film.get("message_id")
+
+        if not channel_id or not message_id:
+            return {"error": "Немає даних для переходу"}
+
+        # 2. Редірект на пост у Telegram
+        tg_url = f"https://t.me/c/{channel_id}/{message_id}"
+        return RedirectResponse(url=tg_url)
+
+    except Exception as e:
+        print(f"❌ Помилка у /watch/{film_id}: {e}")
+        return {"error": str(e)}
 
 
 @app.post("/clean-pro")

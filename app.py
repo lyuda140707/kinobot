@@ -242,28 +242,27 @@ async def watch_film(film_id: str):
     """
     try:
         import urllib.parse, requests, os, asyncio
-        from bot import bot  # екземпляр твого бота
+        from bot import bot  # твій екземпляр бота
         from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
         from fastapi.responses import RedirectResponse
+        from app import schedule_message_delete  # функція авто-видалення
 
         SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
         SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY") or os.getenv("SUPABASE_ANON") or ""
         headers = {"apikey": SUPABASE_ANON_KEY, "Authorization": f"Bearer {SUPABASE_ANON_KEY}"}
 
-        # 🔍 Пошук фільму або серіалу у базі
+        # 🔍 Шукаємо фільм або серіал у базі Supabase
         film = None
         film_id_q = urllib.parse.quote(str(film_id))
 
         url = f"{SUPABASE_URL}/rest/v1/films?select=*&id=eq.{film_id_q}&limit=1"
         r = requests.get(url, headers=headers, timeout=10)
-        r.raise_for_status()
         data = r.json()
         if data:
             film = data[0]
         else:
             url2 = f"{SUPABASE_URL}/rest/v1/series?select=*&id=eq.{film_id_q}&limit=1"
             r2 = requests.get(url2, headers=headers, timeout=10)
-            r2.raise_for_status()
             data2 = r2.json()
             if data2:
                 film = data2[0]
@@ -275,41 +274,42 @@ async def watch_film(film_id: str):
         message_id = int(film.get("message_id"))
         access = (film.get("access") or film.get("Доступ") or "").upper()
 
-        # 🔒 PRO контент не дублюємо
+        # 🔒 Не дублюємо PRO-контент
         if access == "PRO":
             return {"error": "🔒 Це PRO контент"}, 403
 
-        # 🪞 Дзеркальний канал
         mirror_channel = int(os.getenv("MEDIA_CHANNEL_MIRROR", "0"))
         if not mirror_channel:
             return {"error": "Немає дзеркального каналу"}, 500
 
-        # 🎬 Кнопка для відкриття прямо у Telegram WebApp
+        # 🧩 Копіюємо фільм у дзеркальний канал
+        mirror_msg = await bot.copy_message(
+            chat_id=mirror_channel,
+            from_chat_id=source_channel,
+            message_id=message_id
+        )
+
+        # 🎬 Кнопка відкриття WebApp у Telegram
         keyboard = InlineKeyboardMarkup(
             inline_keyboard=[
                 [InlineKeyboardButton(
                     text="🎬 Відкрити у RelaxBox 🎥",
-                    url="https://t.me/relax_time_bot/app"  # ⚡️ посилання саме на WebApp у Telegram
+                    url="https://t.me/RelaxBox_UA_bot/app" 
                 )]
             ]
         )
 
-        # 🧩 Надсилаємо повідомлення у дзеркальний канал із кнопкою
-        title = film.get("title") or film.get("Назва") or "Без назви"
-        desc = film.get("description") or film.get("Опис") or ""
-        caption = f"🎬 {title}\n\n{desc}\n\n🎞️ Відкрити у WebApp 👇"
-
-        mirror_msg = await bot.send_message(
+        # 🔗 Додаємо кнопку під відео
+        await bot.edit_message_reply_markup(
             chat_id=mirror_channel,
-            text=caption,
+            message_id=mirror_msg.message_id,
             reply_markup=keyboard
         )
 
         # 🕓 Авто-видалення: серіали — 3 год, фільми — 6 год
         delay_hours = 3 if "series" in (film.get("type") or "").lower() else 6
-        from app import schedule_message_delete  # імпорт твоєї функції
-        asyncio.create_task(schedule_message_delete(bot, mirror_channel, mirror_msg.message_id, delay_hours=delay_hours))
-        print(f"🗑 Заплановано видалення дубліката {film.get('title')} через {delay_hours} годин")
+        asyncio.create_task(schedule_message_delete(bot, mirror_channel, mirror_msg.message_id, delay_hours))
+        print(f"🗑 Заплановано видалення {film.get('title')} через {delay_hours} год")
 
         # 🔗 Посилання на дубль
         public_id = str(mirror_channel).replace("-100", "")

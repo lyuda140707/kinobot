@@ -290,11 +290,13 @@ async def watch_film(film_id: str):
         )
 
         # 🎬 Кнопка відкриття WebApp у Telegram
+        from aiogram.types import WebAppInfo
+
         keyboard = InlineKeyboardMarkup(
             inline_keyboard=[
                 [InlineKeyboardButton(
                     text="🎬 Відкрити у RelaxBox 🎥",
-                    url="https://t.me/RelaxBox_UA_bot/app" 
+                    web_app=WebAppInfo(url="https://relaxbox-webapp.vercel.app/")  # 👈 сюди твій реальний URL WebApp
                 )]
             ]
         )

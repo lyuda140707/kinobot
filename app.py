@@ -290,7 +290,7 @@ async def watch_film(film_id: str):
             inline_keyboard=[
                 [InlineKeyboardButton(
                     text="🎬 Відкрити у RelaxBox 🎥",
-                    web_app=WebAppInfo(url="https://relaxbox-webapp.vercel.app/")  # 👈 твій реальний WebApp
+                    url="https://relaxbox.site/"
                 )]
             ]
         )

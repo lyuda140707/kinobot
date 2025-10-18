@@ -111,6 +111,26 @@ bot = Bot(
 )
 dp = Dispatcher(storage=MemoryStorage())
 
+# 🧩 Функція перевірки і автоматичного додавання користувача у канал
+async def ensure_user_in_channel(user_id: int) -> bool:
+    """
+    Перевіряє, чи користувач є учасником приватного каналу.
+    Якщо ні — намагається додати його.
+    """
+    try:
+        member = await bot.get_chat_member(chat_id=MEDIA_CHANNEL_ID, user_id=user_id)
+        if member.status in ["member", "administrator", "creator"]:
+            print(f"✅ Користувач {user_id} вже у каналі.")
+            return True
+        else:
+            print(f"🔄 Додаємо користувача {user_id} у канал…")
+            await bot.add_chat_member(chat_id=MEDIA_CHANNEL_ID, user_id=user_id)
+            return True
+    except Exception as e:
+        print(f"⚠️ Не вдалося перевірити/додати користувача {user_id}: {e}")
+        return False
+
+
 webapp_keyboard = InlineKeyboardMarkup(inline_keyboard=[
     [InlineKeyboardButton(
         text="🛋 Відкрити застосунок",
@@ -290,6 +310,11 @@ async def start_handler(message: types.Message):
     )
 
     try:
+         # 🧩 Перевіряємо, чи користувач є у каналі
+        ok = await ensure_user_in_channel(message.from_user.id)
+        if not ok:
+            await message.answer("⚠️ Не вдалося додати вас до каналу. Напишіть адміну.")
+            return
         if msg_id:
             await bot.copy_message(
                 chat_id=message.chat.id,
@@ -373,6 +398,11 @@ async def process_message(message: types.Message):
     print(f"🆔 message_id: {msg_id} | file_id: {file_id} | channel: {channel_id}")
 
     try:
+        # 🧩 Перевіряємо, чи користувач є у каналі
+        ok = await ensure_user_in_channel(message.from_user.id)
+        if not ok:
+            await message.answer("⚠️ Не вдалося додати вас до каналу. Напишіть адміну.")
+            return
         if msg_id:
             await bot.copy_message(
                 chat_id=message.chat.id,

@@ -237,70 +237,78 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 @app.get("/watch/{film_id}")
 async def watch_film(film_id: str):
     """
-    Дублює фільм або серіал у відповідний дзеркальний канал
-    і додає кнопку "🎬 Відкрити RelaxBox" (WebApp-посилання).
+    Дублює фільм або серію у відповідний дзеркальний канал.
+    Підтримує колонку type (Фільм / Серіал / Мультфільм)
+    та поля season / episode.
     """
     try:
         import urllib.parse, requests, os, asyncio
         from fastapi.responses import RedirectResponse
         from bot import bot
         from app import schedule_message_delete
-        from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
         SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
-        SUPABASE_ANON_KEY = (
-            os.getenv("SUPABASE_ANON_KEY") or os.getenv("SUPABASE_ANON") or ""
-        )
+        SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY") or os.getenv("SUPABASE_ANON") or ""
         headers = {"apikey": SUPABASE_ANON_KEY, "Authorization": f"Bearer {SUPABASE_ANON_KEY}"}
 
-        # 🔍 пошук фільму або серіалу
-        film = None
+        # 🔍 Отримуємо запис із таблиці за ID
         film_id_q = urllib.parse.quote(str(film_id))
-        for table in ["films", "series"]:
-            url = f"{SUPABASE_URL}/rest/v1/{table}?select=*&id=eq.{film_id_q}&limit=1"
-            r = requests.get(url, headers=headers, timeout=10)
-            data = r.json()
-            if data:
-                film = data[0]
-                film["source_table"] = table
-                break
-
-        if not film:
+        url = f"{SUPABASE_URL}/rest/v1/films?select=*&id=eq.{film_id_q}&limit=1"
+        r = requests.get(url, headers=headers, timeout=10)
+        data = r.json()
+        if not data:
             return {"error": "Фільм або серіал не знайдено"}
+        film = data[0]
 
+        # 🧩 Основні поля
         source_channel = int(film.get("channel_id") or os.getenv("MEDIA_CHANNEL_ID"))
         message_id = int(film.get("message_id"))
+        film_type = (film.get("type") or "").strip().lower()
+        title = film.get("title") or film.get("Назва") or "Без назви"
+        season = film.get("season")
+        episode = film.get("episode")
         access = (film.get("access") or film.get("Доступ") or "").upper()
 
-        # 🔒 PRO контент не дублюємо
+        # 🔒 Пропускаємо PRO контент
         if access == "PRO":
+            print(f"🔒 {title} — PRO, не дублюємо")
             return {"error": "🔒 Це PRO контент"}, 403
 
-        # 🪞 Дзеркальний канал
-        mirror_channel = (
-            int(os.getenv("MEDIA_CHANNEL_MIRROR_FILMS", "-1002863248325"))
-            if film["source_table"] == "films"
-            else int(os.getenv("MEDIA_CHANNEL_MIRROR_SERIES", "-1003153440872"))
-        )
+        # 🪞 Визначаємо дзеркальний канал
+        if film_type in ["фільм", "мультфільм"]:
+            mirror_channel = int(os.getenv("MEDIA_CHANNEL_MIRROR_FILMS", "-1002863248325"))
+        elif film_type == "серіал":
+            mirror_channel = int(os.getenv("MEDIA_CHANNEL_MIRROR_SERIES", "-1003153440872"))
+        else:
+            mirror_channel = int(os.getenv("MEDIA_CHANNEL_MIRROR_FILMS", "-1002863248325"))
 
-        # 🎬 Копіюємо саме відео
+        # 📝 Формуємо зрозумілий заголовок для логів
+        if film_type == "серіал" and season and episode:
+            pretty_title = f'{title} — {season} сезон, {episode} серія'
+        elif film_type == "серіал" and episode:
+            pretty_title = f'{title} — серія {episode}'
+        else:
+            pretty_title = title
+
+        print(f"🎬 Надсилаємо {film_type}: {pretty_title}")
+
+        # 🎬 Копіюємо повідомлення з оригінального каналу
         mirror_msg = await bot.copy_message(
             chat_id=mirror_channel,
             from_chat_id=source_channel,
             message_id=message_id
         )
 
-        # 🕓 Автоматичне видалення
-        delay_hours = 3 if film["source_table"] == "series" else 6
+        # 🕓 Авто-видалення: серіали — 3 год, решта — 6
+        delay_hours = 3 if film_type == "серіал" else 6
         asyncio.create_task(schedule_message_delete(bot, mirror_channel, mirror_msg.message_id, delay_hours))
-        print(f"🗑 {film.get('title')} видалиться через {delay_hours} год")
 
+        print(f"✅ {pretty_title} дубльовано → канал {mirror_channel}")
+        print(f"🗑️ Авто-видалення через {delay_hours} год")
 
-
-        # 🔗 Редірект у канал
+        # 🔗 Генеруємо посилання на пост у каналі
         public_id = str(mirror_channel).replace("-100", "")
         tg_url = f"https://t.me/c/{public_id}/{mirror_msg.message_id}"
-        print(f"✅ Дубльовано {film.get('title')} → {tg_url}")
         return RedirectResponse(url=tg_url)
 
     except Exception as e:

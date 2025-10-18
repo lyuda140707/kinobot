@@ -312,23 +312,39 @@ keyboard = InlineKeyboardMarkup(
         )]
     ]
 )
-# 🕓 Авто-видалення: серіали — 3 год, фільми — 6 год
-delay_hours = 3 if "series" in (film.get("type") or "").lower() else 6
-asyncio.create_task(schedule_message_delete(bot, mirror_channel, mirror_msg.message_id, delay_hours=delay_hours))
-print(f"🗑 Заплановано видалення дубліката {film.get('title')} через {delay_hours} годин")
-
-# 🔗 Редагуємо дубль, додаючи кнопку
 try:
-    await bot.edit_message_reply_markup(chat_id=mirror_channel, message_id=mirror_msg.message_id, reply_markup=keyboard)
+    # 🎬 Кнопка відкриття WebApp у Telegram
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(
+                text="🎥 Відкрити у RelaxBox",
+                url="https://t.me/relax_time_bot/app"  # ⚡️ заміни на свого бота
+            )]
+        ]
+    )
+
+    # 🕓 Авто-видалення: серіали — 3 год, фільми — 6 год
+    delay_hours = 3 if "series" in (film.get("type") or "").lower() else 6
+    asyncio.create_task(schedule_message_delete(bot, mirror_channel, mirror_msg.message_id, delay_hours=delay_hours))
+    print(f"🗑 Заплановано видалення дубліката {film.get('title')} через {delay_hours} годин")
+
+    # 🔗 Редагуємо дубль, додаючи кнопку
+    await bot.edit_message_reply_markup(
+        chat_id=mirror_channel,
+        message_id=mirror_msg.message_id,
+        reply_markup=keyboard
+    )
+
+    # 🔗 Посилання на дубль
+    public_id = str(mirror_channel).replace("-100", "")
+    tg_url = f"https://t.me/c/{public_id}/{mirror_msg.message_id}"
+
+    print(f"✅ Дубльовано {film.get('title')} → {tg_url}")
+    return RedirectResponse(url=tg_url)
+
 except Exception as e:
-    print(f"⚠️ Не вдалося додати кнопку: {e}")
-
-# 🔗 Посилання на дубль
-public_id = str(mirror_channel).replace("-100", "")
-tg_url = f"https://t.me/c/{public_id}/{mirror_msg.message_id}"
-
-print(f"✅ Дубльовано {film.get('title')} → {tg_url}")
-return RedirectResponse(url=tg_url)
+    print(f"❌ Помилка у /watch/{film_id}: {e}")
+    return {"error": str(e)}
 
 @app.post("/notify-payment")
 async def notify_payment(req: Request):

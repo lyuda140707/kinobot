@@ -238,16 +238,14 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 async def watch_film(film_id: str):
     """
     Дублює фільм або серіал у відповідний дзеркальний канал
-    (фільми — RelaxTime View, серіали — RelaxBox | Серіали (дзеркало)),
-    одразу додає кнопку "🎬 Відкрити у RelaxBox" (WebApp)
-    і редіректить користувача на цей пост.
+    і додає кнопку "🎬 Відкрити RelaxBox" (WebApp-посилання).
     """
     try:
         import urllib.parse, requests, os, asyncio
-        from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
         from fastapi.responses import RedirectResponse
         from bot import bot
         from app import schedule_message_delete
+        from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
         SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
         SUPABASE_ANON_KEY = (
@@ -255,7 +253,7 @@ async def watch_film(film_id: str):
         )
         headers = {"apikey": SUPABASE_ANON_KEY, "Authorization": f"Bearer {SUPABASE_ANON_KEY}"}
 
-        # 🔍 пошук у films або series
+        # 🔍 пошук фільму або серіалу
         film = None
         film_id_q = urllib.parse.quote(str(film_id))
         for table in ["films", "series"]:
@@ -278,50 +276,51 @@ async def watch_film(film_id: str):
         if access == "PRO":
             return {"error": "🔒 Це PRO контент"}, 403
 
-        # 🪞 вибір дзеркального каналу
+        # 🪞 Дзеркальний канал
         mirror_channel = (
             int(os.getenv("MEDIA_CHANNEL_MIRROR_FILMS", "-1002863248325"))
             if film["source_table"] == "films"
             else int(os.getenv("MEDIA_CHANNEL_MIRROR_SERIES", "-1003153440872"))
         )
 
-        from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
+        # 🎬 Копіюємо саме відео
+        mirror_msg = await bot.copy_message(
+            chat_id=mirror_channel,
+            from_chat_id=source_channel,
+            message_id=message_id
+        )
+
+        # 🕓 Автоматичне видалення
+        delay_hours = 3 if film["source_table"] == "series" else 6
+        asyncio.create_task(schedule_message_delete(bot, mirror_channel, mirror_msg.message_id, delay_hours))
+        print(f"🗑 {film.get('title')} видалиться через {delay_hours} год")
+
+        # 🔗 Кнопка "Відкрити RelaxBox" → WebApp
         keyboard = InlineKeyboardMarkup(
             inline_keyboard=[
                 [InlineKeyboardButton(
-                    text="🎬 Відкрити у RelaxBox 🎥",
+                    text="🎬 Відкрити RelaxBox",
                     url="https://relaxbox.site/"
                 )]
             ]
         )
 
-        # 📩 одразу надсилаємо нове повідомлення з кнопкою
-        title = film.get("title") or film.get("Назва") or "Без назви"
-        desc = film.get("description") or film.get("Опис") or ""
-        caption = f"🎬 {title}\n\n{desc}\n\n🕓 Тимчасовий перегляд — доступний кілька годин.\n🎞 Відкрити у RelaxBox 👇"
-
-        mirror_msg = await bot.send_message(
+        # ✏️ Додаємо кнопку під пост
+        await bot.edit_message_reply_markup(
             chat_id=mirror_channel,
-            text=caption,
+            message_id=mirror_msg.message_id,
             reply_markup=keyboard
         )
 
-        # 🕓 авто-видалення: серіали — 3 год, фільми — 6 год
-        delay_hours = 3 if film["source_table"] == "series" else 6
-        asyncio.create_task(schedule_message_delete(bot, mirror_channel, mirror_msg.message_id, delay_hours))
-        print(f"🗑 {film.get('title')} видалиться через {delay_hours} год")
-
-        # 🔗 редірект на дубль
+        # 🔗 Редірект у канал
         public_id = str(mirror_channel).replace("-100", "")
         tg_url = f"https://t.me/c/{public_id}/{mirror_msg.message_id}"
-
         print(f"✅ Дубльовано {film.get('title')} → {tg_url}")
         return RedirectResponse(url=tg_url)
 
     except Exception as e:
         print(f"❌ Помилка у /watch/{film_id}: {e}")
         return {"error": str(e)}
-
 
 @app.post("/notify-payment")
 async def notify_payment(req: Request):

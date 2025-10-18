@@ -337,9 +337,25 @@ async def watch_film(film_id: str):
         print(f"✅ {pretty_title} дубльовано → {channel_label}")
         print(f"🗑️ Видалиться через {delay_hours} год")
 
-        # 🔗 Посилання на пост у каналі
-        public_id = str(mirror_channel).replace("-100", "")
-        tg_url = f"https://t.me/c/{public_id}/{mirror_msg.message_id}"
+        # 🔗 Генеруємо тимчасове запрошення, якщо це PRO-контент
+        if access == "PRO":
+            try:
+                invite_link = await bot.create_chat_invite_link(
+                    chat_id=mirror_channel,
+                    expire_date=datetime.now() + timedelta(hours=delay_hours),
+                    creates_join_request=False
+                )
+                tg_url = invite_link.invite_link
+                print(f"🔗 Згенеровано тимчасове запрошення (PRO): {tg_url}")
+            except Exception as e:
+                # fallback — стандартне посилання
+                public_id = str(mirror_channel).replace("-100", "")
+                tg_url = f"https://t.me/c/{public_id}/{mirror_msg.message_id}"
+                print(f"⚠️ Не вдалося створити invite link: {e}")
+        else:
+            public_id = str(mirror_channel).replace("-100", "")
+            tg_url = f"https://t.me/c/{public_id}/{mirror_msg.message_id}"
+        # 🔁 Перенаправляємо користувача
         return RedirectResponse(url=tg_url)
 
     except Exception as e:
@@ -751,10 +767,22 @@ async def send_film_by_id(request: Request):
         # 🕓 Плануємо видалення через 3 або 6 год
         asyncio.create_task(schedule_message_delete(bot, mirror_channel, mirror_msg.message_id, delay_hours))
 
-        # 🔗 Повертаємо посилання
-        public_id = str(mirror_channel).replace("-100", "")
-        tg_url = f"https://t.me/c/{public_id}/{mirror_msg.message_id}"
-        print(f"🔗 Посилання: {tg_url}")
+        # 🕓 Плануємо видалення через 3 або 6 год
+        asyncio.create_task(schedule_message_delete(bot, mirror_channel, mirror_msg.message_id, delay_hours))
+        # 🔗 Генеруємо тимчасове запрошення (invite link)
+        try:
+            invite_link = await bot.create_chat_invite_link(
+                chat_id=mirror_channel,
+                expire_date=datetime.now() + timedelta(hours=delay_hours),
+                creates_join_request=False
+            )
+            tg_url = invite_link.invite_link
+            print(f"🔗 Згенеровано тимчасове запрошення: {tg_url}")
+        except Exception as e:
+            # fallback, якщо не вдалося створити invite
+            public_id = str(mirror_channel).replace("-100", "")
+            tg_url = f"https://t.me/c/{public_id}/{mirror_msg.message_id}"
+            print(f"⚠️ Не вдалося створити invite link, fallback: {tg_url}")
 
         # 🧾 Записуємо у Google Таблицю “Видалення”
         kyiv = timezone("Europe/Kyiv")

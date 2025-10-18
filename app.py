@@ -702,19 +702,30 @@ async def send_film_by_id(request: Request):
         access = (row.get("access") or row.get("Доступ") or "").upper()
         source_channel = int(row.get("channel_id") or os.getenv("MEDIA_CHANNEL_ID"))
 
-        # 🔒 Якщо PRO — не дублюємо у дзеркальний канал взагалі
-        if access == "PRO":
-            print(f"🔒 {title} — PRO контент, не дублюємо у дзеркальний канал")
-            return {"success": False, "error": "🔒 Це PRO контент — не дублюється"}
-        # 🪞 Вибираємо дзеркальний канал
+        # 🪞 Вибираємо дзеркальний канал з урахуванням PRO
         mirror_films = int(os.getenv("MEDIA_CHANNEL_MIRROR_FILMS", "-1002863248325"))
         mirror_series = int(os.getenv("MEDIA_CHANNEL_MIRROR_SERIES", "-1003153440872"))
-        if "серіал" in film_type or "series" in film_type:
+        mirror_pro_films = int(os.getenv("MEDIA_CHANNEL_MIRROR_PRO_FILMS", "-1003160463240"))
+        mirror_pro_series = int(os.getenv("MEDIA_CHANNEL_MIRROR_PRO_SERIES", "-1003004556512"))
+
+        if access == "PRO":
+            if "серіал" in film_type or "series" in film_type:
+                mirror_channel = mirror_pro_series
+                delay_hours = 3
+                print(f"👑 PRO серіал {title} → {mirror_channel}")
+            else:
+                mirror_channel = mirror_pro_films
+                delay_hours = 6
+                print(f"👑 PRO фільм {title} → {mirror_channel}")
+        elif "серіал" in film_type or "series" in film_type:
             mirror_channel = mirror_series
             delay_hours = 3
+            print(f"📺 Серіал {title} → {mirror_channel}")
         else:
             mirror_channel = mirror_films
             delay_hours = 6
+            print(f"🎬 Фільм {title} → {mirror_channel}")
+
 
         # 📝 Готуємо опис із назвою + description + рандомна фраза
         description = (row.get("description") or "").strip()

@@ -219,22 +219,21 @@ async def block_bots(request: Request, call_next):
 @app.get("/")
 async def root():
     return {"status": "alive"}
+    
 @app.get("/watch/{film_id}")
 async def watch_film(film_id: str):
     """
-    Редіректить користувача на пост у ПУБЛІЧНОМУ каналі з відео (дзеркальному).
+    Дублює фільм у дзеркальний канал і редіректить користувача на нього.
     """
     try:
         import urllib.parse, requests, os
-        SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
-        SUPABASE_ANON_KEY = (
-            os.getenv("SUPABASE_ANON_KEY") or os.getenv("SUPABASE_ANON") or ""
-        )
-        headers = {
-            "apikey": SUPABASE_ANON_KEY,
-            "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
-        }
+        from bot import bot  # імпортуємо екземпляр бота
 
+        SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
+        SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY") or os.getenv("SUPABASE_ANON") or ""
+        headers = {"apikey": SUPABASE_ANON_KEY, "Authorization": f"Bearer {SUPABASE_ANON_KEY}"}
+
+        # 🔍 Отримуємо фільм з бази
         film_id_q = urllib.parse.quote(str(film_id))
         url = f"{SUPABASE_URL}/rest/v1/films?select=*&id=eq.{film_id_q}&limit=1"
         r = requests.get(url, headers=headers, timeout=10)
@@ -244,14 +243,31 @@ async def watch_film(film_id: str):
             return {"error": "Фільм не знайдено"}
 
         film = films[0]
-        message_id = film.get("message_id")
-        public_username = os.getenv("PUBLIC_CHANNEL_USERNAME")
+        source_channel = int(film.get("channel_id") or os.getenv("MEDIA_CHANNEL_ID"))
+        message_id = int(film.get("message_id"))
+        access = (film.get("access") or film.get("Доступ") or "").upper()
 
-        if not message_id or not public_username:
-            return {"error": "Немає даних для переходу"}
+        # 🔒 PRO фільми не дублюємо
+        if access == "PRO":
+            return {"error": "🔒 Це PRO фільм"}, 403
 
-        # 🎯 Перехід у публічний канал
-        tg_url = f"https://t.me/{public_username}/{message_id}"
+        # 🪞 Дзеркальний канал
+        mirror_channel = int(os.getenv("MEDIA_CHANNEL_MIRROR", "0"))
+        if not mirror_channel:
+            return {"error": "Немає дзеркального каналу"}, 500
+
+        # 🧩 Копіюємо пост у дзеркальний канал
+        mirror_msg = await bot.copy_message(
+            chat_id=mirror_channel,
+            from_chat_id=source_channel,
+            message_id=message_id
+        )
+
+        # 🔗 Формуємо посилання на публічний пост
+        public_id = str(mirror_channel).replace("-100", "")
+        tg_url = f"https://t.me/c/{public_id}/{mirror_msg.message_id}"
+
+        print(f"✅ Дубльовано фільм {film.get('title')} → {tg_url}")
         return RedirectResponse(url=tg_url)
 
     except Exception as e:
@@ -1021,46 +1037,6 @@ async def check_pro(req: Request):
 
 
 
-
-@app.get("/watch/{film_id}")
-async def watch_film(film_id: str):
-    """
-    Редіректить користувача на пост у Telegram-каналі з відео.
-    """
-    try:
-        # 1. Знаходимо фільм у Supabase
-        import urllib.parse, requests, os
-        SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
-        SUPABASE_ANON_KEY = (
-            os.getenv("SUPABASE_ANON_KEY") or os.getenv("SUPABASE_ANON") or ""
-        )
-        headers = {
-            "apikey": SUPABASE_ANON_KEY,
-            "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
-        }
-
-        film_id_q = urllib.parse.quote(str(film_id))
-        url = f"{SUPABASE_URL}/rest/v1/films?select=*&id=eq.{film_id_q}&limit=1"
-        r = requests.get(url, headers=headers, timeout=10)
-        r.raise_for_status()
-        films = r.json()
-        if not films:
-            return {"error": "Фільм не знайдено"}
-
-        film = films[0]
-        channel_id = str(film.get("channel_id") or "").replace("-100", "")
-        message_id = film.get("message_id")
-
-        if not channel_id or not message_id:
-            return {"error": "Немає даних для переходу"}
-
-        # 2. Редірект на пост у Telegram
-        tg_url = f"https://t.me/c/{channel_id}/{message_id}"
-        return RedirectResponse(url=tg_url)
-
-    except Exception as e:
-        print(f"❌ Помилка у /watch/{film_id}: {e}")
-        return {"error": str(e)}
 
 
 @app.post("/clean-pro")

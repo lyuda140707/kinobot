@@ -48,7 +48,7 @@ SHEETS = SERVICE.spreadsheets()
 async def schedule_message_delete(bot, chat_id: int, message_id: int, delay_hours: int = 6):
     """Видаляє дубль через задану кількість годин."""
     try:
-        delay = delay_hours * 3600  # години → секунди
+        delay_seconds = 30  # ⏳ тест: 30 секунд замість delay_hours
         await asyncio.sleep(delay)
         await bot.delete_message(chat_id=chat_id, message_id=message_id)
         print(f"🗑 Видалено дубльований пост {message_id} з каналу {chat_id}")

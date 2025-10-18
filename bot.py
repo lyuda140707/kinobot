@@ -264,7 +264,8 @@ async def start_handler(message: types.Message):
     payload = None
     if message.text and len(message.text.split()) > 1:
         payload = message.text.split(maxsplit=1)[1].strip()
-            # 🟢 якщо користувач натиснув "Відкрити RelaxBox" з каналу
+
+    # 🟢 якщо користувач натиснув "Відкрити RelaxBox" з каналу
     if payload == "webapp":
         await message.answer(
             "🌐 Відкрий RelaxBox нижче 👇",
@@ -279,7 +280,6 @@ async def start_handler(message: types.Message):
         )
         return
 
-
     # 3️⃣ Якщо payload відсутній — показуємо кнопку WebApp
     if not payload or not (payload.startswith("film_") or payload.startswith("series_")):
         await safe_send(
@@ -291,38 +291,37 @@ async def start_handler(message: types.Message):
         return
 
     # 4️⃣ Якщо payload валідний — шукаємо фільм
-    film_id = payload.split("_", 1)[1]
-    films = get_gsheet_data()
+    try:
+        film_id = payload.split("_", 1)[1]
+        films = get_gsheet_data()
 
-    found = next(
-        (f for f in films
-         if str(f.get("message_id", "")).strip() == film_id
-         or str(f.get("file_id", "")).strip() == film_id),
-        None
-    )
-
-    if not found:
-        await safe_send(
-            bot,
-            message.chat.id,
-            "🎬 Відкрий застосунок і обери фільм 👇",
-            reply_markup=webapp_keyboard
+        found = next(
+            (f for f in films
+             if str(f.get("message_id", "")).strip() == film_id
+             or str(f.get("file_id", "")).strip() == film_id),
+            None
         )
-        return
 
-    name = found.get("Назва", "Без назви")
-    desc = found.get("Опис", "Без опису")
-    msg_id = found.get("message_id")
-    file_id = found.get("file_id")
-    channel_id = int(found.get("channel_id") or os.getenv("MEDIA_CHANNEL_ID"))
+        if not found:
+            await safe_send(
+                bot,
+                message.chat.id,
+                "🎬 Відкрий застосунок і обери фільм 👇",
+                reply_markup=webapp_keyboard
+            )
+            return
 
-    caption = (
-        f"*🎬 {name}*\n{desc}\n\n"
-        "🎞️🤩 Попкорн є? Світло вимкнено?\n"
-        "🚀 Бо цей фільм точно не дасть засумувати!"
-    )
+        name = found.get("Назва", "Без назви")
+        desc = found.get("Опис", "Без опису")
+        msg_id = found.get("message_id")
+        file_id = found.get("file_id")
+        channel_id = int(found.get("channel_id") or os.getenv("MEDIA_CHANNEL_ID"))
 
-    
+        caption = (
+            f"*🎬 {name}*\n{desc}\n\n"
+            "🎞️🤩 Попкорн є? Світло вимкнено?\n"
+            "🚀 Бо цей фільм точно не дасть засумувати!"
+        )
 
         # 🧱 Надсилаємо фільм користувачу
         if msg_id:
@@ -358,7 +357,9 @@ async def start_handler(message: types.Message):
                 print(f"✅ Фільм {name} дубльовано у публічний канал: msg_id={mirror_msg.message_id}")
 
                 # 🕓 Плануємо авто-видалення через 6 годин
-                asyncio.create_task(schedule_message_delete(MIRROR_CHANNEL_ID, mirror_msg.message_id, delay_hours=6))
+                asyncio.create_task(
+                    schedule_message_delete(MIRROR_CHANNEL_ID, mirror_msg.message_id, delay_hours=6)
+                )
                 print(f"🗑 Заплановано видалення дубліката {name} через 6 годин")
             except Exception as e:
                 print(f"⚠️ Не вдалося дублювати у публічний канал: {e}")
@@ -368,7 +369,6 @@ async def start_handler(message: types.Message):
     except Exception as e:
         print(f"❌ Помилка копіювання відео: {e}")
         await safe_send(bot, message.chat.id, "⚠️ Не вдалося відправити відео")
-
 
 
 @dp.message(F.video)

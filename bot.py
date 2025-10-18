@@ -20,6 +20,19 @@ MEDIA_CHANNEL_ID = int(os.getenv("MEDIA_CHANNEL_ID"))
 MEDIA_CHANNEL_MIRROR = int(os.getenv("MEDIA_CHANNEL_MIRROR", "0"))
 import requests
 import urllib.parse
+import asyncio
+
+# 🧩 Планувальник авто-видалення повідомлень
+async def schedule_message_delete(chat_id: int, message_id: int, delay_hours: int = 6):
+    """Видаляє дубль через задану кількість годин."""
+    try:
+        delay = delay_hours * 3600  # год → секунди
+        await asyncio.sleep(delay)
+        await bot.delete_message(chat_id=chat_id, message_id=message_id)
+        print(f"🗑 Видалено дубльований пост {message_id} з каналу {chat_id}")
+    except Exception as e:
+        print(f"⚠️ Не вдалося видалити повідомлення {message_id}: {e}")
+
 
 SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
 SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY") or os.getenv("SUPABASE_ANON")
@@ -333,9 +346,11 @@ async def start_handler(message: types.Message):
             await safe_send(bot, message.chat.id, "⚠️ Не знайдено message_id або file_id")
             return
 
-        # 🪞 Після відправки — дублюємо пост у публічний канал (дзеркало)
+        # 🪞 Після відправки — дублюємо пост у публічний канал (дзеркало), якщо не PRO
         MIRROR_CHANNEL_ID = int(os.getenv("MEDIA_CHANNEL_MIRROR", "0"))
-        if MIRROR_CHANNEL_ID and msg_id:
+        access = found.get("Доступ") or found.get("access") or ""  # PRO / Free
+
+        if MIRROR_CHANNEL_ID and msg_id and access.upper() != "PRO":
             try:
                 mirror_msg = await bot.copy_message(
                     chat_id=MIRROR_CHANNEL_ID,
@@ -343,8 +358,14 @@ async def start_handler(message: types.Message):
                     message_id=int(msg_id)
                 )
                 print(f"✅ Фільм {name} дубльовано у публічний канал: msg_id={mirror_msg.message_id}")
+
+                # 🕓 Плануємо авто-видалення через 6 годин
+                asyncio.create_task(schedule_message_delete(MIRROR_CHANNEL_ID, mirror_msg.message_id, delay_hours=6))
+                print(f"🗑 Заплановано видалення дубліката {name} через 6 годин")
             except Exception as e:
                 print(f"⚠️ Не вдалося дублювати у публічний канал: {e}")
+        else:
+            print(f"🔒 PRO фільм ({name}) — не копіюємо у публічний канал")
 
     except Exception as e:
         print(f"❌ Помилка копіювання відео: {e}")

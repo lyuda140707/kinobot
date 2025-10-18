@@ -302,16 +302,6 @@ async def watch_film(film_id: str):
             text=caption,
             reply_markup=keyboard
         )
-
-# 🎬 Кнопка відкриття WebApp у Telegram
-keyboard = InlineKeyboardMarkup(
-    inline_keyboard=[
-        [InlineKeyboardButton(
-            text="🎥 Відкрити у RelaxBox",
-            url="https://t.me/relax_time_bot/app"  # ⚡️ змінити на твій юзернейм бота
-        )]
-    ]
-)
 try:
     # 🎬 Кнопка відкриття WebApp у Telegram
     keyboard = InlineKeyboardMarkup(

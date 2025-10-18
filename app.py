@@ -283,15 +283,10 @@ async def watch_film(film_id: str):
         episode = film.get("episode")
         access = (film.get("access") or film.get("Доступ") or "").upper()
 
-        # 🧾 Лог: що саме прийшло
         print(f"🧾 ID={film_id} | type='{film_type}' | title='{title}' | message_id={message_id}")
 
-
-         # 🪞 Визначаємо дзеркальний канал з урахуванням PRO
-        access = (film.get("access") or film.get("Доступ") or "").upper()
-
+        # 🪞 Визначаємо дзеркальний канал з урахуванням PRO
         if access == "PRO":
-            # 👑 Для PRO контенту вибираємо окремі дзеркала
             if any(x in film_type for x in ["серіал", "серія"]):
                 mirror_channel = int(os.getenv("MEDIA_CHANNEL_MIRROR_PRO_SERIES", "-1003004556512"))
                 channel_label = "👑 PRO Серіал → RelaxBox PRO | Серіали"
@@ -310,20 +305,12 @@ async def watch_film(film_id: str):
 
         print(f"➡️ Тип: {film_type} | Дзеркало: {mirror_channel} ({channel_label})")
 
-        # 📝 Назва для логів
-        if film_type.startswith("сер") and season and episode:
-            pretty_title = f'{title} — {season} сезон, {episode} серія'
-        elif film_type.startswith("сер") and episode:
-            pretty_title = f'{title} — серія {episode}'
-        else:
-            pretty_title = title
-
-        # 📝 Формуємо підпис (назва + опис + випадкова фраза)
+        # 📝 Підпис (назва + опис + випадкова фраза)
         description = (film.get("description") or film.get("Опис") or "").strip()
         extra_phrase = random.choice(FUN_CAPTIONS)
-        caption = f"🎬 {film.get('title') or film.get('Назва')}\n\n{description}\n\n{extra_phrase}"
+        caption = f"🎬 {title}\n\n{description}\n\n{extra_phrase}"
 
-        # 🎬 Копіюємо відео з підписом
+        # 🎬 Копіюємо відео
         mirror_msg = await bot.copy_message(
             chat_id=mirror_channel,
             from_chat_id=source_channel,
@@ -335,12 +322,12 @@ async def watch_film(film_id: str):
         # 🕓 Авто-видалення
         delay_hours = 3 if "сер" in film_type else 6
         asyncio.create_task(schedule_message_delete(bot, mirror_channel, mirror_msg.message_id, delay_hours))
-        print(f"✅ {pretty_title} дубльовано → {channel_label}")
+        print(f"✅ {title} дубльовано → {channel_label}")
         print(f"🗑️ Видалиться через {delay_hours} год")
 
-        # 🔗 Генеруємо тимчасове запрошення, якщо це PRO-контент
-        if access == "PRO":
-            try:
+        # 🔗 Посилання (PRO — invite, звичайний — пряме)
+        try:
+            if access == "PRO":
                 invite_link = await bot.create_chat_invite_link(
                     chat_id=mirror_channel,
                     expire_date=datetime.now() + timedelta(hours=delay_hours),
@@ -348,20 +335,21 @@ async def watch_film(film_id: str):
                 )
                 tg_url = invite_link.invite_link
                 print(f"🔗 Згенеровано тимчасове запрошення (PRO): {tg_url}")
-            except Exception as e:
-                # fallback — стандартне посилання
+            else:
                 public_id = str(mirror_channel).replace("-100", "")
                 tg_url = f"https://t.me/c/{public_id}/{mirror_msg.message_id}"
-                print(f"⚠️ Не вдалося створити invite link: {e}")
-        else:
+        except Exception as e:
+            print(f"⚠️ Помилка створення посилання: {e}")
             public_id = str(mirror_channel).replace("-100", "")
             tg_url = f"https://t.me/c/{public_id}/{mirror_msg.message_id}"
-        # 🔁 Перенаправляємо користувача
+
+        # 🔁 Перенаправлення
         return RedirectResponse(url=tg_url)
 
     except Exception as e:
         print(f"❌ Помилка у /watch/{film_id}: {e}")
         return {"error": str(e)}
+
 
 @app.post("/notify-payment")
 async def notify_payment(req: Request):

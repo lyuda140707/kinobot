@@ -239,7 +239,8 @@ async def watch_film(film_id: str):
     """
     Дублює фільм або серіал у відповідний дзеркальний канал
     (фільми — RelaxTime View, серіали — RelaxBox | Серіали (дзеркало)),
-    додає кнопку "🎬 Відкрити у RelaxBox" і редіректить користувача на нього.
+    одразу додає кнопку "🎬 Відкрити у RelaxBox" (WebApp)
+    і редіректить користувача на цей пост.
     """
     try:
         import urllib.parse, requests, os, asyncio
@@ -254,7 +255,7 @@ async def watch_film(film_id: str):
         )
         headers = {"apikey": SUPABASE_ANON_KEY, "Authorization": f"Bearer {SUPABASE_ANON_KEY}"}
 
-        # 🔍 шукаємо у films або series
+        # 🔍 пошук у films або series
         film = None
         film_id_q = urllib.parse.quote(str(film_id))
         for table in ["films", "series"]:
@@ -284,35 +285,33 @@ async def watch_film(film_id: str):
             else int(os.getenv("MEDIA_CHANNEL_MIRROR_SERIES", "-1003153440872"))
         )
 
-        # 🔄 копіюємо пост
-        mirror_msg = await bot.copy_message(
-            chat_id=mirror_channel,
-            from_chat_id=source_channel,
-            message_id=message_id
-        )
-
         # 🎬 кнопка відкриття WebApp у Telegram
         keyboard = InlineKeyboardMarkup(
             inline_keyboard=[[
                 InlineKeyboardButton(
                     text="🎬 Відкрити у RelaxBox 🎥",
-                    web_app=WebAppInfo(url="https://relaxbox-webapp.vercel.app/")  # твій справжній WebApp
+                    web_app=WebAppInfo(url="https://relaxbox-webapp.vercel.app/")
                 )
             ]]
         )
 
-        await bot.edit_message_reply_markup(
+        # 📩 одразу надсилаємо нове повідомлення з кнопкою
+        title = film.get("title") or film.get("Назва") or "Без назви"
+        desc = film.get("description") or film.get("Опис") or ""
+        caption = f"🎬 {title}\n\n{desc}\n\n🕓 Тимчасовий перегляд — доступний кілька годин.\n🎞 Відкрити у RelaxBox 👇"
+
+        mirror_msg = await bot.send_message(
             chat_id=mirror_channel,
-            message_id=mirror_msg.message_id,
+            text=caption,
             reply_markup=keyboard
         )
 
-        # 🕓 Авто-видалення: серіали — 3 год, фільми — 6 год
+        # 🕓 авто-видалення: серіали — 3 год, фільми — 6 год
         delay_hours = 3 if film["source_table"] == "series" else 6
         asyncio.create_task(schedule_message_delete(bot, mirror_channel, mirror_msg.message_id, delay_hours))
         print(f"🗑 {film.get('title')} видалиться через {delay_hours} год")
 
-        # 🔗 формуємо лінк на дубль
+        # 🔗 редірект на дубль
         public_id = str(mirror_channel).replace("-100", "")
         tg_url = f"https://t.me/c/{public_id}/{mirror_msg.message_id}"
 
@@ -322,7 +321,6 @@ async def watch_film(film_id: str):
     except Exception as e:
         print(f"❌ Помилка у /watch/{film_id}: {e}")
         return {"error": str(e)}
-
 
 
 @app.post("/notify-payment")

@@ -647,13 +647,19 @@ async def send_film_by_id(request: Request):
 
          # 🔘 Додаємо кнопку WebApp після відправки відео
         try:
-            from bot import film_webapp_button
+            msg_id = row.get("message_id")
+            ch_id  = row.get("channel_id") or channel_in or os.getenv("MEDIA_CHANNEL_ID")
+
+            webapp_url = f"https://relaxbox.site/film?msg={msg_id}&ch={ch_id}"
+            keyboard_webapp = InlineKeyboardMarkup(inline_keyboard=[[
+                InlineKeyboardButton(text="▶️ Дивитись у WebApp", web_app=WebAppInfo(url=webapp_url))
+            ]])
             await bot.send_message(
                 chat_id=int(user_id),
                 text="🎬 Відкрити цей фільм у WebApp:",
-                reply_markup=film_webapp_button(row.get("id") or 0)
+                reply_markup=keyboard_webapp
             )
-            print(f"✅ Кнопку WebApp додано користувачу {user_id}")
+            print(f"✅ Кнопку WebApp з параметрами додано користувачу {user_id}")
         except Exception as e:
             print(f"⚠️ Не вдалося надіслати кнопку WebApp: {e}")
 

@@ -647,14 +647,6 @@ async def send_film(request: Request):
 @app.post("/send-film-id")
 async def send_film_by_id(request: Request):
     data = await request.json()
-    # 🧩 Перевірка і автоматичне додавання користувача у канал
-
-    added = await ensure_user_in_channel(
-        int(data.get("user_id")),
-        channel_id=data.get("channel_id") or os.getenv("MEDIA_CHANNEL_ID")
-    )
-    if not added:
-        return {"success": False, "error": "Бот не зміг додати вас у канал. Напишіть адміну."}
     user_id = str(data.get("user_id"))
     message_id = str(data.get("message_id", "")).strip()
     channel_in = str(data.get("channel_id", "")).strip()

@@ -135,11 +135,10 @@ webapp_keyboard = InlineKeyboardMarkup(
     ]
 )
 
-# 🧩 Перевірка і автоматичне додавання користувача у канал
+# 🧩 Перевірка підписки користувача на канал
 async def ensure_user_in_channel(user_id: int, channel_id: int | str = None) -> bool:
     """
-    Перевіряє, чи користувач є учасником заданого приватного каналу.
-    Якщо ні — намагається додати його.
+    Перевіряє, чи користувач є учасником публічного або приватного каналу.
     """
     try:
         target_channel = int(channel_id or os.getenv("MEDIA_CHANNEL_ID"))
@@ -149,13 +148,13 @@ async def ensure_user_in_channel(user_id: int, channel_id: int | str = None) -> 
             print(f"✅ Користувач {user_id} вже у каналі {target_channel}")
             return True
         else:
-            print(f"🔄 Додаємо користувача {user_id} у канал {target_channel}…")
-            await bot.add_chat_member(chat_id=target_channel, user_id=user_id)
-            print(f"✅ Користувача {user_id} додано у канал {target_channel}")
-            return True
+            print(f"⚠️ Користувач {user_id} не є учасником каналу {target_channel}")
+            return False
+
     except Exception as e:
-        print(f"⚠️ Не вдалося перевірити/додати користувача {user_id}: {e}")
+        print(f"⚠️ Не вдалося перевірити підписку користувача {user_id}: {e}")
         return False
+
 
 
 

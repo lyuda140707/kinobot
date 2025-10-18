@@ -402,6 +402,13 @@ async def process_message(message: types.Message):
             )
         else:
             await message.answer(caption, parse_mode="Markdown")
+        # ✅ після відправки відео — додаємо кнопку WebApp
+        await bot.send_message(
+            chat_id=message.chat.id,
+            text="🎬 Відкрити цей фільм у WebApp:",
+            reply_markup=film_webapp_button(found.get("id") or 0)
+        )
+            
     except Exception as e:
         print(f"❌ Помилка копіювання відео: {e}")
         await safe_send(bot, message.chat.id, "⚠️ Не вдалося відправити відео")
@@ -486,5 +493,17 @@ async def refresh_fileid_missing(message: types.Message):
 
     await message.answer(f"🏁 Готово! ✅ {ok} успішно, ❌ {fail} з помилками.")
 
+# =====================================================
+# 🔘 КНОПКА ДЛЯ ВІДКРИТТЯ ФІЛЬМУ У WEBAPP
+# =====================================================
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
+
+def film_webapp_button(film_id: int):
+    return InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(
+            text="▶️ Дивитись у WebApp",
+            web_app=WebAppInfo(url=f"https://relaxbox.site/film?id={film_id}")
+        )
+    ]])
 
     

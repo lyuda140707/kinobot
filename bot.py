@@ -17,6 +17,7 @@ from datetime import datetime, timedelta
 from aiogram import types
 from google_api import add_user_if_not_exists
 MEDIA_CHANNEL_ID = int(os.getenv("MEDIA_CHANNEL_ID"))
+MEDIA_CHANNEL_MIRROR = int(os.getenv("MEDIA_CHANNEL_MIRROR", "0"))
 import requests
 import urllib.parse
 
@@ -251,19 +252,19 @@ from aiogram.filters import Command
 
 @dp.message(Command("start"))
 async def start_handler(message: types.Message):
-    # 1) Записуємо користувача
+    # 1️⃣ Записуємо користувача
     add_user_if_not_exists(
         user_id=message.from_user.id,
         username=message.from_user.username or "",
         first_name=message.from_user.first_name or ""
     )
 
-    # 2) Дістаємо payload після /start
+    # 2️⃣ Дістаємо payload після /start
     payload = None
     if message.text and len(message.text.split()) > 1:
         payload = message.text.split(maxsplit=1)[1].strip()
 
-    # 3) Якщо payload відсутній — просто показуємо кнопку WebApp
+    # 3️⃣ Якщо payload відсутній — показуємо кнопку WebApp
     if not payload or not (payload.startswith("film_") or payload.startswith("series_")):
         await safe_send(
             bot,
@@ -273,7 +274,7 @@ async def start_handler(message: types.Message):
         )
         return
 
-    # 4) Якщо payload валідний — дістаємо id і шукаємо фільм
+    # 4️⃣ Якщо payload валідний — шукаємо фільм
     film_id = payload.split("_", 1)[1]
     films = get_gsheet_data()
 
@@ -306,13 +307,15 @@ async def start_handler(message: types.Message):
     )
 
     try:
-         # 🧩 Перевіряємо, чи користувач є у каналі
+        # 🧩 Перевіряємо, чи користувач у каналі
         ok = await ensure_user_in_channel(message.from_user.id)
         if not ok:
             await message.answer("⚠️ Не вдалося додати вас до каналу. Напишіть адміну.")
             return
+
+        # 🧱 Надсилаємо фільм користувачу
         if msg_id:
-            await bot.copy_message(
+            sent = await bot.copy_message(
                 chat_id=message.chat.id,
                 from_chat_id=channel_id,
                 message_id=int(msg_id),
@@ -320,7 +323,7 @@ async def start_handler(message: types.Message):
                 parse_mode="Markdown"
             )
         elif file_id:
-            await bot.send_video(
+            sent = await bot.send_video(
                 chat_id=message.chat.id,
                 video=file_id,
                 caption=caption,
@@ -328,6 +331,21 @@ async def start_handler(message: types.Message):
             )
         else:
             await safe_send(bot, message.chat.id, "⚠️ Не знайдено message_id або file_id")
+            return
+
+        # 🪞 Після відправки — дублюємо пост у публічний канал (дзеркало)
+        MIRROR_CHANNEL_ID = int(os.getenv("MEDIA_CHANNEL_MIRROR", "0"))
+        if MIRROR_CHANNEL_ID and msg_id:
+            try:
+                mirror_msg = await bot.copy_message(
+                    chat_id=MIRROR_CHANNEL_ID,
+                    from_chat_id=channel_id,
+                    message_id=int(msg_id)
+                )
+                print(f"✅ Фільм {name} дубльовано у публічний канал: msg_id={mirror_msg.message_id}")
+            except Exception as e:
+                print(f"⚠️ Не вдалося дублювати у публічний канал: {e}")
+
     except Exception as e:
         print(f"❌ Помилка копіювання відео: {e}")
         await safe_send(bot, message.chat.id, "⚠️ Не вдалося відправити відео")

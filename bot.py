@@ -316,23 +316,11 @@ async def start_handler(message: types.Message):
 @dp.message(F.video)
 async def get_file_id(message: types.Message):
     file_id = message.video.file_id
-    title = message.caption or "Без назви 🎞️"
-
-    await message.answer(
-        f"🎬 <b>{title}</b>\n\n📎 <b>file_id:</b>\n<code>{file_id}</code>",
-        parse_mode="HTML"
-    )
+    await message.answer(f"🎥 file_id:\n<code>{file_id}</code>", parse_mode="HTML")
 
 
 
 
-
-
-# 🚫 Ігноруємо всі команди (щоб не йшли в пошук фільмів)
-@dp.message(lambda m: m.text and m.text.startswith("/"))
-async def ignore_commands(message: types.Message):
-    # просто пропускаємо команду, якщо її обробляє інша функція
-    return
 
 
 @dp.message(F.text)
@@ -402,108 +390,8 @@ async def process_message(message: types.Message):
             )
         else:
             await message.answer(caption, parse_mode="Markdown")
-        # ✅ після відправки відео — додаємо кнопку WebApp
-        await bot.send_message(
-            chat_id=message.chat.id,
-            text="🎬 Відкрити цей фільм у WebApp:",
-            reply_markup=film_webapp_button(found.get("id") or 0)
-        )
-            
     except Exception as e:
         print(f"❌ Помилка копіювання відео: {e}")
         await safe_send(bot, message.chat.id, "⚠️ Не вдалося відправити відео")
-
-import os
-import asyncio
-import requests
-from aiogram.filters import Command
-
-SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
-SUPABASE_KEY = os.getenv("SUPABASE_ANON_KEY") or os.getenv("SUPABASE_ANON")
-MEDIA_STAGING_CHAT_ID = int(os.getenv("MEDIA_STAGING_CHAT_ID"))
-ADMIN_ID = int(os.getenv("ADMIN_ID"))
-
-def _sb_headers():
-    return {
-        "apikey": SUPABASE_KEY,
-        "Authorization": f"Bearer {SUPABASE_KEY}",
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-        "Prefer": "return=representation"
-    }
-
-def sb_find_without_fileid(limit=20):
-    url = f"{SUPABASE_URL}/rest/v1/films"
-    params = {
-        "select": "id,title,message_id,channel_id,file_id",
-        "or": "(file_id.is.null,file_id.eq.)",
-        "limit": str(limit)
-    }
-    r = requests.get(url, headers=_sb_headers(), params=params, timeout=15)
-    r.raise_for_status()
-    return r.json()
-
-def sb_update_fileid_by_id(row_id: int, new_file_id: str):
-    url = f"{SUPABASE_URL}/rest/v1/films"
-    params = {"id": f"eq.{row_id}"}
-    payload = {"file_id": new_file_id}
-    r = requests.patch(url, headers=_sb_headers(), params=params, json=payload, timeout=15)
-    r.raise_for_status()
-    return r.json()
-
-@dp.message(Command("update_fileid"))
-async def refresh_fileid_missing(message: types.Message):
-    if message.from_user.id != ADMIN_ID:
-        return await message.reply("⛔ Команда доступна лише адміну.")
-
-    await message.answer("🔎 Шукаю фільми без file_id...")
-    rows = sb_find_without_fileid(limit=10)
-
-    if not rows:
-        return await message.answer("✅ Усі фільми вже мають file_id!")
-
-    ok, fail = 0, 0
-    for row in rows:
-        try:
-            ch_id = int(row["channel_id"])
-            msg_id = int(row["message_id"])
-            title = row.get("title") or f"id={row['id']}"
-
-            forwarded = await bot.copy_message(
-                chat_id=MEDIA_STAGING_CHAT_ID,
-                from_chat_id=ch_id,
-                message_id=msg_id
-            )
-
-            # дістаємо новий file_id
-            if forwarded.video:
-                new_fid = forwarded.video.file_id
-            elif forwarded.document and forwarded.document.mime_type.startswith("video/"):
-                new_fid = forwarded.document.file_id
-            else:
-                raise Exception("Немає відео")
-
-            sb_update_fileid_by_id(row["id"], new_fid)
-            ok += 1
-            await message.answer(f"✅ {title}\n<code>{new_fid}</code>", parse_mode="HTML")
-            await asyncio.sleep(0.5)
-        except Exception as e:
-            fail += 1
-            await message.answer(f"⚠️ {row.get('title')} — помилка: {e}")
-
-    await message.answer(f"🏁 Готово! ✅ {ok} успішно, ❌ {fail} з помилками.")
-
-# =====================================================
-# 🔘 КНОПКА ДЛЯ ВІДКРИТТЯ ФІЛЬМУ У WEBAPP
-# =====================================================
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
-
-def film_webapp_button(film_id: int):
-    return InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(
-            text="▶️ Дивитись у WebApp",
-            web_app=WebAppInfo(url=f"https://relaxbox.site/film?id={film_id}")
-        )
-    ]])
 
     

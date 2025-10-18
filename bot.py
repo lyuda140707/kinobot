@@ -125,6 +125,16 @@ bot = Bot(
 )
 dp = Dispatcher(storage=MemoryStorage())
 
+# 🎬 Кнопка для відкриття WebApp
+webapp_keyboard = InlineKeyboardMarkup(
+    inline_keyboard=[
+        [InlineKeyboardButton(
+            text="🛋 Відкрити застосунок",
+            web_app=WebAppInfo(url="https://relaxbox.site/")
+        )]
+    ]
+)
+
 # 🧩 Перевірка і автоматичне додавання користувача у канал
 async def ensure_user_in_channel(user_id: int, channel_id: int | str = None) -> bool:
     """

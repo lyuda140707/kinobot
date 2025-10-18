@@ -647,8 +647,8 @@ async def send_film(request: Request):
 @app.post("/send-film-id")
 async def send_film_by_id(request: Request):
     """
-    Повертає посилання на публічний пост у дзеркальному каналі
-    і ставить його у чергу на видалення (через 3 год).
+    Дублює фільм або серію у дзеркальний канал і повертає посилання.
+    Фільми видаляються через 6 год, серіали — через 3 год.
     """
     try:
         data = await request.json()
@@ -662,62 +662,75 @@ async def send_film_by_id(request: Request):
         print(f"📽️ /send-film-id {message_id} від {user_id}")
         print(f"    channel_in={channel_in}")
 
-        # 🔍 Отримуємо дані з Supabase
-        row = None
+        # 🔍 Отримуємо фільм із Supabase
         if len(message_id) > 20:
-            print("🔍 Виявлено file_id — шукаємо по колонці file_id")
             rows = sb_find_by_file_and_channel(message_id, channel_in) if channel_in else sb_find_by_file_id(message_id)
         else:
-            print("🔍 Виявлено message_id — шукаємо по колонці message_id")
             rows = sb_find_by_message_and_channel(message_id, channel_in) if channel_in else sb_find_by_message_id(message_id)
-        if rows:
-            row = rows[0]
-
-        if not row:
+        if not rows:
             return {"success": False, "error": "Фільм не знайдено"}
 
-        # 🔒 PRO контент не відкриваємо
-        if (row.get("access") == "PRO") and (not has_active_pro(user_id)):
-            return {"success": False, "error": "⛔ Доступ лише для PRO користувачів"}
-
+        row = rows[0]
         title = row.get("title") or row.get("Назва") or "Без назви"
         film_type = (row.get("type") or row.get("Тип") or "").lower()
         msg_id = int(row.get("message_id"))
         access = (row.get("access") or row.get("Доступ") or "").upper()
+        source_channel = int(row.get("channel_id") or os.getenv("MEDIA_CHANNEL_ID"))
+
+        # 🔒 PRO контент не дублюємо
+        if access == "PRO" and not has_active_pro(user_id):
+            return {"success": False, "error": "⛔ Доступ лише для PRO користувачів"}
 
         # 🪞 Вибираємо дзеркальний канал
         mirror_films = int(os.getenv("MEDIA_CHANNEL_MIRROR_FILMS", "-1002863248325"))
         mirror_series = int(os.getenv("MEDIA_CHANNEL_MIRROR_SERIES", "-1003153440872"))
-
         if "серіал" in film_type or "series" in film_type:
             mirror_channel = mirror_series
+            delay_hours = 3
         else:
             mirror_channel = mirror_films
+            delay_hours = 6
 
-        # 🔗 Формуємо Telegram-посилання
+        # 🎬 Копіюємо у дзеркальний канал
+        try:
+            mirror_msg = await bot.copy_message(
+                chat_id=mirror_channel,
+                from_chat_id=source_channel,
+                message_id=msg_id
+            )
+            print(f"✅ Дубльовано '{title}' у {mirror_channel} (msg_id={mirror_msg.message_id})")
+        except Exception as e:
+            print(f"❌ Помилка копіювання в дзеркальний канал: {e}")
+            return {"success": False, "error": f"Не вдалося дублювати у канал: {e}"}
+
+        # 🕓 Плануємо видалення через 3 або 6 год
+        asyncio.create_task(schedule_message_delete(bot, mirror_channel, mirror_msg.message_id, delay_hours))
+
+        # 🔗 Повертаємо посилання
         public_id = str(mirror_channel).replace("-100", "")
-        tg_url = f"https://t.me/c/{public_id}/{msg_id}"
+        tg_url = f"https://t.me/c/{public_id}/{mirror_msg.message_id}"
+        print(f"🔗 Посилання: {tg_url}")
 
-        print(f"🎬 {title} → {tg_url}")
-
-        # 🕓 Додаємо у Google Таблицю “Видалення” (через 3 години)
+        # 🧾 Записуємо у Google Таблицю “Видалення”
         kyiv = timezone("Europe/Kyiv")
-        delete_time = datetime.now(kyiv) + timedelta(hours=3)
+        delete_time = datetime.now(kyiv) + timedelta(hours=delay_hours)
         sheet = get_google_service().spreadsheets()
         sheet.values().append(
             spreadsheetId=os.getenv("SHEET_ID"),
             range="Видалення!A2",
             valueInputOption="USER_ENTERED",
             insertDataOption="INSERT_ROWS",
-            body={"values": [[str(mirror_channel), str(msg_id), delete_time.isoformat()]]}
+            body={"values": [[str(mirror_channel), str(mirror_msg.message_id), delete_time.isoformat()]]}
         ).execute()
-        print(f"🧾 Заплановано видалення поста {msg_id} з каналу {mirror_channel} через 3 години")
+
+        print(f"🧾 Заплановано видалення через {delay_hours} годин ({title})")
 
         return {"success": True, "url": tg_url}
 
     except Exception as e:
         print(f"⚠️ Помилка у /send-film-id: {e}")
         return {"success": False, "error": str(e)}
+
 
 @app.post("/check-subscription")
 async def check_subscription(request: Request):

@@ -89,50 +89,6 @@ def sb_find_by_file_and_channel(fid: str, ch: str):
     r = requests.get(url, headers=_sb_headers(), timeout=10)
     r.raise_for_status()
     return r.json()
-# ========= Telegram CDN resolver & Supabase cache =========
-import requests
-from datetime import datetime, timedelta, timezone as dt_timezone
-import dateutil.parser
-
-TELEGRAM_TTL_HOURS = 8  # скільки годин вважаємо CDN-лінк "свіжим"
-
-def sb_get_by_file_id(fid: str):
-    import urllib.parse
-    fid_q = urllib.parse.quote(fid)
-    url = f"{SUPABASE_URL}/rest/v1/films?select=*&file_id=eq.{fid_q}&limit=1"
-    r = requests.get(url, headers=_sb_headers(), timeout=10)
-    r.raise_for_status()
-    rows = r.json()
-    return rows[0] if rows else None
-
-def sb_update_cdn_url(row_id: int, cdn_url: str):
-    url = f"{SUPABASE_URL}/rest/v1/films?id=eq.{row_id}"
-    payload = {
-        "cdn_url": cdn_url,
-        "cdn_refreshed_at": datetime.now(dt_timezone.utc).isoformat()
-    }
-    r = requests.patch(
-        url,
-        headers={**_sb_headers(), "Content-Type": "application/json"},
-        json=payload,
-        timeout=10
-    )
-    r.raise_for_status()
-
-def telegram_build_cdn_url(file_id: str) -> str:
-    """Отримуємо прямий CDN-URL з Telegram API"""
-    bot_token = os.getenv("BOT_TOKEN", "")
-    if not bot_token:
-        raise RuntimeError("BOT_TOKEN missing")
-    info = requests.get(
-        f"https://api.telegram.org/bot{bot_token}/getFile",
-        params={"file_id": file_id},
-        timeout=15
-    ).json()
-    if not info.get("ok"):
-        raise RuntimeError(f"Telegram getFile error: {info}")
-    file_path = info["result"]["file_path"]
-    return f"https://api.telegram.org/file/bot{bot_token}/{file_path}"
 
 async def clean_old_requests_once():
     """Одноразово видаляє записи старше 31 дня з аркуша 'Замовлення'."""
@@ -1015,42 +971,6 @@ async def check_pro(req: Request):
     return {"isPro": False, "expire_date": None}
 
 
-from fastapi import HTTPException
-
-@app.get("/get-video-url")
-def get_video_url(fid: str):
-    """
-    Повертає прямий Telegram CDN-URL для відео по file_id.
-    Якщо є кеш — бере його з Supabase, інакше запитує Telegram.
-    """
-    if not fid:
-        raise HTTPException(400, "fid is required")
-
-    row = sb_get_by_file_id(fid)
-    if not row:
-        raise HTTPException(404, "Film not found in Supabase")
-
-    cdn_url = row.get("cdn_url")
-    refreshed_at = row.get("cdn_refreshed_at")
-
-    # якщо є кеш і він не старіший 8 годин
-    try:
-        if cdn_url and refreshed_at:
-            ts = dateutil.parser.parse(refreshed_at)
-            if (datetime.now(dt_timezone.utc) - ts) <= timedelta(hours=TELEGRAM_TTL_HOURS):
-                return {"ok": True, "video_url": cdn_url}
-    except Exception:
-        pass
-
-    # якщо нема або старе — отримати нове з Telegram
-    fresh_url = telegram_build_cdn_url(fid)
-
-    try:
-        sb_update_cdn_url(row["id"], fresh_url)
-    except Exception as e:
-        print(f"⚠️ Не вдалося оновити cdn_url: {e}")
-
-    return {"ok": True, "video_url": fresh_url}
 
 
 @app.post("/clean-pro")

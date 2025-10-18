@@ -645,24 +645,6 @@ async def send_film_by_id(request: Request):
             body={"values": [[str(user_id), str(sent_message.message_id), delete_time.isoformat()]]}
         ).execute()
 
-         # 🔘 Додаємо кнопку WebApp після відправки відео
-        try:
-            msg_id = row.get("message_id")
-            ch_id  = row.get("channel_id") or channel_in or os.getenv("MEDIA_CHANNEL_ID")
-
-            webapp_url = f"https://relaxbox.site/film?msg={msg_id}&ch={ch_id}"
-            keyboard_webapp = InlineKeyboardMarkup(inline_keyboard=[[
-                InlineKeyboardButton(text="▶️ Дивитись у WebApp", web_app=WebAppInfo(url=webapp_url))
-            ]])
-            await bot.send_message(
-                chat_id=int(user_id),
-                text="🎬 Відкрити цей фільм у WebApp:",
-                reply_markup=keyboard_webapp
-            )
-            print(f"✅ Кнопку WebApp з параметрами додано користувачу {user_id}")
-        except Exception as e:
-            print(f"⚠️ Не вдалося надіслати кнопку WebApp: {e}")
-
         print(f"🧾 Записано у 'Видалення' для користувача {user_id}")
         return {"success": True}
 
@@ -1112,27 +1094,6 @@ from bot import bot
 # ── ID приватного каналу-репозиторію з фільмами
 MEDIA_CHANNEL_ID = int(os.getenv("MEDIA_CHANNEL_ID"))
 
-# ==========================================================
-# 🎬 ВИДЕО ДЛЯ WEBAPP — ПРЯМИЙ ДОСТУП ДО CDN TELEGRAM
-# ==========================================================
-from aiogram import Bot
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-bot = Bot(token=BOT_TOKEN)
-
-@app.get("/get-video-url")
-async def get_video_url(id: int, channel: int):
-    """
-    Повертає пряме CDN-посилання Telegram відео
-    (працює з будь-якого твого каналу, де бот — адміністратор)
-    """
-    try:
-        msg = await bot.get_chat_message(channel, id)
-        file_id = msg.video.file_id
-        file = await bot.get_file(file_id)
-        video_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file.file_path}"
-        return {"video_url": video_url}
-    except Exception as e:
-        return {"error": str(e)}
 
 async def notify_pro_expiring():
     service = get_google_service()

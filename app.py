@@ -778,9 +778,9 @@ async def send_film_by_id(request: Request):
                 else:
                     tg_url = f"https://t.me/{mirror_channel}/{mirror_msg.message_id}"
                 print(f"🔗 Згенеровано публічне посилання: {tg_url}")
-            except Exception as e:
-                print(f"⚠️ Помилка формування посилання: {e}")
-                tg_url = "https://t.me/RelaxBoxBot"
+        except Exception as e:
+            print(f"⚠️ Помилка формування посилання: {e}")
+            tg_url = "https://t.me/RelaxBoxBot"
 
         # 🧾 Записуємо у Google Таблицю “Видалення”
         kyiv = timezone("Europe/Kyiv")

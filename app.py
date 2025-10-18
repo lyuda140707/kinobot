@@ -1094,6 +1094,49 @@ from bot import bot
 # ── ID приватного каналу-репозиторію з фільмами
 MEDIA_CHANNEL_ID = int(os.getenv("MEDIA_CHANNEL_ID"))
 
+# === 🎞️ Smart Film Button API ===
+
+@app.get("/get-film-mode")
+def get_film_mode(id: int):
+    """Повертає режим показу фільму: WebApp (file_id) або Bot (message_id)"""
+    try:
+        response = requests.get(
+            f"{SUPABASE_URL}/rest/v1/films?select=file_id,message_id,channel_id&id=eq.{id}",
+            headers=_sb_headers(),
+            timeout=10
+        )
+        response.raise_for_status()
+        data = response.json()
+        if not data:
+            return {"mode": "none"}
+
+        film = data[0]
+        if film.get("file_id"):
+            return {"mode": "webapp", "file_id": film["file_id"]}
+        elif film.get("message_id") and film.get("channel_id"):
+            return {
+                "mode": "bot",
+                "message_id": film["message_id"],
+                "channel_id": film["channel_id"]
+            }
+        else:
+            return {"mode": "none"}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/get-video-url")
+def get_video_url(file_id: str):
+    """Отримує пряме Telegram CDN посилання для WebApp"""
+    try:
+        url = f"https://api.telegram.org/bot{os.getenv('BOT_TOKEN')}/getFile?file_id={file_id}"
+        r = requests.get(url).json()
+        file_path = r["result"]["file_path"]
+        cdn_url = f"https://api.telegram.org/file/bot{os.getenv('BOT_TOKEN')}/{file_path}"
+        return {"video_url": cdn_url}
+    except Exception as e:
+        return {"error": str(e)}
+
 
 async def notify_pro_expiring():
     service = get_google_service()

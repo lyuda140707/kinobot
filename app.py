@@ -646,19 +646,23 @@ async def send_film(request: Request):
 
 @app.post("/send-film-id")
 async def send_film_by_id(request: Request):
-    data = await request.json()
-    user_id = str(data.get("user_id"))
-    message_id = str(data.get("message_id", "")).strip()
-    channel_in = str(data.get("channel_id", "")).strip()
-
-    if not user_id or not message_id:
-        return {"success": False, "error": "user_id або message_id відсутні"}
-
-    print(f"📽️ /send-film-id {message_id} від {user_id}")
-    print(f"    channel_in={channel_in}")
-
-    # 🔍 Визначаємо, file_id це чи message_id
+    """
+    Повертає посилання на публічний пост у дзеркальному каналі
+    і ставить його у чергу на видалення (через 24 год).
+    """
     try:
+        data = await request.json()
+        user_id = str(data.get("user_id"))
+        message_id = str(data.get("message_id", "")).strip()
+        channel_in = str(data.get("channel_id", "")).strip()
+
+        if not user_id or not message_id:
+            return {"success": False, "error": "user_id або message_id відсутні"}
+
+        print(f"📽️ /send-film-id {message_id} від {user_id}")
+        print(f"    channel_in={channel_in}")
+
+        # 🔍 Отримуємо дані з Supabase
         row = None
         if len(message_id) > 20:
             print("🔍 Виявлено file_id — шукаємо по колонці file_id")
@@ -668,75 +672,35 @@ async def send_film_by_id(request: Request):
             rows = sb_find_by_message_and_channel(message_id, channel_in) if channel_in else sb_find_by_message_id(message_id)
         if rows:
             row = rows[0]
-    except Exception as e:
-        print("❌ Помилка Supabase:", e)
-        return {"success": False, "error": "Помилка доступу до бази"}
 
-    if not row:
-        return {"success": False, "error": "Фільм не знайдено"}
+        if not row:
+            return {"success": False, "error": "Фільм не знайдено"}
 
-    # 🔒 Перевірка PRO
-    if (row.get("access") == "PRO") and (not has_active_pro(user_id)):
-        return {"success": False, "error": "⛔ Доступ лише для PRO користувачів"}
+        # 🔒 PRO контент не відкриваємо
+        if (row.get("access") == "PRO") and (not has_active_pro(user_id)):
+            return {"success": False, "error": "⛔ Доступ лише для PRO користувачів"}
 
-    title = row.get("title") or ""
-    description = row.get("description") or ""
-    caption = (
-        f"🎬 {title}\n\n{description}\n\n"
-        "🎞️🤩 Попкорн є? Світло вимкнено?\n"
-        "🚀 Бо цей фільм точно не дасть засумувати!"
-    )
+        title = row.get("title") or row.get("Назва") or "Без назви"
+        film_type = (row.get("type") or row.get("Тип") or "").lower()
+        msg_id = int(row.get("message_id"))
+        access = (row.get("access") or row.get("Доступ") or "").upper()
 
-    keyboard = InlineKeyboardMarkup(
-        inline_keyboard=[[
-            InlineKeyboardButton(
-                text="🎥 Обрати інший фільм 📚",
-                web_app=WebAppInfo(url="https://relaxbox.site/")
-            )
-        ]]
-    )
+        # 🪞 Вибираємо дзеркальний канал
+        mirror_films = int(os.getenv("MEDIA_CHANNEL_MIRROR_FILMS", "-1002863248325"))
+        mirror_series = int(os.getenv("MEDIA_CHANNEL_MIRROR_SERIES", "-1003153440872"))
 
-    try:
-        channel_id = int(row.get("channel_id") or channel_in or os.getenv("MEDIA_CHANNEL_ID"))
-        file_id = str(row.get("file_id", "")).strip()
-
-        # 🧠 1️⃣ Основний спосіб — через file_id
-        if file_id and len(file_id) > 20:
-            print(f"🎬 Відправка через file_id={file_id} → {title}")
-            try:
-                sent_message = await bot.send_video(
-                    chat_id=int(user_id),
-                    video=file_id,
-                    caption=caption,
-                    reply_markup=keyboard,
-                    parse_mode="HTML",
-                    supports_streaming=True
-                )
-                print(f"✅ Надіслано напряму через file_id ({user_id}) → {title}")
-            except Exception as e:
-                print(f"⚠️ Помилка send_video: {e}")
-                # fallback — якщо file_id не спрацював
-                if row.get("message_id"):
-                    print("🔁 Використовуємо резервний copy_message()")
-                    sent_message = await bot.copy_message(
-                        chat_id=int(user_id),
-                        from_chat_id=channel_id,
-                        message_id=int(row.get("message_id"))
-                    )
-                    print(f"✅ Відправлено копією після помилки file_id ({user_id}) → {title}")
-                else:
-                    raise e
+        if "серіал" in film_type or "series" in film_type:
+            mirror_channel = mirror_series
         else:
-            # 🧩 2️⃣ Якщо file_id немає — резервна копія
-            print(f"📦 Відправка копією (message_id={row.get('message_id')}) → {title}")
-            sent_message = await bot.copy_message(
-                chat_id=int(user_id),
-                from_chat_id=channel_id,
-                message_id=int(row.get("message_id"))
-            )
-            print(f"✅ Відправлено копією ({user_id}) → {title}")
+            mirror_channel = mirror_films
 
-        # 🕓 3️⃣ Запис у таблицю видалення
+        # 🔗 Формуємо Telegram-посилання
+        public_id = str(mirror_channel).replace("-100", "")
+        tg_url = f"https://t.me/c/{public_id}/{msg_id}"
+
+        print(f"🎬 {title} → {tg_url}")
+
+        # 🕓 Додаємо у Google Таблицю “Видалення” (через 24 год)
         kyiv = timezone("Europe/Kyiv")
         delete_time = datetime.now(kyiv) + timedelta(hours=24)
         sheet = get_google_service().spreadsheets()
@@ -745,14 +709,14 @@ async def send_film_by_id(request: Request):
             range="Видалення!A2",
             valueInputOption="USER_ENTERED",
             insertDataOption="INSERT_ROWS",
-            body={"values": [[str(user_id), str(sent_message.message_id), delete_time.isoformat()]]}
+            body={"values": [[str(mirror_channel), str(msg_id), delete_time.isoformat()]]}
         ).execute()
+        print(f"🧾 Заплановано видалення поста {msg_id} з каналу {mirror_channel}")
 
-        print(f"🧾 Записано у 'Видалення' для користувача {user_id}")
-        return {"success": True}
+        return {"success": True, "url": tg_url}
 
     except Exception as e:
-        print(f"❌ Помилка надсилання: {e}")
+        print(f"⚠️ Помилка у /send-film-id: {e}")
         return {"success": False, "error": str(e)}
 
 

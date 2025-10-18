@@ -238,7 +238,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 async def watch_film(film_id: str):
     """
     Дублює фільм або серію у відповідний дзеркальний канал.
-    Підтримує колонку type (Фільм / Серіал / Мультфільм)
+    Підтримує type (Фільм / Серіал / Мультфільм / Серія)
     та поля season / episode.
     """
     try:
@@ -257,6 +257,7 @@ async def watch_film(film_id: str):
         r = requests.get(url, headers=headers, timeout=10)
         data = r.json()
         if not data:
+            print(f"⚠️ Не знайдено запис із ID {film_id}")
             return {"error": "Фільм або серіал не знайдено"}
         film = data[0]
 
@@ -269,44 +270,49 @@ async def watch_film(film_id: str):
         episode = film.get("episode")
         access = (film.get("access") or film.get("Доступ") or "").upper()
 
+        # 🧾 Лог: що саме прийшло
+        print(f"🧾 ID={film_id} | type='{film_type}' | title='{title}' | message_id={message_id}")
+
         # 🔒 Пропускаємо PRO контент
         if access == "PRO":
             print(f"🔒 {title} — PRO, не дублюємо")
             return {"error": "🔒 Це PRO контент"}, 403
 
         # 🪞 Визначаємо дзеркальний канал
-        if film_type in ["фільм", "мультфільм"]:
+        if any(x in film_type for x in ["фільм", "мультфільм"]):
             mirror_channel = int(os.getenv("MEDIA_CHANNEL_MIRROR_FILMS", "-1002863248325"))
-        elif film_type == "серіал":
+            channel_label = "🎬 Фільм → RelaxTime View"
+        elif any(x in film_type for x in ["серіал", "серія"]):
             mirror_channel = int(os.getenv("MEDIA_CHANNEL_MIRROR_SERIES", "-1003153440872"))
+            channel_label = "📺 Серіал → RelaxBox | Серіали"
         else:
             mirror_channel = int(os.getenv("MEDIA_CHANNEL_MIRROR_FILMS", "-1002863248325"))
+            channel_label = "🎞️ Інше → RelaxTime View"
 
-        # 📝 Формуємо зрозумілий заголовок для логів
-        if film_type == "серіал" and season and episode:
+        print(f"➡️ Тип: {film_type} | Дзеркало: {mirror_channel} ({channel_label})")
+
+        # 📝 Назва для логів
+        if film_type.startswith("сер") and season and episode:
             pretty_title = f'{title} — {season} сезон, {episode} серія'
-        elif film_type == "серіал" and episode:
+        elif film_type.startswith("сер") and episode:
             pretty_title = f'{title} — серія {episode}'
         else:
             pretty_title = title
 
-        print(f"🎬 Надсилаємо {film_type}: {pretty_title}")
-
-        # 🎬 Копіюємо повідомлення з оригінального каналу
+        # 🎬 Копіюємо повідомлення
         mirror_msg = await bot.copy_message(
             chat_id=mirror_channel,
             from_chat_id=source_channel,
             message_id=message_id
         )
 
-        # 🕓 Авто-видалення: серіали — 3 год, решта — 6
-        delay_hours = 3 if film_type == "серіал" else 6
+        # 🕓 Авто-видалення
+        delay_hours = 3 if "сер" in film_type else 6
         asyncio.create_task(schedule_message_delete(bot, mirror_channel, mirror_msg.message_id, delay_hours))
+        print(f"✅ {pretty_title} дубльовано → {channel_label}")
+        print(f"🗑️ Видалиться через {delay_hours} год")
 
-        print(f"✅ {pretty_title} дубльовано → канал {mirror_channel}")
-        print(f"🗑️ Авто-видалення через {delay_hours} год")
-
-        # 🔗 Генеруємо посилання на пост у каналі
+        # 🔗 Посилання на пост у каналі
         public_id = str(mirror_channel).replace("-100", "")
         tg_url = f"https://t.me/c/{public_id}/{mirror_msg.message_id}"
         return RedirectResponse(url=tg_url)

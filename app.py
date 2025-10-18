@@ -290,6 +290,11 @@ async def watch_film(film_id: str):
             print(f"🔒 {title} — PRO, не дублюємо")
             return {"error": "🔒 Це PRO контент"}, 403
 
+        # 🔒 Якщо це PRO — не дублюємо у дзеркальний канал
+        if (film.get("access") or film.get("Доступ") or "").upper() == "PRO":
+            print(f"🔒 {film.get('title')} — PRO контент, не дублюємо у дзеркальний канал")
+            return {"error": "PRO контент не дублюється"}
+
         # 🪞 Визначаємо дзеркальний канал
         if any(x in film_type for x in ["фільм", "мультфільм"]):
             mirror_channel = int(os.getenv("MEDIA_CHANNEL_MIRROR_FILMS", "-1002863248325"))
@@ -696,10 +701,10 @@ async def send_film_by_id(request: Request):
         access = (row.get("access") or row.get("Доступ") or "").upper()
         source_channel = int(row.get("channel_id") or os.getenv("MEDIA_CHANNEL_ID"))
 
-        # 🔒 PRO контент не дублюємо
-        if access == "PRO" and not has_active_pro(user_id):
-            return {"success": False, "error": "⛔ Доступ лише для PRO користувачів"}
-
+        # 🔒 Якщо PRO — не дублюємо у дзеркальний канал взагалі
+        if access == "PRO":
+            print(f"🔒 {title} — PRO контент, не дублюємо у дзеркальний канал")
+            return {"success": False, "error": "🔒 Це PRO контент — не дублюється"}
         # 🪞 Вибираємо дзеркальний канал
         mirror_films = int(os.getenv("MEDIA_CHANNEL_MIRROR_FILMS", "-1002863248325"))
         mirror_series = int(os.getenv("MEDIA_CHANNEL_MIRROR_SERIES", "-1003153440872"))

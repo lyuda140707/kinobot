@@ -285,14 +285,14 @@ async def watch_film(film_id: str):
             else int(os.getenv("MEDIA_CHANNEL_MIRROR_SERIES", "-1003153440872"))
         )
 
-        # 🎬 кнопка відкриття WebApp у Telegram
+        from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
         keyboard = InlineKeyboardMarkup(
-            inline_keyboard=[[
-                InlineKeyboardButton(
+            inline_keyboard=[
+                [InlineKeyboardButton(
                     text="🎬 Відкрити у RelaxBox 🎥",
-                    web_app=WebAppInfo(url="https://relaxbox-webapp.vercel.app/")
-                )
-            ]]
+                    web_app=WebAppInfo(url="https://relaxbox-webapp.vercel.app/")  # 👈 твій реальний WebApp
+                )]
+            ]
         )
 
         # 📩 одразу надсилаємо нове повідомлення з кнопкою

@@ -770,20 +770,28 @@ async def send_film_by_id(request: Request):
 
         # 🕓 Плануємо видалення через 3 або 6 год
         asyncio.create_task(schedule_message_delete(bot, mirror_channel, mirror_msg.message_id, delay_hours))
-        # 🔗 Генеруємо тимчасове запрошення (invite link)
+        # 🔗 Генеруємо посилання або тимчасове запрошення
         try:
-            invite_link = await bot.create_chat_invite_link(
-                chat_id=mirror_channel,
-                expire_date=datetime.now() + timedelta(hours=delay_hours),
-                creates_join_request=False
-            )
-            tg_url = invite_link.invite_link
-            print(f"🔗 Згенеровано тимчасове запрошення: {tg_url}")
-        except Exception as e:
-            # fallback, якщо не вдалося створити invite
-            public_id = str(mirror_channel).replace("-100", "")
-            tg_url = f"https://t.me/c/{public_id}/{mirror_msg.message_id}"
-            print(f"⚠️ Не вдалося створити invite link, fallback: {tg_url}")
+            if access == "PRO":
+                # 👑 Для PRO-контенту створюємо тимчасове запрошення
+                invite_link = await bot.create_chat_invite_link(
+                    chat_id=mirror_channel,
+                    expire_date=datetime.now() + timedelta(hours=delay_hours),
+                    creates_join_request=False
+                )
+                tg_url = invite_link.invite_link
+                print(f"🔗 Згенеровано тимчасове запрошення (PRO): {tg_url}")
+            else:
+                # 🌍 Для звичайних (публічних) дзеркал — пряме посилання
+                if str(mirror_channel).startswith("-100"):
+                    public_id = str(mirror_channel).replace("-100", "")
+                    tg_url = f"https://t.me/c/{public_id}/{mirror_msg.message_id}"
+                else:
+                    tg_url = f"https://t.me/{mirror_channel}/{mirror_msg.message_id}"
+                print(f"🔗 Згенеровано публічне посилання: {tg_url}")
+            except Exception as e:
+                print(f"⚠️ Помилка формування посилання: {e}")
+                tg_url = "https://t.me/RelaxBoxBot"
 
         # 🧾 Записуємо у Google Таблицю “Видалення”
         kyiv = timezone("Europe/Kyiv")

@@ -237,35 +237,34 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 @app.get("/watch/{film_id}")
 async def watch_film(film_id: str):
     """
-    Дублює фільм або серіал у дзеркальний канал,
-    додає кнопку "🎬 Відкрити у WebApp" і редіректить користувача на нього.
+    Дублює фільм або серіал у відповідний дзеркальний канал
+    (фільми — RelaxTime View, серіали — RelaxBox | Серіали (дзеркало)),
+    додає кнопку "🎬 Відкрити у RelaxBox" і редіректить користувача на нього.
     """
     try:
         import urllib.parse, requests, os, asyncio
-        from bot import bot  # твій екземпляр бота
-        from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+        from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
         from fastapi.responses import RedirectResponse
-        from app import schedule_message_delete  # функція авто-видалення
+        from bot import bot
+        from app import schedule_message_delete
 
         SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
-        SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY") or os.getenv("SUPABASE_ANON") or ""
+        SUPABASE_ANON_KEY = (
+            os.getenv("SUPABASE_ANON_KEY") or os.getenv("SUPABASE_ANON") or ""
+        )
         headers = {"apikey": SUPABASE_ANON_KEY, "Authorization": f"Bearer {SUPABASE_ANON_KEY}"}
 
-        # 🔍 Шукаємо фільм або серіал у базі Supabase
+        # 🔍 шукаємо у films або series
         film = None
         film_id_q = urllib.parse.quote(str(film_id))
-
-        url = f"{SUPABASE_URL}/rest/v1/films?select=*&id=eq.{film_id_q}&limit=1"
-        r = requests.get(url, headers=headers, timeout=10)
-        data = r.json()
-        if data:
-            film = data[0]
-        else:
-            url2 = f"{SUPABASE_URL}/rest/v1/series?select=*&id=eq.{film_id_q}&limit=1"
-            r2 = requests.get(url2, headers=headers, timeout=10)
-            data2 = r2.json()
-            if data2:
-                film = data2[0]
+        for table in ["films", "series"]:
+            url = f"{SUPABASE_URL}/rest/v1/{table}?select=*&id=eq.{film_id_q}&limit=1"
+            r = requests.get(url, headers=headers, timeout=10)
+            data = r.json()
+            if data:
+                film = data[0]
+                film["source_table"] = table
+                break
 
         if not film:
             return {"error": "Фільм або серіал не знайдено"}
@@ -274,34 +273,34 @@ async def watch_film(film_id: str):
         message_id = int(film.get("message_id"))
         access = (film.get("access") or film.get("Доступ") or "").upper()
 
-        # 🔒 Не дублюємо PRO-контент
+        # 🔒 PRO контент не дублюємо
         if access == "PRO":
             return {"error": "🔒 Це PRO контент"}, 403
 
-        mirror_channel = int(os.getenv("MEDIA_CHANNEL_MIRROR", "0"))
-        if not mirror_channel:
-            return {"error": "Немає дзеркального каналу"}, 500
+        # 🪞 вибір дзеркального каналу
+        mirror_channel = (
+            int(os.getenv("MEDIA_CHANNEL_MIRROR_FILMS", "-1002863248325"))
+            if film["source_table"] == "films"
+            else int(os.getenv("MEDIA_CHANNEL_MIRROR_SERIES", "-1003153440872"))
+        )
 
-        # 🧩 Копіюємо фільм у дзеркальний канал
+        # 🔄 копіюємо пост
         mirror_msg = await bot.copy_message(
             chat_id=mirror_channel,
             from_chat_id=source_channel,
             message_id=message_id
         )
 
-        # 🎬 Кнопка відкриття WebApp у Telegram
-        from aiogram.types import WebAppInfo
-
+        # 🎬 кнопка відкриття WebApp у Telegram
         keyboard = InlineKeyboardMarkup(
-            inline_keyboard=[
-                [InlineKeyboardButton(
+            inline_keyboard=[[
+                InlineKeyboardButton(
                     text="🎬 Відкрити у RelaxBox 🎥",
-                    web_app=WebAppInfo(url="https://relaxbox-webapp.vercel.app/")  # 👈 сюди твій реальний URL WebApp
-                )]
-            ]
+                    web_app=WebAppInfo(url="https://relaxbox-webapp.vercel.app/")  # твій справжній WebApp
+                )
+            ]]
         )
 
-        # 🔗 Додаємо кнопку під відео
         await bot.edit_message_reply_markup(
             chat_id=mirror_channel,
             message_id=mirror_msg.message_id,
@@ -309,11 +308,11 @@ async def watch_film(film_id: str):
         )
 
         # 🕓 Авто-видалення: серіали — 3 год, фільми — 6 год
-        delay_hours = 3 if "series" in (film.get("type") or "").lower() else 6
+        delay_hours = 3 if film["source_table"] == "series" else 6
         asyncio.create_task(schedule_message_delete(bot, mirror_channel, mirror_msg.message_id, delay_hours))
-        print(f"🗑 Заплановано видалення {film.get('title')} через {delay_hours} год")
+        print(f"🗑 {film.get('title')} видалиться через {delay_hours} год")
 
-        # 🔗 Посилання на дубль
+        # 🔗 формуємо лінк на дубль
         public_id = str(mirror_channel).replace("-100", "")
         tg_url = f"https://t.me/c/{public_id}/{mirror_msg.message_id}"
 
@@ -323,6 +322,7 @@ async def watch_film(film_id: str):
     except Exception as e:
         print(f"❌ Помилка у /watch/{film_id}: {e}")
         return {"error": str(e)}
+
 
 
 @app.post("/notify-payment")

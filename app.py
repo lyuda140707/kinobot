@@ -645,6 +645,18 @@ async def send_film_by_id(request: Request):
             body={"values": [[str(user_id), str(sent_message.message_id), delete_time.isoformat()]]}
         ).execute()
 
+         # 🔘 Додаємо кнопку WebApp після відправки відео
+        try:
+            from bot import film_webapp_button
+            await bot.send_message(
+                chat_id=int(user_id),
+                text="🎬 Відкрити цей фільм у WebApp:",
+                reply_markup=film_webapp_button(row.get("id") or 0)
+            )
+            print(f"✅ Кнопку WebApp додано користувачу {user_id}")
+        except Exception as e:
+            print(f"⚠️ Не вдалося надіслати кнопку WebApp: {e}")
+
         print(f"🧾 Записано у 'Видалення' для користувача {user_id}")
         return {"success": True}
 

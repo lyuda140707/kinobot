@@ -48,12 +48,13 @@ SHEETS = SERVICE.spreadsheets()
 async def schedule_message_delete(bot, chat_id: int, message_id: int, delay_hours: int = 6):
     """Видаляє дубль через задану кількість годин."""
     try:
-        delay_seconds = 30  # ⏳ тест: 30 секунд замість delay_hours
-        await asyncio.sleep(delay)
+        delay_seconds = 30
+        await asyncio.sleep(delay_seconds)
         await bot.delete_message(chat_id=chat_id, message_id=message_id)
-        print(f"🗑 Видалено дубльований пост {message_id} з каналу {chat_id}")
+        print(f"🗑️ Повідомлення {message_id} видалено з {chat_id}")
     except Exception as e:
         print(f"⚠️ Не вдалося видалити повідомлення {message_id}: {e}")
+
 
 
 # ==== Supabase REST helper ====

@@ -32,6 +32,18 @@ from google_api import get_google_service
 SERVICE = get_google_service()
 SHEETS = SERVICE.spreadsheets()
 
+# 🧹 Авто-видалення дубльованих постів у дзеркальному каналі
+async def schedule_message_delete(bot, chat_id: int, message_id: int, delay_hours: int = 6):
+    """Видаляє дубль через задану кількість годин."""
+    try:
+        delay = delay_hours * 3600  # години → секунди
+        await asyncio.sleep(delay)
+        await bot.delete_message(chat_id=chat_id, message_id=message_id)
+        print(f"🗑 Видалено дубльований пост {message_id} з каналу {chat_id}")
+    except Exception as e:
+        print(f"⚠️ Не вдалося видалити повідомлення {message_id}: {e}")
+
+
 # ==== Supabase REST helper ====
 SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
 SUPABASE_ANON_KEY = (
@@ -223,33 +235,44 @@ async def root():
 @app.get("/watch/{film_id}")
 async def watch_film(film_id: str):
     """
-    Дублює фільм у дзеркальний канал і редіректить користувача на нього.
+    Дублює фільм або серіал у дзеркальний канал і редіректить користувача на нього.
     """
     try:
         import urllib.parse, requests, os
-        from bot import bot  # імпортуємо екземпляр бота
+        from bot import bot  # екземпляр твого бота
 
         SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
         SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY") or os.getenv("SUPABASE_ANON") or ""
         headers = {"apikey": SUPABASE_ANON_KEY, "Authorization": f"Bearer {SUPABASE_ANON_KEY}"}
 
-        # 🔍 Отримуємо фільм з бази
+        # 🔍 Пошук фільму або серіалу у Supabase
+        film = None
         film_id_q = urllib.parse.quote(str(film_id))
+
         url = f"{SUPABASE_URL}/rest/v1/films?select=*&id=eq.{film_id_q}&limit=1"
         r = requests.get(url, headers=headers, timeout=10)
         r.raise_for_status()
-        films = r.json()
-        if not films:
-            return {"error": "Фільм не знайдено"}
+        data = r.json()
+        if data:
+            film = data[0]
+        else:
+            url2 = f"{SUPABASE_URL}/rest/v1/series?select=*&id=eq.{film_id_q}&limit=1"
+            r2 = requests.get(url2, headers=headers, timeout=10)
+            r2.raise_for_status()
+            data2 = r2.json()
+            if data2:
+                film = data2[0]
 
-        film = films[0]
+        if not film:
+            return {"error": "Фільм або серіал не знайдено"}
+
         source_channel = int(film.get("channel_id") or os.getenv("MEDIA_CHANNEL_ID"))
         message_id = int(film.get("message_id"))
         access = (film.get("access") or film.get("Доступ") or "").upper()
 
-        # 🔒 PRO фільми не дублюємо
+        # 🔒 PRO контент не дублюємо
         if access == "PRO":
-            return {"error": "🔒 Це PRO фільм"}, 403
+            return {"error": "🔒 Це PRO контент"}, 403
 
         # 🪞 Дзеркальний канал
         mirror_channel = int(os.getenv("MEDIA_CHANNEL_MIRROR", "0"))
@@ -263,16 +286,22 @@ async def watch_film(film_id: str):
             message_id=message_id
         )
 
-        # 🔗 Формуємо посилання на публічний пост
+        # 🕓 Визначаємо час видалення
+        delay_hours = 3 if "series" in (film.get("type") or "").lower() else 6
+        asyncio.create_task(schedule_message_delete(bot, mirror_channel, mirror_msg.message_id, delay_hours=delay_hours))
+        print(f"🗑 Заплановано видалення дубліката {film.get('title')} через {delay_hours} годин")
+
+        # 🔗 Формуємо публічне посилання
         public_id = str(mirror_channel).replace("-100", "")
         tg_url = f"https://t.me/c/{public_id}/{mirror_msg.message_id}"
 
-        print(f"✅ Дубльовано фільм {film.get('title')} → {tg_url}")
+        print(f"✅ Дубльовано {film.get('title')} → {tg_url}")
         return RedirectResponse(url=tg_url)
 
     except Exception as e:
         print(f"❌ Помилка у /watch/{film_id}: {e}")
         return {"error": str(e)}
+
 
 
 @app.post("/notify-payment")

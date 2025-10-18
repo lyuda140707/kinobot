@@ -241,8 +241,10 @@ async def watch_film(film_id: str):
     додає кнопку "🎬 Відкрити у WebApp" і редіректить користувача на нього.
     """
     try:
-        import urllib.parse, requests, os
+        import urllib.parse, requests, os, asyncio
         from bot import bot  # екземпляр твого бота
+        from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+        from fastapi.responses import RedirectResponse
 
         SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
         SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY") or os.getenv("SUPABASE_ANON") or ""
@@ -302,39 +304,24 @@ async def watch_film(film_id: str):
             text=caption,
             reply_markup=keyboard
         )
-try:
-    # 🎬 Кнопка відкриття WebApp у Telegram
-    keyboard = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(
-                text="🎥 Відкрити у RelaxBox",
-                url="https://t.me/relax_time_bot/app"  # ⚡️ заміни на свого бота
-            )]
-        ]
-    )
 
-    # 🕓 Авто-видалення: серіали — 3 год, фільми — 6 год
-    delay_hours = 3 if "series" in (film.get("type") or "").lower() else 6
-    asyncio.create_task(schedule_message_delete(bot, mirror_channel, mirror_msg.message_id, delay_hours=delay_hours))
-    print(f"🗑 Заплановано видалення дубліката {film.get('title')} через {delay_hours} годин")
+        # 🕓 Авто-видалення: серіали — 3 год, фільми — 6 год
+        delay_hours = 3 if "series" in (film.get("type") or "").lower() else 6
+        from app import schedule_message_delete  # імпорт твоєї функції
+        asyncio.create_task(schedule_message_delete(bot, mirror_channel, mirror_msg.message_id, delay_hours=delay_hours))
+        print(f"🗑 Заплановано видалення дубліката {film.get('title')} через {delay_hours} годин")
 
-    # 🔗 Редагуємо дубль, додаючи кнопку
-    await bot.edit_message_reply_markup(
-        chat_id=mirror_channel,
-        message_id=mirror_msg.message_id,
-        reply_markup=keyboard
-    )
+        # 🔗 Посилання на дубль
+        public_id = str(mirror_channel).replace("-100", "")
+        tg_url = f"https://t.me/c/{public_id}/{mirror_msg.message_id}"
 
-    # 🔗 Посилання на дубль
-    public_id = str(mirror_channel).replace("-100", "")
-    tg_url = f"https://t.me/c/{public_id}/{mirror_msg.message_id}"
+        print(f"✅ Дубльовано {film.get('title')} → {tg_url}")
+        return RedirectResponse(url=tg_url)
 
-    print(f"✅ Дубльовано {film.get('title')} → {tg_url}")
-    return RedirectResponse(url=tg_url)
+    except Exception as e:
+        print(f"❌ Помилка у /watch/{film_id}: {e}")
+        return {"error": str(e)}
 
-except Exception as e:
-    print(f"❌ Помилка у /watch/{film_id}: {e}")
-    return {"error": str(e)}
 
 @app.post("/notify-payment")
 async def notify_payment(req: Request):

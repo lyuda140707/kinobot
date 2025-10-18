@@ -290,11 +290,14 @@ async def watch_film(film_id: str):
             )
         ]])
 
-        # 🧩 Копіюємо пост у дзеркальний канал із кнопкою
-        mirror_msg = await bot.copy_message(
+        # 🧩 Надсилаємо повідомлення у дзеркальний канал із кнопкою
+        title = film.get("title") or film.get("Назва") or "Без назви"
+        desc = film.get("description") or film.get("Опис") or ""
+        caption = f"🎬 {title}\n\n{desc}\n\n🎞️ Відкрити у WebApp 👇"
+
+        mirror_msg = await bot.send_message(
             chat_id=mirror_channel,
-            from_chat_id=source_channel,
-            message_id=message_id,
+            text=caption,
             reply_markup=keyboard
         )
 

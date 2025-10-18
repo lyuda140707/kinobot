@@ -222,7 +222,7 @@ async def root():
 @app.get("/watch/{film_id}")
 async def watch_film(film_id: str):
     """
-    Редіректить користувача на пост у Telegram-каналі з відео.
+    Редіректить користувача на пост у ПУБЛІЧНОМУ каналі з відео (дзеркальному).
     """
     try:
         import urllib.parse, requests, os
@@ -244,19 +244,20 @@ async def watch_film(film_id: str):
             return {"error": "Фільм не знайдено"}
 
         film = films[0]
-        channel_id = str(film.get("channel_id") or "").replace("-100", "")
         message_id = film.get("message_id")
+        public_username = os.getenv("PUBLIC_CHANNEL_USERNAME")
 
-        if not channel_id or not message_id:
+        if not message_id or not public_username:
             return {"error": "Немає даних для переходу"}
 
-        # 2. Редірект на пост у Telegram
-        tg_url = f"https://t.me/c/{channel_id}/{message_id}"
+        # 🎯 Перехід у публічний канал
+        tg_url = f"https://t.me/{public_username}/{message_id}"
         return RedirectResponse(url=tg_url)
 
     except Exception as e:
         print(f"❌ Помилка у /watch/{film_id}: {e}")
         return {"error": str(e)}
+
 
 @app.post("/notify-payment")
 async def notify_payment(req: Request):

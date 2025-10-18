@@ -648,7 +648,7 @@ async def send_film(request: Request):
 async def send_film_by_id(request: Request):
     """
     Повертає посилання на публічний пост у дзеркальному каналі
-    і ставить його у чергу на видалення (через 24 год).
+    і ставить його у чергу на видалення (через 3 год).
     """
     try:
         data = await request.json()
@@ -700,9 +700,9 @@ async def send_film_by_id(request: Request):
 
         print(f"🎬 {title} → {tg_url}")
 
-        # 🕓 Додаємо у Google Таблицю “Видалення” (через 24 год)
+        # 🕓 Додаємо у Google Таблицю “Видалення” (через 3 години)
         kyiv = timezone("Europe/Kyiv")
-        delete_time = datetime.now(kyiv) + timedelta(hours=24)
+        delete_time = datetime.now(kyiv) + timedelta(hours=3)
         sheet = get_google_service().spreadsheets()
         sheet.values().append(
             spreadsheetId=os.getenv("SHEET_ID"),
@@ -711,14 +711,13 @@ async def send_film_by_id(request: Request):
             insertDataOption="INSERT_ROWS",
             body={"values": [[str(mirror_channel), str(msg_id), delete_time.isoformat()]]}
         ).execute()
-        print(f"🧾 Заплановано видалення поста {msg_id} з каналу {mirror_channel}")
+        print(f"🧾 Заплановано видалення поста {msg_id} з каналу {mirror_channel} через 3 години")
 
         return {"success": True, "url": tg_url}
 
     except Exception as e:
         print(f"⚠️ Помилка у /send-film-id: {e}")
         return {"success": False, "error": str(e)}
-
 
 @app.post("/check-subscription")
 async def check_subscription(request: Request):

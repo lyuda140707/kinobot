@@ -26,6 +26,18 @@ from fastapi import Request
 from utils.date_utils import safe_parse_date
 from contextlib import asynccontextmanager
 from supabase_api import get_films
+import random
+
+# 🎬 Варіанти фінальних фраз під описом фільму
+FUN_CAPTIONS = [
+    "🎞️🤩 Попкорн є? Світло вимкнено?\n🚀 Цей фільм точно не дасть засумувати!",
+    "🍿 Готовий до кіношного кайфу?\n🎬 Тисни Play і забувай про все!",
+    "🌙 Ідеальний момент для фільму.\n🔥 Лови атмосферу вечора!",
+    "🎥 Постав чай, вдягни плед — кіно починається ❤️",
+    "🤩 Без спойлерів, але фінал тебе здивує 😉",
+    "💥 Увімкни фільм і насолоджуйся якістю!",
+    "🎬 Це той випадок, коли фільм кращий за серіал 😎",
+]
 
 # singleton Google Sheets client
 from google_api import get_google_service
@@ -299,11 +311,18 @@ async def watch_film(film_id: str):
         else:
             pretty_title = title
 
-        # 🎬 Копіюємо повідомлення
+        # 📝 Формуємо підпис (назва + опис + випадкова фраза)
+        description = (film.get("description") or film.get("Опис") or "").strip()
+        extra_phrase = random.choice(FUN_CAPTIONS)
+        caption = f"🎬 {film.get('title') or film.get('Назва')}\n\n{description}\n\n{extra_phrase}"
+
+        # 🎬 Копіюємо відео з підписом
         mirror_msg = await bot.copy_message(
             chat_id=mirror_channel,
             from_chat_id=source_channel,
-            message_id=message_id
+            message_id=message_id,
+            caption=caption,
+            parse_mode="HTML"
         )
 
         # 🕓 Авто-видалення
@@ -691,13 +710,22 @@ async def send_film_by_id(request: Request):
             mirror_channel = mirror_films
             delay_hours = 6
 
-        # 🎬 Копіюємо у дзеркальний канал
+        # 📝 Готуємо опис із назвою + description + рандомна фраза
+        description = (row.get("description") or "").strip()
+        extra_phrase = random.choice(FUN_CAPTIONS)
+        caption = f"🎬 {title}\n\n{description}\n\n{extra_phrase}"
+
+        # 🎬 Копіюємо у дзеркальний канал з підписом
         try:
             mirror_msg = await bot.copy_message(
                 chat_id=mirror_channel,
                 from_chat_id=source_channel,
-                message_id=msg_id
+                message_id=msg_id,
+                caption=caption,
+                parse_mode="HTML"
             )
+            print(f"✅ Дубльовано '{title}' у {mirror_channel} (msg_id={mirror_msg.message_id})")
+
             print(f"✅ Дубльовано '{title}' у {mirror_channel} (msg_id={mirror_msg.message_id})")
         except Exception as e:
             print(f"❌ Помилка копіювання в дзеркальний канал: {e}")

@@ -295,8 +295,18 @@ async def watch_film(film_id: str):
             print(f"🔒 {film.get('title')} — PRO контент, не дублюємо у дзеркальний канал")
             return {"error": "PRO контент не дублюється"}
 
-        # 🪞 Визначаємо дзеркальний канал
-        if any(x in film_type for x in ["фільм", "мультфільм"]):
+         # 🪞 Визначаємо дзеркальний канал з урахуванням PRO
+        access = (film.get("access") or film.get("Доступ") or "").upper()
+
+        if access == "PRO":
+            # 👑 Для PRO контенту вибираємо окремі дзеркала
+            if any(x in film_type for x in ["серіал", "серія"]):
+                mirror_channel = int(os.getenv("MEDIA_CHANNEL_MIRROR_PRO_SERIES", "-1003004556512"))
+                channel_label = "👑 PRO Серіал → RelaxBox PRO | Серіали"
+            else:
+                mirror_channel = int(os.getenv("MEDIA_CHANNEL_MIRROR_PRO_FILMS", "-1003160463240"))
+                channel_label = "👑 PRO Фільм → RelaxTime PRO | Фільми"
+        elif any(x in film_type for x in ["фільм", "мультфільм"]):
             mirror_channel = int(os.getenv("MEDIA_CHANNEL_MIRROR_FILMS", "-1002863248325"))
             channel_label = "🎬 Фільм → RelaxTime View"
         elif any(x in film_type for x in ["серіал", "серія"]):

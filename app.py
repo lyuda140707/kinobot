@@ -296,11 +296,12 @@ async def watch_film(film_id: str):
         print(f"🗑 {film.get('title')} видалиться через {delay_hours} год")
 
         # 🔗 Кнопка "Відкрити RelaxBox" → WebApp
+        bot_username = os.getenv("BOT_USERNAME", "RelaxBox_UA_bot")
         keyboard = InlineKeyboardMarkup(
             inline_keyboard=[
                 [InlineKeyboardButton(
                     text="🎬 Відкрити RelaxBox",
-                    url="https://relaxbox.site/"
+                    url=f"https://t.me/{bot_username}?start=webapp"
                 )]
             ]
         )

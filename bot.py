@@ -135,27 +135,6 @@ webapp_keyboard = InlineKeyboardMarkup(
     ]
 )
 
-# 🧩 Перевірка підписки користувача на канал
-async def ensure_user_in_channel(user_id: int, channel_id: int | str = None) -> bool:
-    """
-    Перевіряє, чи користувач є учасником публічного або приватного каналу.
-    """
-    try:
-        target_channel = int(channel_id or os.getenv("MEDIA_CHANNEL_ID"))
-        member = await bot.get_chat_member(chat_id=target_channel, user_id=user_id)
-
-        if member.status in ["member", "administrator", "creator"]:
-            print(f"✅ Користувач {user_id} вже у каналі {target_channel}")
-            return True
-        else:
-            print(f"⚠️ Користувач {user_id} не є учасником каналу {target_channel}")
-            return False
-
-    except Exception as e:
-        print(f"⚠️ Не вдалося перевірити підписку користувача {user_id}: {e}")
-        return False
-
-
 
 
 async def safe_send_admin(bot, admin_id, text, **kwargs):
@@ -343,12 +322,7 @@ async def start_handler(message: types.Message):
         "🚀 Бо цей фільм точно не дасть засумувати!"
     )
 
-    try:
-        # 🧩 Перевіряємо, чи користувач у каналі
-        ok = await ensure_user_in_channel(message.from_user.id)
-        if not ok:
-            await message.answer("⚠️ Не вдалося додати вас до каналу. Напишіть адміну.")
-            return
+    
 
         # 🧱 Надсилаємо фільм користувачу
         if msg_id:
@@ -457,11 +431,7 @@ async def process_message(message: types.Message):
     print(f"🆔 message_id: {msg_id} | file_id: {file_id} | channel: {channel_id}")
 
     try:
-        # 🧩 Перевіряємо, чи користувач є у каналі
-        ok = await ensure_user_in_channel(message.from_user.id)
-        if not ok:
-            await message.answer("⚠️ Не вдалося додати вас до каналу. Напишіть адміну.")
-            return
+       
         if msg_id:
             await bot.copy_message(
                 chat_id=message.chat.id,

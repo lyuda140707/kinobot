@@ -286,6 +286,21 @@ async def start_handler(message: types.Message):
     payload = None
     if message.text and len(message.text.split()) > 1:
         payload = message.text.split(maxsplit=1)[1].strip()
+            # 🟢 якщо користувач натиснув "Відкрити RelaxBox" з каналу
+    if payload == "webapp":
+        await message.answer(
+            "🌐 Відкрий RelaxBox нижче 👇",
+            reply_markup=InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [InlineKeyboardButton(
+                        text="🎬 Відкрити RelaxBox",
+                        web_app=WebAppInfo(url="https://relaxbox.site/")
+                    )]
+                ]
+            )
+        )
+        return
+
 
     # 3️⃣ Якщо payload відсутній — показуємо кнопку WebApp
     if not payload or not (payload.startswith("film_") or payload.startswith("series_")):

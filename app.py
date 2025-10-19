@@ -45,16 +45,49 @@ SERVICE = get_google_service()
 SHEETS = SERVICE.spreadsheets()
 
 # 🧹 Авто-видалення дубльованих постів у дзеркальному каналі
-async def schedule_message_delete(bot, chat_id: int, message_id: int, delay_hours: int = 6):
-    """Видаляє дубль через задану кількість годин."""
+async def schedule_message_delete(bot, chat_id: int, message_id: int, delay_hours: int = 6, user_id: int = None):
+    """
+    Видаляє повідомлення з каналу (і користувача, якщо задано) через delay_hours.
+    Також фіксує запис у таблиці 'Видалення'.
+    """
     try:
-        delay_seconds = 30  # ⏳ тестове видалення через 30 секунд
+        delay_seconds = delay_hours * 3600
         await asyncio.sleep(delay_seconds)
-        await bot.delete_message(chat_id=chat_id, message_id=message_id)
-        print(f"🗑️ Повідомлення {message_id} видалено з {chat_id}")
-    except Exception as e:
-        print(f"⚠️ Не вдалося видалити повідомлення {message_id}: {e}")
 
+        # 🗑️ Видаляємо повідомлення
+        try:
+            await bot.delete_message(chat_id=chat_id, message_id=message_id)
+            print(f"🗑️ Повідомлення {message_id} видалено з {chat_id}")
+        except Exception as e:
+            print(f"⚠️ Не вдалося видалити повідомлення {message_id}: {e}")
+
+        # 🚫 Видаляємо користувача з каналу, якщо задано
+        if user_id:
+            try:
+                await bot.ban_chat_member(chat_id=chat_id, user_id=user_id)
+                await bot.unban_chat_member(chat_id=chat_id, user_id=user_id)
+                print(f"🚫 Користувача {user_id} видалено з каналу {chat_id}")
+            except Exception as e:
+                print(f"⚠️ Не вдалося видалити користувача {user_id} з каналу {chat_id}: {e}")
+
+        # 🧾 Фіксуємо запис у таблиці "Видалення"
+        try:
+            kyiv = timezone("Europe/Kyiv")
+            delete_time = datetime.now(kyiv)
+            sheet = get_google_service().spreadsheets()
+            sheet.values().append(
+                spreadsheetId=os.getenv("SHEET_ID"),
+                range="Видалення!A2",
+                valueInputOption="USER_ENTERED",
+                insertDataOption="INSERT_ROWS",
+                body={"values": [[str(chat_id), str(message_id), delete_time.isoformat()]]}
+            ).execute()
+            print(f"🧾 Записано у таблицю 'Видалення': {chat_id}, {message_id}")
+        except Exception as e:
+            print(f"⚠️ Не вдалося записати у таблицю 'Видалення': {e}")
+
+    except Exception as e:
+        print(f"⚠️ Помилка у schedule_message_delete: {e}")
 
 
 # ==== Supabase REST helper ====
@@ -322,15 +355,10 @@ async def watch_film(film_id: str):
 
         # 🕓 Авто-видалення
         delay_hours = 3 if "сер" in film_type else 6
-        asyncio.create_task(schedule_message_delete(bot, mirror_channel, mirror_msg.message_id, delay_hours))
+        asyncio.create_task(schedule_message_delete(bot, mirror_channel, mirror_msg.message_id, delay_hours, int(user_id)))
         print(f"✅ {title} дубльовано → {channel_label}")
         print(f"🗑️ Видалиться через {delay_hours} год")
 
-        # 🕓 Авто-видалення
-        delay_hours = 3 if "сер" in film_type else 6
-        asyncio.create_task(schedule_message_delete(bot, mirror_channel, mirror_msg.message_id, delay_hours))
-        print(f"✅ {title} дубльовано → {channel_label}")
-        print(f"🗑️ Видалиться через {delay_hours} год")
 
         # 🧾 Записуємо час видалення у Google Таблицю "Видалення"
         kyiv = timezone("Europe/Kyiv")

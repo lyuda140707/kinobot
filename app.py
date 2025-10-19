@@ -953,6 +953,24 @@ async def send_film_by_id(request: Request):
         ).execute()
         print(f"🧾 Заплановано видалення через {delay_hours} год ({title})")
 
+        # 👉 додай цей блок тут
+        # 📩 Надсилаємо користувачу кнопку "Дивитись фільм"
+        if user_id:
+            try:
+                from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+                btn = InlineKeyboardMarkup().add(
+                    InlineKeyboardButton(text="▶️ Дивитись фільм", url=tg_url)
+                )
+                msg = await bot.send_message(
+                    int(user_id),
+                    f"🎬 <b>{title}</b>",
+                    reply_markup=btn,
+                    parse_mode="HTML"
+                )
+                asyncio.create_task(schedule_message_delete(bot, int(user_id), msg.message_id, delay_hours))
+                print(f"📨 Надіслано кнопку '▶️ Дивитись фільм' користувачу {user_id}")
+            except Exception as e:
+                print(f"⚠️ Не вдалося надіслати кнопку користувачу {user_id}: {e}")
         return {"success": True, "url": tg_url}
 
     except Exception as e:

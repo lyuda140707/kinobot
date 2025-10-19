@@ -314,16 +314,15 @@ async def watch_film(film_id: str):
         if not data:
             print(f"⚠️ Не знайдено запис із ID {film_id}")
             return {"error": "Фільм або серіал не знайдено"}
+
         film = data[0]
-        user_id = film.get("user_id") or 0
+        user_id = int(film.get("user_id") or 0)
 
         # 🧩 Основні поля
         source_channel = int(film.get("channel_id") or os.getenv("MEDIA_CHANNEL_ID"))
         message_id = int(film.get("message_id"))
         film_type = (film.get("type") or "").strip().lower()
         title = film.get("title") or film.get("Назва") or "Без назви"
-        season = film.get("season")
-        episode = film.get("episode")
         access = (film.get("access") or film.get("Доступ") or "").upper()
 
         print(f"🧾 ID={film_id} | type='{film_type}' | title='{title}' | message_id={message_id}")
@@ -333,33 +332,29 @@ async def watch_film(film_id: str):
             if any(x in film_type for x in ["серіал", "серія"]):
                 mirror_channel = int(os.getenv("MEDIA_CHANNEL_MIRROR_PRO_SERIES", "-1003004556512"))
                 channel_label = "👑 PRO Серіал → RelaxBox PRO | Серіали"
+                delay_hours = 3
             else:
                 mirror_channel = int(os.getenv("MEDIA_CHANNEL_MIRROR_PRO_FILMS", "-1003160463240"))
                 channel_label = "👑 PRO Фільм → RelaxTime PRO | Фільми"
-        elif any(x in film_type for x in ["фільм", "мультфільм"]):
-            mirror_channel = int(os.getenv("MEDIA_CHANNEL_MIRROR_FILMS", "-1002863248325"))
-            channel_label = "🎬 Фільм → RelaxTime View"
+                delay_hours = 6
         elif any(x in film_type for x in ["серіал", "серія"]):
             mirror_channel = int(os.getenv("MEDIA_CHANNEL_MIRROR_SERIES", "-1003153440872"))
             channel_label = "📺 Серіал → RelaxBox | Серіали"
+            delay_hours = 3
         else:
             mirror_channel = int(os.getenv("MEDIA_CHANNEL_MIRROR_FILMS", "-1002863248325"))
-            channel_label = "🎞️ Інше → RelaxTime View"
+            channel_label = "🎬 Фільм → RelaxTime View"
+            delay_hours = 6
 
         print(f"➡️ Тип: {film_type} | Дзеркало: {mirror_channel} ({channel_label})")
 
         # 📝 Підпис (назва + опис + випадкова фраза)
         description = (film.get("description") or film.get("Опис") or "").strip()
         extra_phrase = random.choice(FUN_CAPTIONS)
-        caption = f"🎬 {title}\n\n{description}\n\n{extra_phrase}"
+        invite_text = "\n\n🚨 <b>УВАГА!</b> 🔴\n👉 <b>ПІДПИСАТИСЯ НА КАНАЛ 🔔</b>"
+        final_caption = f"🎬 {title}\n\n{description}\n\n{extra_phrase}{invite_text}"
 
-        # 🎬 Копіюємо відео з уже вбудованим червоним банером
-        invite_text = (
-            "\n\n🚨 <b>УВАГА!</b> 🔴\n"
-            "👉 <b>ПІДПИСАТИСЯ НА КАНАЛ 🔔</b>"
-        )
-        final_caption = (caption or "") + invite_text
-
+        # 🎬 Копіюємо відео в дзеркальний канал
         mirror_msg = await bot.copy_message(
             chat_id=mirror_channel,
             from_chat_id=source_channel,
@@ -367,10 +362,10 @@ async def watch_film(film_id: str):
             caption=final_caption,
             parse_mode="HTML"
         )
+        print(f"✅ {title} дубльовано → {channel_label}")
 
-
-                
-        # 🔗 Надсилаємо користувачу посилання на публічний канал
+        # 🔗 Пробуємо створити invite-link (для публічних каналів можна просто посилання)
+        tg_url = None
         try:
             invite_link = await bot.create_chat_invite_link(
                 chat_id=mirror_channel,
@@ -378,37 +373,30 @@ async def watch_film(film_id: str):
                 creates_join_request=False
             )
             tg_url = invite_link.invite_link
-            await bot.send_message(
-                int(user_id),
-                f"🎬 Фільм відкривається тут:\n{tg_url}"
-            )
-            print(f"🔗 Надіслано invite-link користувачу {user_id}: {tg_url}")
+            print(f"🔗 Згенеровано invite link: {tg_url}")
         except Exception as e:
             print(f"⚠️ Не вдалося створити invite-link: {e}")
-            # fallback — пряме публічне посилання, якщо invite не створюється
             try:
-                if str(mirror_channel).startswith("-100"):
-                    public_id = str(mirror_channel).replace("-100", "")
-                    tg_url = f"https://t.me/c/{public_id}/{mirror_msg.message_id}"
-                else:
-                    tg_url = f"https://t.me/{mirror_channel}/{mirror_msg.message_id}"
-                await bot.send_message(
-                    int(user_id),
-                    f"🎬 Фільм відкривається тут:\n{tg_url}"
-                )
+                public_id = str(mirror_channel).replace("-100", "")
+                tg_url = f"https://t.me/c/{public_id}/{mirror_msg.message_id}"
                 print(f"🌍 Використано fallback-посилання: {tg_url}")
             except Exception as e2:
-                print(f"❌ Помилка надсилання fallback-посилання: {e2}")
-                    
+                print(f"❌ Помилка формування fallback: {e2}")
+                tg_url = None
+
+        # 📩 Відправляємо користувачу лінк, якщо він є
+        if tg_url and user_id:
+            try:
+                await bot.send_message(int(user_id), f"🎬 Фільм відкривається тут:\n{tg_url}")
+                print(f"📨 Надіслано користувачу {user_id}: {tg_url}")
+            except Exception as e:
+                print(f"⚠️ Не вдалося надіслати лінк користувачу {user_id}: {e}")
 
         # 🕓 Авто-видалення
-        delay_hours = 3 if "сер" in film_type else 6
-        asyncio.create_task(schedule_message_delete(bot, mirror_channel, mirror_msg.message_id, delay_hours, int(user_id)))
-        print(f"✅ {title} дубльовано → {channel_label}")
+        asyncio.create_task(schedule_message_delete(bot, mirror_channel, mirror_msg.message_id, delay_hours, user_id))
         print(f"🗑️ Видалиться через {delay_hours} год")
 
-
-        # 🧾 Записуємо час видалення у Google Таблицю "Видалення"
+        # 🧾 Записуємо у таблицю
         kyiv = timezone("Europe/Kyiv")
         delete_time = datetime.now(kyiv) + timedelta(hours=delay_hours)
         sheet = get_google_service().spreadsheets()
@@ -419,30 +407,17 @@ async def watch_film(film_id: str):
             insertDataOption="INSERT_ROWS",
             body={"values": [[str(mirror_channel), str(mirror_msg.message_id), delete_time.isoformat()]]}
         ).execute()
-        print(f"🧾 Заплановано видалення через {delay_hours} год ({title})")
-
-        # 🔗 Генеруємо invite link для всіх дзеркал (щоб канал зберігався)
-        try:
-            invite_link = await bot.create_chat_invite_link(
-                chat_id=mirror_channel,
-                expire_date=datetime.now() + timedelta(hours=delay_hours),
-                creates_join_request=False
-            )
-            tg_url = invite_link.invite_link
-            print(f"🔗 Згенеровано invite link: {tg_url}")
-        except Exception as e:
-            print(f"⚠️ Помилка створення invite link: {e}")
-            # fallback — пряме посилання
-            public_id = str(mirror_channel).replace("-100", "")
-            tg_url = f"https://t.me/c/{public_id}/{mirror_msg.message_id}"
+        print(f"🧾 Записано у 'Видалення' ({title})")
 
         # 🔁 Перенаправлення
-        return RedirectResponse(url=tg_url)
+        if tg_url:
+            return RedirectResponse(url=tg_url)
+        else:
+            return {"success": True, "note": "Фільм відправлено, але посилання не створено"}
 
     except Exception as e:
         print(f"❌ Помилка у /watch/{film_id}: {e}")
         return {"error": str(e)}
-
 
 @app.post("/notify-payment")
 async def notify_payment(req: Request):

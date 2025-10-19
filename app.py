@@ -855,25 +855,8 @@ async def send_film_by_id(request: Request):
             print(f"❌ Помилка дублювання: {e}")
             return {"success": False, "error": str(e)}
 
-        # 🔗 Генеруємо посилання для користувача
-        try:
-            invite_link = await bot.create_chat_invite_link(
-                chat_id=mirror_channel,
-                expire_date=datetime.now() + timedelta(hours=delay_hours),
-                creates_join_request=False
-            )
-            tg_url = invite_link.invite_link
-        except Exception as e:
-            print(f"⚠️ Не вдалося створити invite-link: {e}")
-            if str(mirror_channel).startswith("-100"):
-                public_id = str(mirror_channel).replace("-100", "")
-                tg_url = f"https://t.me/c/{public_id}/{mirror_msg.message_id}"
-            else:
-                tg_url = f"https://t.me/{mirror_channel}/{mirror_msg.message_id}"
+        print(f"✅ Відео '{title}' відправлено у дзеркальний канал без посилання користувачу {user_id}")
 
-        # 📩 Надсилаємо користувачу лише посилання (без "фільми тут")
-        await bot.send_message(int(user_id), tg_url)
-        print(f"🔗 Надіслано користувачу {user_id}: {tg_url}")
 
         # 🕓 Плануємо видалення через 3 або 6 год
         asyncio.create_task(schedule_message_delete(bot, mirror_channel, mirror_msg.message_id, delay_hours))

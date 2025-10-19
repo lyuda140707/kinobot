@@ -829,7 +829,7 @@ async def send_film_by_id(request: Request):
         extra_phrase = random.choice(FUN_CAPTIONS)
         invite_text = (
             "\n\n🚨 <b>УВАГА!</b> 🔴\n"
-            "👉 <b>ПІДПИСАТИСЯ НА КАНАЛ 🔔</b>"
+            "👉 <b>ПІДПИШИСЬ НА КАНАЛ 🔔</b>"
         )
         caption = f"🎬 {title}\n\n{description}\n\n{extra_phrase}{invite_text}"
 

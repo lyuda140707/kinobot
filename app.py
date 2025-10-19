@@ -288,8 +288,18 @@ async def root():
     
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-@app.get("/watch/{film_id}")
-async def watch_film(film_id: str):
+# 🌍 Формуємо правильне посилання для Telegram
+if str(mirror_channel).startswith("-100"):
+    # приватний або ID-канал → формат через /c/
+    public_id = str(mirror_channel).replace("-100", "")
+    tg_url = f"https://t.me/c/{public_id}/{mirror_msg.message_id}"
+else:
+    # публічний канал (username)
+    username = str(mirror_channel).replace("@", "")
+    tg_url = f"https://t.me/{username}/{mirror_msg.message_id}"
+
+print(f"🔗 Посилання сформовано: {tg_url}")
+
     """
     Дублює фільм або серію у відповідний дзеркальний канал.
     Підтримує type (Фільм / Серіал / Мультфільм / Серія)
@@ -363,9 +373,16 @@ async def watch_film(film_id: str):
 
 
                 
-        # 🌍 Формуємо публічне посилання (всі канали публічні)
-        tg_url = f"https://t.me/{mirror_channel}/{mirror_msg.message_id}"
-        print(f"🔗 Публічне посилання: {tg_url}")
+        # 🌍 Формуємо правильне посилання для Telegram
+        if str(mirror_channel).startswith("-100"):
+            # приватний або ID-канал → формат через /c/
+            public_id = str(mirror_channel).replace("-100", "")
+            tg_url = f"https://t.me/c/{public_id}/{mirror_msg.message_id}"
+        else:
+            # публічний канал (username)
+            username = str(mirror_channel).replace("@", "")
+            tg_url = f"https://t.me/{username}/{mirror_msg.message_id}"
+        print(f"🔗 Посилання сформовано: {tg_url}")
 
         # 📨 Надсилаємо користувачу посилання на перегляд
         await bot.send_message(

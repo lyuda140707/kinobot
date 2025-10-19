@@ -796,9 +796,9 @@ async def send_film_by_id(request: Request):
         row = rows[0]
         title = row.get("title") or row.get("Назва") or "Без назви"
         film_type = (row.get("type") or row.get("Тип") or "").lower()
-        msg_id = int(row.get("message_id"))
         access = (row.get("access") or row.get("Доступ") or "").upper()
         source_channel = int(row.get("channel_id") or os.getenv("MEDIA_CHANNEL_ID"))
+        file_id = row.get("file_id") or ""
 
         # 🪞 Вибираємо дзеркальний канал з урахуванням PRO
         mirror_films = int(os.getenv("MEDIA_CHANNEL_MIRROR_FILMS", "-1002863248325"))
@@ -824,61 +824,38 @@ async def send_film_by_id(request: Request):
             delay_hours = 6
             print(f"🎬 Фільм {title} → {mirror_channel}")
 
-
-        # 📝 Готуємо опис із назвою + description + рандомна фраза
+        # 📝 Формуємо опис з банером
         description = (row.get("description") or "").strip()
         extra_phrase = random.choice(FUN_CAPTIONS)
-        caption = f"🎬 {title}\n\n{description}\n\n{extra_phrase}"
-
-        # 🎬 Копіюємо відео з уже вбудованим червоним банером
         invite_text = (
             "\n\n🚨 <b>УВАГА!</b> 🔴\n"
             "👉 <b>ПІДПИСАТИСЯ НА КАНАЛ 🔔</b>"
         )
-        final_caption = (caption or "") + invite_text
+        caption = f"🎬 {title}\n\n{description}\n\n{extra_phrase}{invite_text}"
 
-        mirror_msg = await bot.copy_message(
-            chat_id=mirror_channel,
-            from_chat_id=source_channel,
-            message_id=message_id,
-            caption=final_caption,
-            parse_mode="HTML"
-        )
-
-
-            # 🔗 Надсилаємо користувачу посилання на публічний канал
-            try:
-                invite_link = await bot.create_chat_invite_link(
+        # 🎬 Відправляємо фільм у дзеркальний канал
+        try:
+            if file_id:
+                mirror_msg = await bot.send_video(
                     chat_id=mirror_channel,
-                    expire_date=datetime.now() + timedelta(hours=delay_hours),
-                    creates_join_request=False
+                    video=file_id,
+                    caption=caption,
+                    parse_mode="HTML"
                 )
-                tg_url = invite_link.invite_link
-                await bot.send_message(int(user_id), tg_url)
-                print(f"🔗 Надіслано invite-link користувачу {user_id}: {tg_url}")
-            except Exception as e:
-                print(f"⚠️ Не вдалося створити invite-link: {e}")
-                # fallback — пряме публічне посилання, якщо invite не створюється
-                try:
-                    if str(mirror_channel).startswith("-100"):
-                        public_id = str(mirror_channel).replace("-100", "")
-                        tg_url = f"https://t.me/c/{public_id}/{mirror_msg.message_id}"
-                    else:
-                        tg_url = f"https://t.me/{mirror_channel}/{mirror_msg.message_id}"
-                    await bot.send_message(int(user_id), tg_url)
-                    print(f"🌍 Використано fallback-посилання: {tg_url}")
-                except Exception as e2:
-                    print(f"❌ Помилка надсилання fallback-посилання: {e2}")
-
+            else:
+                # fallback якщо немає file_id
+                mirror_msg = await bot.copy_message(
+                    chat_id=mirror_channel,
+                    from_chat_id=source_channel,
+                    message_id=int(message_id)
+                )
 
             print(f"✅ Дубльовано '{title}' у {mirror_channel} (msg_id={mirror_msg.message_id})")
         except Exception as e:
-            print(f"❌ Помилка копіювання в дзеркальний канал: {e}")
-            return {"success": False, "error": f"Не вдалося дублювати у канал: {e}"}
+            print(f"❌ Помилка дублювання: {e}")
+            return {"success": False, "error": str(e)}
 
-               # 🕓 Плануємо видалення через 3 або 6 год
-        asyncio.create_task(schedule_message_delete(bot, mirror_channel, mirror_msg.message_id, delay_hours))
-                # 🔗 Генеруємо invite link для всіх (щоб канал залишався у Telegram)
+        # 🔗 Генеруємо посилання для користувача
         try:
             invite_link = await bot.create_chat_invite_link(
                 chat_id=mirror_channel,
@@ -886,21 +863,20 @@ async def send_film_by_id(request: Request):
                 creates_join_request=False
             )
             tg_url = invite_link.invite_link
-            print(f"🔗 Згенеровано invite link: {tg_url}")
-
         except Exception as e:
-            print(f"⚠️ Помилка створення invite link: {e}")
-
-            # 🌍 Якщо не вдалося створити — fallback на пряме посилання
+            print(f"⚠️ Не вдалося створити invite-link: {e}")
             if str(mirror_channel).startswith("-100"):
-                # приватні або звичайні дзеркала
                 public_id = str(mirror_channel).replace("-100", "")
                 tg_url = f"https://t.me/c/{public_id}/{mirror_msg.message_id}"
             else:
-                # публічні канали з username
                 tg_url = f"https://t.me/{mirror_channel}/{mirror_msg.message_id}"
 
-            print(f"🔗 Використано fallback-посилання: {tg_url}")
+        # 📩 Надсилаємо користувачу лише посилання (без "фільми тут")
+        await bot.send_message(int(user_id), tg_url)
+        print(f"🔗 Надіслано користувачу {user_id}: {tg_url}")
+
+        # 🕓 Плануємо видалення через 3 або 6 год
+        asyncio.create_task(schedule_message_delete(bot, mirror_channel, mirror_msg.message_id, delay_hours))
 
         # 🧾 Записуємо у Google Таблицю “Видалення”
         kyiv = timezone("Europe/Kyiv")

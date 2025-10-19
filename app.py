@@ -290,7 +290,7 @@ async def root():
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 @app.get("/watch/{film_id}")
-async def watch_film(film_id: str):
+async def watch_film(film_id: str, user_id: int = 0):
     """
     Дублює фільм або серію у відповідний дзеркальний канал.
     Для публічних каналів invite-link не створюється — генерується пряме посилання.

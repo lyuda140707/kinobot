@@ -920,17 +920,48 @@ async def send_film_by_id(request: Request):
 
             if msg.video:
                 file_id = msg.video.file_id
-                mirror_msg = await bot.send_video(
-                    chat_id=mirror_channel,
-                    video=file_id,
-                    caption=caption,
-                    parse_mode="HTML"
-                )
-                print(f"🎬 Надіслано відео '{title}' через file_id → {mirror_channel} (msg_id={mirror_msg.message_id})")
-                # 🧰 Telegram CDN "kick fix" — змушує Telegram швидше підʼєднати відео
-                await asyncio.sleep(1)
-                await bot.send_chat_action(chat_id=mirror_channel, action="upload_video")
-                print("⚙️ CDN refresh triggered for better playback")
+                try:
+                    # 🧩 Основна спроба відправлення відео
+                    mirror_msg = await bot.send_video(
+                        chat_id=mirror_channel,
+                        video=file_id,
+                        caption=caption,
+                        parse_mode="HTML",
+                        supports_streaming=True
+                    )
+                    print(f"🎬 Надіслано відео '{title}' через file_id → {mirror_channel} (msg_id={mirror_msg.message_id})")
+                    
+                    # 🧰 Telegram CDN refresh
+                    await asyncio.sleep(1)
+                    await bot.send_chat_action(chat_id=mirror_channel, action="upload_video")
+                    print("⚙️ CDN refresh triggered for better playback")
+                except Exception as e:
+                    print(f"⚠️ Помилка при надсиланні через file_id: {e}")
+                    print("🔁 Пробуємо перезалити відео у Telegram...")
+                    
+                    try:
+                        # ⚙️ Перезавантажуємо відео у головний канал, щоб отримати новий CDN
+                        reupload = await bot.send_video(chat_id=int(os.getenv('MEDIA_CHANNEL_ID')), video=file_id)
+                        new_file_id = reupload.video.file_id
+                        print(f"✅ Новий file_id отримано: {new_file_id}")
+                        
+                        # 📤 Надсилаємо новий екземпляр у дзеркальний канал
+                        mirror_msg = await bot.send_video(
+                            chat_id=mirror_channel,
+                            video=new_file_id,
+                            caption=caption,
+                            parse_mode="HTML",
+                            supports_streaming=True
+                        )
+                        print(f"🎬 Відео '{title}' перезалито й повторно відправлено → {mirror_channel} (msg_id={mirror_msg.message_id})")
+
+                        # 🧰 Telegram CDN refresh (ще раз)
+                        await asyncio.sleep(1)
+                        await bot.send_chat_action(chat_id=mirror_channel, action="upload_video")
+                        print("⚙️ CDN refresh triggered after reupload")
+                    except Exception as ex2:
+                        print(f"❌ Помилка навіть після перезаливу: {ex2}")
+                        return {"success": False, "error": str(ex2)}
                 
             elif msg.document:
                 file_id = msg.document.file_id

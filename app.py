@@ -292,8 +292,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 async def watch_film(film_id: str):
     """
     Дублює фільм або серію у відповідний дзеркальний канал.
-    Підтримує type (Фільм / Серіал / Мультфільм / Серія)
-    та поля season / episode.
+    Для публічних каналів invite-link не створюється — генерується пряме посилання.
     """
     try:
         import urllib.parse, requests, os, asyncio
@@ -317,8 +316,6 @@ async def watch_film(film_id: str):
 
         film = data[0]
         user_id = int(film.get("user_id") or 0)
-
-        # 🧩 Основні поля
         source_channel = int(film.get("channel_id") or os.getenv("MEDIA_CHANNEL_ID"))
         message_id = int(film.get("message_id"))
         film_type = (film.get("type") or "").strip().lower()
@@ -327,7 +324,7 @@ async def watch_film(film_id: str):
 
         print(f"🧾 ID={film_id} | type='{film_type}' | title='{title}' | message_id={message_id}")
 
-        # 🪞 Визначаємо дзеркальний канал з урахуванням PRO
+        # 🪞 Вибираємо дзеркальний канал
         if access == "PRO":
             if any(x in film_type for x in ["серіал", "серія"]):
                 mirror_channel = int(os.getenv("MEDIA_CHANNEL_MIRROR_PRO_SERIES", "-1003004556512"))
@@ -348,7 +345,7 @@ async def watch_film(film_id: str):
 
         print(f"➡️ Тип: {film_type} | Дзеркало: {mirror_channel} ({channel_label})")
 
-        # 📝 Підпис (назва + опис + випадкова фраза)
+        # 📝 Формуємо опис
         description = (film.get("description") or film.get("Опис") or "").strip()
         extra_phrase = random.choice(FUN_CAPTIONS)
         invite_text = "\n\n🚨 <b>УВАГА!</b> 🔴\n👉 <b>ПІДПИСАТИСЯ НА КАНАЛ 🔔</b>"
@@ -364,28 +361,13 @@ async def watch_film(film_id: str):
         )
         print(f"✅ {title} дубльовано → {channel_label}")
 
-        # 🔗 Пробуємо створити invite-link (для публічних каналів можна просто посилання)
-        tg_url = None
-        try:
-            invite_link = await bot.create_chat_invite_link(
-                chat_id=mirror_channel,
-                expire_date=datetime.now() + timedelta(hours=delay_hours),
-                creates_join_request=False
-            )
-            tg_url = invite_link.invite_link
-            print(f"🔗 Згенеровано invite link: {tg_url}")
-        except Exception as e:
-            print(f"⚠️ Не вдалося створити invite-link: {e}")
-            try:
-                public_id = str(mirror_channel).replace("-100", "")
-                tg_url = f"https://t.me/c/{public_id}/{mirror_msg.message_id}"
-                print(f"🌍 Використано fallback-посилання: {tg_url}")
-            except Exception as e2:
-                print(f"❌ Помилка формування fallback: {e2}")
-                tg_url = None
+        # 🔗 Генеруємо пряме посилання (публічний канал)
+        public_id = str(mirror_channel).replace("-100", "")
+        tg_url = f"https://t.me/c/{public_id}/{mirror_msg.message_id}"
+        print(f"🌍 Згенеровано публічне посилання: {tg_url}")
 
-        # 📩 Відправляємо користувачу лінк, якщо він є
-        if tg_url and user_id:
+        # 📩 Надсилаємо користувачу
+        if user_id:
             try:
                 await bot.send_message(int(user_id), f"🎬 Фільм відкривається тут:\n{tg_url}")
                 print(f"📨 Надіслано користувачу {user_id}: {tg_url}")
@@ -396,7 +378,7 @@ async def watch_film(film_id: str):
         asyncio.create_task(schedule_message_delete(bot, mirror_channel, mirror_msg.message_id, delay_hours, user_id))
         print(f"🗑️ Видалиться через {delay_hours} год")
 
-        # 🧾 Записуємо у таблицю
+        # 🧾 Записуємо у Google Таблицю
         kyiv = timezone("Europe/Kyiv")
         delete_time = datetime.now(kyiv) + timedelta(hours=delay_hours)
         sheet = get_google_service().spreadsheets()
@@ -409,15 +391,13 @@ async def watch_film(film_id: str):
         ).execute()
         print(f"🧾 Записано у 'Видалення' ({title})")
 
-        # 🔁 Перенаправлення
-        if tg_url:
-            return RedirectResponse(url=tg_url)
-        else:
-            return {"success": True, "note": "Фільм відправлено, але посилання не створено"}
+        # 🔁 Перенаправляємо користувача у Telegram
+        return RedirectResponse(url=tg_url)
 
     except Exception as e:
         print(f"❌ Помилка у /watch/{film_id}: {e}")
         return {"error": str(e)}
+
 
 @app.post("/notify-payment")
 async def notify_payment(req: Request):

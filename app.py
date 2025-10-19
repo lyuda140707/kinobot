@@ -70,21 +70,28 @@ async def schedule_message_delete(bot, chat_id: int, message_id: int, delay_hour
             except Exception as e:
                 print(f"⚠️ Не вдалося видалити користувача {user_id} з каналу {chat_id}: {e}")
 
-        # 🧾 Фіксуємо запис у таблиці "Видалення"
+        # 🧹 Очищаємо запис про відправлення з таблиці "Видалення"
         try:
-            kyiv = timezone("Europe/Kyiv")
-            delete_time = datetime.now(kyiv)
             sheet = get_google_service().spreadsheets()
-            sheet.values().append(
+            rows = sheet.values().get(
                 spreadsheetId=os.getenv("SHEET_ID"),
-                range="Видалення!A2",
-                valueInputOption="USER_ENTERED",
-                insertDataOption="INSERT_ROWS",
-                body={"values": [[str(chat_id), str(message_id), delete_time.isoformat()]]}
-            ).execute()
-            print(f"🧾 Записано у таблицю 'Видалення': {chat_id}, {message_id}")
-        except Exception as e:
-            print(f"⚠️ Не вдалося записати у таблицю 'Видалення': {e}")
+                range="Видалення!A2:C1000"
+            ).execute().get("values", [])
+
+            for idx, row in enumerate(rows, start=2):
+                if len(row) < 2:
+                    continue
+                if row[0] == str(chat_id) and row[1] == str(message_id):
+                    sheet.values().update(
+                        spreadsheetId=os.getenv("SHEET_ID"),
+                        range=f"Видалення!A{idx}:C{idx}",
+                        valueInputOption="RAW",
+                        body={"values": [["", "", ""]]}
+                    ).execute()
+                    print(f"🧹 Видалено рядок з таблиці 'Видалення' ({chat_id}, {message_id})")
+                    break
+            except Exception as e:
+                print(f"⚠️ Не вдалося очистити таблицю 'Видалення': {e}")
 
     except Exception as e:
         print(f"⚠️ Помилка у schedule_message_delete: {e}")

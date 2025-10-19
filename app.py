@@ -51,7 +51,7 @@ async def schedule_message_delete(bot, chat_id: int, message_id: int, delay_hour
     Також очищає запис у таблиці 'Видалення'.
     """
     try:
-        delay_seconds = 60  # тест – 1 хвилина
+        delay_seconds = 60  # ⏱ тест: 1 хвилина
         await asyncio.sleep(delay_seconds)
 
         # 🗑️ Видаляємо повідомлення
@@ -782,17 +782,19 @@ async def send_film_by_id(request: Request):
             delay_hours = 6
             print(f"🎬 Фільм {title} → {mirror_channel}")
 
-        # 📝 Банер
+        # 📝 Опис без банера
         description = (row.get("description") or "").strip()
         extra_phrase = random.choice(FUN_CAPTIONS)
         final_caption = f"🎬 {title}\n\n{description}\n\n{extra_phrase}"
 
-        mirror_msg = await bot.copy_message(
-            chat_id=mirror_channel,
-            from_chat_id=source_channel,
-            message_id=int(message_id)
-        )
-        print(f"✅ Дубльовано '{title}' у {mirror_channel} (msg_id={mirror_msg.message_id})")
+        # 🎬 Копіюємо повідомлення
+        try:
+            mirror_msg = await bot.copy_message(
+                chat_id=mirror_channel,
+                from_chat_id=source_channel,
+                message_id=int(message_id)
+            )
+            print(f"✅ Дубльовано '{title}' у {mirror_channel} (msg_id={mirror_msg.message_id})")
         except Exception as e:
             print(f"❌ Помилка копіювання: {e}")
             return {"success": False, "error": str(e)}
@@ -818,7 +820,6 @@ async def send_film_by_id(request: Request):
     except Exception as e:
         print(f"⚠️ Помилка у /send-film-id: {e}")
         return {"success": False, "error": str(e)}
-
 
 
 @app.post("/check-subscription")

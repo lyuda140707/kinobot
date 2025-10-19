@@ -390,9 +390,53 @@ async def watch_film(film_id: str):
         # 🔁 Перенаправлення
         return RedirectResponse(url=tg_url)
 
-    except Exception as e:
-        print(f"❌ Помилка у /watch/{film_id}: {e}")
-        return {"error": str(e)}
+from fastapi.responses import HTMLResponse
+
+except Exception as e:
+    print(f"❌ Помилка у /watch/{film_id}: {e}")
+    # Якщо це повідомлення не знайдено — показуємо спокійний текст у WebApp
+    if "message to copy not found" in str(e):
+        html = """
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <title>Фільм не знайдено</title>
+            <style>
+                body {
+                    background: #0f0f0f;
+                    color: #fff;
+                    font-family: 'Russo One', sans-serif;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    height: 100vh;
+                    text-align: center;
+                }
+                h1 { font-size: 28px; margin-bottom: 10px; color: #ff5555; }
+                p { font-size: 16px; color: #aaa; max-width: 300px; }
+            </style>
+        </head>
+        <body>
+            <h1>❌ Фільм недоступний</h1>
+            <p>Його, ймовірно, видалено або він тимчасово недоступний.<br>
+            Спробуйте інший фільм або поверніться пізніше 🎬</p>
+        </body>
+        </html>
+        """
+        return HTMLResponse(content=html, status_code=200)
+
+    # Якщо інша помилка — теж відобразимо красиво
+    html = f"""
+    <html>
+    <head><meta charset="utf-8"><title>Помилка</title></head>
+    <body style="background:#111;color:#fff;font-family:sans-serif;text-align:center;padding-top:100px;">
+        <h2>⚠️ Помилка</h2>
+        <p>{str(e)}</p>
+    </body>
+    </html>
+    """
+    return HTMLResponse(content=html, status_code=200)
 
 
 

@@ -858,8 +858,9 @@ async def send_film_by_id(request: Request):
         message_id = str(data.get("message_id", "")).strip()
         channel_in = str(data.get("channel_id", "")).strip()
 
-        if not user_id or not message_id:
-            return {"success": False, "error": "user_id або message_id відсутні"}
+        if not user_id or user_id == "0":
+            print("❌ USER_ID порожній або 0 — не відправляємо фільм")
+            return {"success": False, "error": "Некоректний user_id (0 або порожній)"}
 
         print(f"📽️ /send-film-id {message_id} від {user_id}")
         print(f"    channel_in={channel_in}")

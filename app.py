@@ -437,13 +437,15 @@ async def watch_film(film_id: str, request: Request):
             try:
                 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-                btn = InlineKeyboardMarkup().add(
-                    InlineKeyboardButton(text="▶️ Дивитись фільм", url=tg_url)
+                keyboard = InlineKeyboardMarkup(
+                    inline_keyboard=[
+                        [InlineKeyboardButton(text="▶️ Дивитись фільм", url=tg_url)]
+                    ]
                 )
                 msg = await bot.send_message(
-                    int(user_id),
-                    f"🎬 <b>{title}</b>",
-                    reply_markup=btn,
+                    chat_id=int(user_id),
+                    text=f"🎬 <b>{title}</b>",
+                    reply_markup=keyboard,
                     parse_mode="HTML"
                 )
                 asyncio.create_task(schedule_message_delete(bot, int(user_id), msg.message_id, delay_hours))

@@ -351,7 +351,51 @@ async def watch_film(film_id: str):
         invite_text = "\n\n🚨 <b>УВАГА!</b> 🔴\n👉 <b>ПІДПИСАТИСЯ НА КАНАЛ 🔔</b>"
         final_caption = f"🎬 {title}\n\n{description}\n\n{extra_phrase}{invite_text}"
 
-        # 🎬 Копіюємо відео в дзеркальний канал
+                # 🎬 Копіюємо відео в дзеркальний канал
+        # Але спершу перевіримо, чи message_id коректний (щоб не було Telegram error)
+        if not str(message_id).isdigit():
+            html = """
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <title>🎞 Фільм недоступний</title>
+                <style>
+                    body {
+                        background: #0f0f0f;
+                        color: #fff;
+                        font-family: 'Russo One', sans-serif;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        justify-content: center;
+                        height: 100vh;
+                        text-align: center;
+                    }
+                    h1 { font-size: 30px; margin-bottom: 15px; color: #00f7ff; }
+                    p { font-size: 17px; color: #ccc; max-width: 340px; line-height: 1.5; }
+                    a {
+                        display: inline-block;
+                        margin-top: 25px;
+                        padding: 10px 22px;
+                        background: linear-gradient(90deg, #00f7ff, #ff00d4);
+                        color: #000;
+                        border-radius: 10px;
+                        text-decoration: none;
+                        font-weight: bold;
+                    }
+                </style>
+            </head>
+            <body>
+                <h1>🎬 Фільм недоступний</h1>
+                <p>На жаль, це відео не може бути відтворене 😔<br>
+                Спробуйте інший фільм або поверніться пізніше 💫</p>
+                <a href="https://relaxbox.site/">🔁 Повернутись до каталогу</a>
+            </body>
+            </html>
+            """
+            return HTMLResponse(content=html, status_code=200)
+
+        # якщо все добре — копіюємо відео
         mirror_msg = await bot.copy_message(
             chat_id=mirror_channel,
             from_chat_id=source_channel,
@@ -359,6 +403,7 @@ async def watch_film(film_id: str):
             caption=final_caption,
             parse_mode="HTML"
         )
+
         print(f"✅ {title} дубльовано → {channel_label}")
 
         # 🔗 Формуємо пряме посилання

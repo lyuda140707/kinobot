@@ -353,32 +353,20 @@ async def watch_film(film_id: str):
         extra_phrase = random.choice(FUN_CAPTIONS)
         caption = f"🎬 {title}\n\n{description}\n\n{extra_phrase}"
 
-        # 🎬 Копіюємо відео
+        # 🎬 Копіюємо відео з уже вбудованим червоним банером
+        invite_text = (
+            "\n\n🚨 <b>УВАГА!</b> 🔴\n"
+            "👉 <b>ПІДПИСАТИСЯ НА КАНАЛ 🔔</b>"
+        )
+        final_caption = (caption or "") + invite_text
+
         mirror_msg = await bot.copy_message(
             chat_id=mirror_channel,
             from_chat_id=source_channel,
             message_id=message_id,
-            caption=caption,
+            caption=final_caption,
             parse_mode="HTML"
         )
-
-        # 🚨 Додаємо яскравий банер "Підписатись на канал"
-        try:
-            channel_username = str(mirror_channel).replace("-100", "")
-            sub_link = f"https://t.me/{channel_username}"
-            invite_text = (
-                "\n\n🚨 <b>УВАГА!</b> 🔴\n"
-                f"👉 <a href='{sub_link}'>ПІДПИСАТИСЯ НА КАНАЛ 🔔</a>"
-            )
-            await bot.edit_message_caption(
-                chat_id=mirror_channel,
-                message_id=mirror_msg.message_id,
-                caption=(mirror_msg.caption or "") + invite_text,
-                parse_mode="HTML"
-            )
-            print(f"✅ Додано банер підписки для {mirror_channel}")
-        except Exception as e:
-            print(f"⚠️ Не вдалося додати банер підписки: {e}")
 
 
                 
@@ -842,32 +830,20 @@ async def send_film_by_id(request: Request):
         extra_phrase = random.choice(FUN_CAPTIONS)
         caption = f"🎬 {title}\n\n{description}\n\n{extra_phrase}"
 
-        # 🎬 Копіюємо у дзеркальний канал з підписом
-        try:
-            mirror_msg = await bot.copy_message(
-                chat_id=mirror_channel,
-                from_chat_id=source_channel,
-                message_id=msg_id,
-                caption=caption,
-                parse_mode="HTML"
-            )
-            # 🚨 Додаємо яскравий банер "Підписатись на канал"
-            try:
-                channel_username = str(mirror_channel).replace("-100", "")
-                sub_link = f"https://t.me/{channel_username}"
-                invite_text = (
-                    "\n\n🚨 <b>УВАГА!</b> 🔴\n"
-                    f"👉 <a href='{sub_link}'>ПІДПИСАТИСЯ НА КАНАЛ 🔔</a>"
-                )
-                await bot.edit_message_caption(
-                    chat_id=mirror_channel,
-                    message_id=mirror_msg.message_id,
-                    caption=(mirror_msg.caption or "") + invite_text,
-                    parse_mode="HTML"
-                )
-                print(f"✅ Додано банер підписки для {mirror_channel}")
-            except Exception as e:
-                print(f"⚠️ Не вдалося додати банер підписки: {e}")
+        # 🎬 Копіюємо відео з уже вбудованим червоним банером
+        invite_text = (
+            "\n\n🚨 <b>УВАГА!</b> 🔴\n"
+            "👉 <b>ПІДПИСАТИСЯ НА КАНАЛ 🔔</b>"
+        )
+        final_caption = (caption or "") + invite_text
+
+        mirror_msg = await bot.copy_message(
+            chat_id=mirror_channel,
+            from_chat_id=source_channel,
+            message_id=message_id,
+            caption=final_caption,
+            parse_mode="HTML"
+        )
 
 
             # 🔗 Надсилаємо користувачу посилання на публічний канал
@@ -878,10 +854,7 @@ async def send_film_by_id(request: Request):
                     creates_join_request=False
                 )
                 tg_url = invite_link.invite_link
-                await bot.send_message(
-                    int(user_id),
-                    f"🎬 Фільм відкривається тут:\n{tg_url}"
-                )
+                await bot.send_message(int(user_id), tg_url)
                 print(f"🔗 Надіслано invite-link користувачу {user_id}: {tg_url}")
             except Exception as e:
                 print(f"⚠️ Не вдалося створити invite-link: {e}")
@@ -892,10 +865,7 @@ async def send_film_by_id(request: Request):
                         tg_url = f"https://t.me/c/{public_id}/{mirror_msg.message_id}"
                     else:
                         tg_url = f"https://t.me/{mirror_channel}/{mirror_msg.message_id}"
-                    await bot.send_message(
-                        int(user_id),
-                        f"🎬 Фільм відкривається тут:\n{tg_url}"
-                    )
+                    await bot.send_message(int(user_id), tg_url)
                     print(f"🌍 Використано fallback-посилання: {tg_url}")
                 except Exception as e2:
                     print(f"❌ Помилка надсилання fallback-посилання: {e2}")

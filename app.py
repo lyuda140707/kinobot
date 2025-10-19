@@ -316,6 +316,7 @@ async def watch_film(film_id: str):
 
         film = data[0]
         user_id = int(film.get("user_id") or 0)
+        print(f"👤 USER_ID = {user_id}")
         source_channel = int(film.get("channel_id") or os.getenv("MEDIA_CHANNEL_ID"))
         message_id = int(film.get("message_id"))
         film_type = (film.get("type") or "").strip().lower()

@@ -27,6 +27,7 @@ from utils.date_utils import safe_parse_date
 from contextlib import asynccontextmanager
 from supabase_api import get_films
 import random
+from fastapi.responses import HTMLResponse
 
 # 🎬 Варіанти фінальних фраз під описом фільму
 FUN_CAPTIONS = [
@@ -390,7 +391,7 @@ async def watch_film(film_id: str):
         # 🔁 Перенаправлення
         return RedirectResponse(url=tg_url)
 
-from fastapi.responses import HTMLResponse
+
 
 except Exception as e:
     print(f"❌ Помилка у /watch/{film_id}: {e}")

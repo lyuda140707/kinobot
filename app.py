@@ -408,35 +408,55 @@ async def watch_film(film_id: str):
     except Exception as e:
         print(f"❌ Помилка у /watch/{film_id}: {e}")
         # Якщо це повідомлення не знайдено — показуємо спокійний текст у WebApp
-        if "message to copy not found" in str(e):
+        if "message to copy not found" in str(e) or "wrong remote file identifier" in str(e).lower():
             html = """
             <html>
             <head>
                 <meta charset="utf-8">
-                <title>Фільм не знайдено</title>
+                <title>🎞 Фільм недоступний</title>
                 <style>
                     body {
-                        background: #0f0f0f;
-                        color: #fff;
-                        font-family: 'Russo One', sans-serif;
-                        display: flex;
-                        flex-direction: column;
-                        align-items: center;
-                        justify-content: center;
-                        height: 100vh;
-                        text-align: center;
-                    }
-                    h1 { font-size: 28px; margin-bottom: 10px; color: #ff5555; }
-                    p { font-size: 16px; color: #aaa; max-width: 300px; }
-                </style>
-            </head>
-            <body>
-                <h1>❌ Фільм недоступний</h1>
-                <p>Його, ймовірно, видалено або він тимчасово недоступний.<br>
-                Спробуйте інший фільм або поверніться пізніше 🎬</p>
-            </body>
-            </html>
-            """
+                    background: #0f0f0f;
+                    color: #fff;
+                    font-family: 'Russo One', sans-serif;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    height: 100vh;
+                    text-align: center;
+                }
+                h1 {
+                    font-size: 30px;
+                    margin-bottom: 15px;
+                    color: #00f7ff;
+                }
+                p {
+                    font-size: 17px;
+                    color: #ccc;
+                    max-width: 340px;
+                    line-height: 1.5;
+                }
+                a {
+                    display: inline-block;
+                    margin-top: 25px;
+                    padding: 10px 22px;
+                    background: linear-gradient(90deg, #00f7ff, #ff00d4);
+                    color: #000;
+                    border-radius: 10px;
+                    text-decoration: none;
+                    font-weight: bold;
+                }
+            </style>
+        </head>
+        <body>
+            <h1>🎬 Фільм тимчасово недоступний</h1>
+            <p>На жаль, це відео зараз недоступне або було видалене 😔<br>
+            Спробуйте обрати інший фільм або зайдіть пізніше 💫</p>
+            <a href="https://relaxbox.site/">🔁 Повернутись до каталогу</a>
+        </body>
+        </html>
+        """
             return HTMLResponse(content=html, status_code=200)
 
         # Якщо інша помилка — теж відобразимо красиво

@@ -395,65 +395,16 @@ async def watch_film(film_id: str):
             """
             return HTMLResponse(content=html, status_code=200)
 
-        # якщо все добре — пробуємо копіювати відео
-try:
-    mirror_msg = await bot.copy_message(
-        chat_id=mirror_channel,
-        from_chat_id=source_channel,
-        message_id=message_id,
-        caption=final_caption,
-        parse_mode="HTML"
-    )
-    print(f"✅ {title} дубльовано → {channel_label}")
+        # якщо все добре — копіюємо відео
+        mirror_msg = await bot.copy_message(
+            chat_id=mirror_channel,
+            from_chat_id=source_channel,
+            message_id=message_id,
+            caption=final_caption,
+            parse_mode="HTML"
+        )
 
-except Exception as e:
-    err = str(e).lower()
-    print(f"⚠️ Не вдалося скопіювати відео: {e}")
-
-    if "wrong remote file identifier" in err or "message to copy not found" in err:
-        html = """
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <title>🎞 Фільм недоступний</title>
-            <style>
-                body {
-                    background: #0f0f0f;
-                    color: #fff;
-                    font-family: 'Russo One', sans-serif;
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    justify-content: center;
-                    height: 100vh;
-                    text-align: center;
-                }
-                h1 { font-size: 30px; margin-bottom: 15px; color: #00f7ff; }
-                p { font-size: 17px; color: #ccc; max-width: 340px; line-height: 1.5; }
-                a {
-                    display: inline-block;
-                    margin-top: 25px;
-                    padding: 10px 22px;
-                    background: linear-gradient(90deg, #00f7ff, #ff00d4);
-                    color: #000;
-                    border-radius: 10px;
-                    text-decoration: none;
-                    font-weight: bold;
-                }
-            </style>
-        </head>
-        <body>
-            <h1>🎬 Фільм тимчасово недоступний</h1>
-            <p>На жаль, це відео було видалене або тимчасово недоступне 😔<br>
-            Спробуйте інший фільм або поверніться пізніше 💫</p>
-            <a href="https://relaxbox.site/">🔁 Повернутись до каталогу</a>
-        </body>
-        </html>
-        """
-        return HTMLResponse(content=html, status_code=200)
-    else:
-        raise e
-
+        print(f"✅ {title} дубльовано → {channel_label}")
 
         # 🔗 Формуємо пряме посилання
         public_id = str(mirror_channel).replace("-100", "")

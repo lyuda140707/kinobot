@@ -772,7 +772,7 @@ async def send_film_by_id(request: Request):
 
                # 🕓 Плануємо видалення через 3 або 6 год
         asyncio.create_task(schedule_message_delete(bot, mirror_channel, mirror_msg.message_id, delay_hours))
-        # 🔗 Генеруємо invite link для всіх (щоб канал залишався у Telegram)
+                # 🔗 Генеруємо invite link для всіх (щоб канал залишався у Telegram)
         try:
             invite_link = await bot.create_chat_invite_link(
                 chat_id=mirror_channel,
@@ -781,22 +781,20 @@ async def send_film_by_id(request: Request):
             )
             tg_url = invite_link.invite_link
             print(f"🔗 Згенеровано invite link: {tg_url}")
+
         except Exception as e:
             print(f"⚠️ Помилка створення invite link: {e}")
-            # fallback — пряме посилання
-            public_id = str(mirror_channel).replace("-100", "")
-            tg_url = f"https://t.me/c/{public_id}/{mirror_msg.message_id}"
+
+            # 🌍 Якщо не вдалося створити — fallback на пряме посилання
+            if str(mirror_channel).startswith("-100"):
+                # приватні або звичайні дзеркала
+                public_id = str(mirror_channel).replace("-100", "")
+                tg_url = f"https://t.me/c/{public_id}/{mirror_msg.message_id}"
             else:
-                # 🌍 Для звичайних (публічних) дзеркал — пряме посилання
-                if str(mirror_channel).startswith("-100"):
-                    public_id = str(mirror_channel).replace("-100", "")
-                    tg_url = f"https://t.me/c/{public_id}/{mirror_msg.message_id}"
-                else:
-                    tg_url = f"https://t.me/{mirror_channel}/{mirror_msg.message_id}"
-                print(f"🔗 Згенеровано публічне посилання: {tg_url}")
-        except Exception as e:
-            print(f"⚠️ Помилка формування посилання: {e}")
-            tg_url = "https://t.me/RelaxBoxBot"
+                # публічні канали з username
+                tg_url = f"https://t.me/{mirror_channel}/{mirror_msg.message_id}"
+
+            print(f"🔗 Використано fallback-посилання: {tg_url}")
 
         # 🧾 Записуємо у Google Таблицю “Видалення”
         kyiv = timezone("Europe/Kyiv")

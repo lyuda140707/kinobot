@@ -48,7 +48,7 @@ SHEETS = SERVICE.spreadsheets()
 async def schedule_message_delete(bot, chat_id: int, message_id: int, delay_hours: int = 6, user_id: int = None):
     """
     Видаляє повідомлення з каналу (і користувача, якщо задано) через delay_hours.
-    Також фіксує запис у таблиці 'Видалення'.
+    Також очищає запис у таблиці 'Видалення'.
     """
     try:
         delay_seconds = 60  # тест – 1 хвилина
@@ -93,8 +93,9 @@ async def schedule_message_delete(bot, chat_id: int, message_id: int, delay_hour
         except Exception as e:
             print(f"⚠️ Не вдалося очистити таблицю 'Видалення': {e}")
 
-        except Exception as e:
-            print(f"⚠️ Помилка у schedule_message_delete: {e}")
+    except Exception as e:
+        print(f"⚠️ Помилка у schedule_message_delete: {e}")
+
 
 
 # ==== Supabase REST helper ====

@@ -356,7 +356,7 @@ async def watch_film(film_id: str):
         # 🎬 Копіюємо відео з уже вбудованим червоним банером
         invite_text = (
             "\n\n🚨 <b>УВАГА!</b> 🔴\n"
-            "👉 <b>ПІДПИСАТИСЯ НА КАНАЛ 🔔</b>"
+            "👉 <b>ПІДПИШИСЬ НА КАНАЛ 🔔</b>"
         )
         final_caption = (caption or "") + invite_text
 

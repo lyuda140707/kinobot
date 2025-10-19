@@ -361,6 +361,27 @@ async def watch_film(film_id: str):
             caption=caption,
             parse_mode="HTML"
         )
+
+        # 🚨 Додаємо яскравий банер "Підписатись на канал"
+        try:
+            channel_username = str(mirror_channel).replace("-100", "")
+            sub_link = f"https://t.me/{channel_username}"
+            invite_text = (
+                "\n\n🚨 <b>УВАГА!</b> 🔴\n"
+                f"👉 <a href='{sub_link}'>ПІДПИСАТИСЯ НА КАНАЛ 🔔</a>"
+            )
+            await bot.edit_message_caption(
+                chat_id=mirror_channel,
+                message_id=mirror_msg.message_id,
+                caption=(mirror_msg.caption or "") + invite_text,
+                parse_mode="HTML"
+            )
+            print(f"✅ Додано банер підписки для {mirror_channel}")
+        except Exception as e:
+            print(f"⚠️ Не вдалося додати банер підписки: {e}")
+
+
+                
         # 🔗 Надсилаємо користувачу посилання на публічний канал
         try:
             invite_link = await bot.create_chat_invite_link(
@@ -830,6 +851,25 @@ async def send_film_by_id(request: Request):
                 caption=caption,
                 parse_mode="HTML"
             )
+            # 🚨 Додаємо яскравий банер "Підписатись на канал"
+            try:
+                channel_username = str(mirror_channel).replace("-100", "")
+                sub_link = f"https://t.me/{channel_username}"
+                invite_text = (
+                    "\n\n🚨 <b>УВАГА!</b> 🔴\n"
+                    f"👉 <a href='{sub_link}'>ПІДПИСАТИСЯ НА КАНАЛ 🔔</a>"
+                )
+                await bot.edit_message_caption(
+                    chat_id=mirror_channel,
+                    message_id=mirror_msg.message_id,
+                    caption=(mirror_msg.caption or "") + invite_text,
+                    parse_mode="HTML"
+                )
+                print(f"✅ Додано банер підписки для {mirror_channel}")
+            except Exception as e:
+                print(f"⚠️ Не вдалося додати банер підписки: {e}")
+
+
             # 🔗 Надсилаємо користувачу посилання на публічний канал
             try:
                 invite_link = await bot.create_chat_invite_link(

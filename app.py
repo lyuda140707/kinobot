@@ -792,10 +792,19 @@ async def send_film_by_id(request: Request):
             print(f"❌ Помилка дублювання: {e}")
             return {"success": False, "error": str(e)}
 
-        # 🔗 Формуємо публічне посилання
-        public_id = str(mirror_channel).replace("-100", "")
-        tg_url = f"https://t.me/c/{public_id}/{mirror_msg.message_id}"
-        print(f"🌍 Згенеровано посилання: {tg_url}")
+        # 🔗 Генеруємо правильне публічне посилання
+        try:
+            chat = await bot.get_chat(mirror_channel)
+            if chat.username:  # якщо канал публічний
+                tg_url = f"https://t.me/{chat.username}/{mirror_msg.message_id}"
+            else:
+                public_id = str(mirror_channel).replace("-100", "")
+                tg_url = f"https://t.me/c/{public_id}/{mirror_msg.message_id}"
+            print(f"🌍 Згенеровано посилання: {tg_url}")
+        except Exception as e:
+            print(f"⚠️ Не вдалося отримати username каналу: {e}")
+            public_id = str(mirror_channel).replace("-100", "")
+            tg_url = f"https://t.me/c/{public_id}/{mirror_msg.message_id}"
 
         # 🕓 Плануємо авто-видалення
         asyncio.create_task(schedule_message_delete(bot, mirror_channel, mirror_msg.message_id, delay_hours))

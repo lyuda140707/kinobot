@@ -298,8 +298,8 @@ async def watch_film(film_id: str):
     try:
         import urllib.parse, requests, os, asyncio
         from datetime import datetime, timedelta
-        from fastapi.responses import RedirectResponse
-        from bot import bot  # ✅ залишаємо тільки цей імпорт
+        from fastapi.responses import RedirectResponse, HTMLResponse
+        from bot import bot  # ✅ імпорт тільки бота
 
         SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
         SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY") or os.getenv("SUPABASE_ANON") or ""
@@ -366,14 +366,21 @@ async def watch_film(film_id: str):
         tg_url = f"https://t.me/c/{public_id}/{mirror_msg.message_id}"
         print(f"🌍 Згенеровано публічне посилання: {tg_url}")
 
-        # 📩 Відправляємо користувачу
+        # 📩 Надсилаємо користувачу коротке повідомлення з посиланням
         if user_id:
             try:
-                await bot.send_message(int(user_id), f"🎬 Фільм відкривається тут:\n{tg_url}")
+                msg = await bot.send_message(
+                    int(user_id),
+                    f"🎬 <b>{title}</b>\n\nВідкрити фільм тут:\n{tg_url}",
+                    parse_mode="HTML"
+                )
+                # 🕓 Запланувати видалення цього повідомлення разом із фільмом
+                asyncio.create_task(schedule_message_delete(bot, int(user_id), msg.message_id, delay_hours))
+                print(f"📨 Повідомлення користувачу {user_id} надіслано й заплановано на видалення")
             except Exception as e:
-                print(f"⚠️ Не вдалося надіслати лінк користувачу {user_id}: {e}")
+                print(f"⚠️ Не вдалося надіслати повідомлення користувачу {user_id}: {e}")
 
-        # 🕓 Авто-видалення
+        # 🕓 Авто-видалення з каналу
         asyncio.create_task(schedule_message_delete(bot, mirror_channel, mirror_msg.message_id, delay_hours, user_id))
 
         # 🧾 Запис у таблицю
@@ -388,7 +395,7 @@ async def watch_film(film_id: str):
             body={"values": [[str(mirror_channel), str(mirror_msg.message_id), delete_time.isoformat()]]}
         ).execute()
 
-        # 🔁 Перенаправлення
+        # 🔁 Перенаправлення у Telegram
         return RedirectResponse(url=tg_url)
 
     except Exception as e:

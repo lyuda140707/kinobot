@@ -361,25 +361,35 @@ async def watch_film(film_id: str):
             caption=caption,
             parse_mode="HTML"
         )
-        # ➕ Додаємо користувача у канал або надсилаємо invite-link
+        # 🔗 Надсилаємо користувачу посилання на публічний канал
         try:
-            await bot.add_chat_member(chat_id=mirror_channel, user_id=int(user_id))
-            print(f"👤 Додано користувача {user_id} у канал {mirror_channel}")
+            invite_link = await bot.create_chat_invite_link(
+                chat_id=mirror_channel,
+                expire_date=datetime.now() + timedelta(hours=delay_hours),
+                creates_join_request=False
+            )
+            tg_url = invite_link.invite_link
+            await bot.send_message(
+                int(user_id),
+                f"🎬 Фільм відкривається тут:\n{tg_url}"
+            )
+            print(f"🔗 Надіслано invite-link користувачу {user_id}: {tg_url}")
         except Exception as e:
-            print(f"⚠️ Не вдалося додати користувача {user_id} у канал {mirror_channel}: {e}")
+            print(f"⚠️ Не вдалося створити invite-link: {e}")
+            # fallback — пряме публічне посилання, якщо invite не створюється
             try:
-                invite_link = await bot.create_chat_invite_link(
-                    chat_id=mirror_channel,
-                    expire_date=datetime.now() + timedelta(hours=delay_hours),
-                    creates_join_request=False
-                )
+                if str(mirror_channel).startswith("-100"):
+                    public_id = str(mirror_channel).replace("-100", "")
+                    tg_url = f"https://t.me/c/{public_id}/{mirror_msg.message_id}"
+                else:
+                    tg_url = f"https://t.me/{mirror_channel}/{mirror_msg.message_id}"
                 await bot.send_message(
                     int(user_id),
-                    f"🎬 Фільм відкривається тут:\n{invite_link.invite_link}"
+                    f"🎬 Фільм відкривається тут:\n{tg_url}"
                 )
-                print(f"🔗 Надіслано invite-link користувачу {user_id}")
+                print(f"🌍 Використано fallback-посилання: {tg_url}")
             except Exception as e2:
-                print(f"⚠️ Не вдалося створити або надіслати invite-link: {e2}")
+                print(f"❌ Помилка надсилання fallback-посилання: {e2}")
                     
 
         # 🕓 Авто-видалення
@@ -820,25 +830,35 @@ async def send_film_by_id(request: Request):
                 caption=caption,
                 parse_mode="HTML"
             )
-            # ➕ Додаємо користувача у канал або надсилаємо invite-link
+            # 🔗 Надсилаємо користувачу посилання на публічний канал
             try:
-                await bot.add_chat_member(chat_id=mirror_channel, user_id=int(user_id))
-                print(f"👤 Додано користувача {user_id} у канал {mirror_channel}")
+                invite_link = await bot.create_chat_invite_link(
+                    chat_id=mirror_channel,
+                    expire_date=datetime.now() + timedelta(hours=delay_hours),
+                    creates_join_request=False
+                )
+                tg_url = invite_link.invite_link
+                await bot.send_message(
+                    int(user_id),
+                    f"🎬 Фільм відкривається тут:\n{tg_url}"
+                )
+                print(f"🔗 Надіслано invite-link користувачу {user_id}: {tg_url}")
             except Exception as e:
-                print(f"⚠️ Не вдалося додати користувача {user_id} у канал {mirror_channel}: {e}")
+                print(f"⚠️ Не вдалося створити invite-link: {e}")
+                # fallback — пряме публічне посилання, якщо invite не створюється
                 try:
-                    invite_link = await bot.create_chat_invite_link(
-                        chat_id=mirror_channel,
-                        expire_date=datetime.now() + timedelta(hours=delay_hours),
-                        creates_join_request=False
-                    )
+                    if str(mirror_channel).startswith("-100"):
+                        public_id = str(mirror_channel).replace("-100", "")
+                        tg_url = f"https://t.me/c/{public_id}/{mirror_msg.message_id}"
+                    else:
+                        tg_url = f"https://t.me/{mirror_channel}/{mirror_msg.message_id}"
                     await bot.send_message(
                         int(user_id),
-                        f"🎬 Фільм відкривається тут:\n{invite_link.invite_link}"
+                        f"🎬 Фільм відкривається тут:\n{tg_url}"
                     )
-                    print(f"🔗 Надіслано invite-link користувачу {user_id}")
+                    print(f"🌍 Використано fallback-посилання: {tg_url}")
                 except Exception as e2:
-                    print(f"⚠️ Не вдалося створити або надіслати invite-link: {e2}")
+                    print(f"❌ Помилка надсилання fallback-посилання: {e2}")
 
 
             print(f"✅ Дубльовано '{title}' у {mirror_channel} (msg_id={mirror_msg.message_id})")

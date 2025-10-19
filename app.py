@@ -912,19 +912,45 @@ async def send_film_by_id(request: Request):
         invite_text = "\n\n🚨 <b>УВАГА!</b> 🔴\n👉 <b>ПІДПИСАТИСЯ НА КАНАЛ 🔔</b>"
         caption = f"🎬 {title}\n\n{description}\n\n{extra_phrase}{invite_text}"
 
-        # 🎬 Копіюємо повідомлення у дзеркальний канал
+        # 🎬 Копіюємо або надсилаємо відео у дзеркальний канал
         try:
-            mirror_msg = await bot.copy_message(
-                chat_id=mirror_channel,
-                from_chat_id=source_channel,
-                message_id=int(message_id),
-                caption=caption,
-                parse_mode="HTML"
-            )
-            print(f"✅ Дубльовано '{title}' у {mirror_channel} (msg_id={mirror_msg.message_id})")
+            # Спочатку отримуємо оригінальне повідомлення, щоб дістати file_id
+            msg = await bot.forward_message(chat_id=int(user_id), from_chat_id=source_channel, message_id=int(message_id))
+            await bot.delete_message(chat_id=int(user_id), message_id=msg.message_id)  # приховуємо тимчасовий форвард
+
+            if msg.video:
+                file_id = msg.video.file_id
+                mirror_msg = await bot.send_video(
+                    chat_id=mirror_channel,
+                    video=file_id,
+                    caption=caption,
+                    parse_mode="HTML"
+                )
+                print(f"🎬 Надіслано відео '{title}' через file_id → {mirror_channel} (msg_id={mirror_msg.message_id})")
+            elif msg.document:
+                file_id = msg.document.file_id
+                mirror_msg = await bot.send_document(
+                    chat_id=mirror_channel,
+                    document=file_id,
+                    caption=caption,
+                    parse_mode="HTML"
+                )
+                print(f"📄 Надіслано документ '{title}' → {mirror_channel} (msg_id={mirror_msg.message_id})")
+
+            else:
+                mirror_msg = await bot.copy_message(
+                    chat_id=mirror_channel,
+                    from_chat_id=source_channel,
+                    message_id=int(message_id),
+                    caption=caption,
+                    parse_mode="HTML"
+                )
+                print(f"📋 Копія '{title}' створена (без відео/документа)")
         except Exception as e:
-            print(f"❌ Помилка дублювання: {e}")
+            print(f"❌ Помилка надсилання/копіювання: {e}")
             return {"success": False, "error": str(e)}
+                
+                
 
         # 🔗 Генеруємо посилання
         try:

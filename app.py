@@ -285,21 +285,12 @@ async def block_bots(request: Request, call_next):
 @app.get("/")
 async def root():
     return {"status": "alive"}
-    
+
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-# 🌍 Формуємо правильне посилання для Telegram
-if str(mirror_channel).startswith("-100"):
-    # приватний або ID-канал → формат через /c/
-    public_id = str(mirror_channel).replace("-100", "")
-    tg_url = f"https://t.me/c/{public_id}/{mirror_msg.message_id}"
-else:
-    # публічний канал (username)
-    username = str(mirror_channel).replace("@", "")
-    tg_url = f"https://t.me/{username}/{mirror_msg.message_id}"
 
-print(f"🔗 Посилання сформовано: {tg_url}")
-
+@app.get("/watch/{film_id}")
+async def watch_film(film_id: str):
     """
     Дублює фільм або серію у відповідний дзеркальний канал.
     Підтримує type (Фільм / Серіал / Мультфільм / Серія)
@@ -332,13 +323,11 @@ print(f"🔗 Посилання сформовано: {tg_url}")
         message_id = int(film.get("message_id"))
         film_type = (film.get("type") or "").strip().lower()
         title = film.get("title") or film.get("Назва") or "Без назви"
-        season = film.get("season")
-        episode = film.get("episode")
         access = (film.get("access") or film.get("Доступ") or "").upper()
 
         print(f"🧾 ID={film_id} | type='{film_type}' | title='{title}' | message_id={message_id}")
 
-        # 🪞 Визначаємо дзеркальний канал з урахуванням PRO
+        # 🪞 Визначаємо дзеркальний канал
         if access == "PRO":
             if any(x in film_type for x in ["серіал", "серія"]):
                 mirror_channel = int(os.getenv("MEDIA_CHANNEL_MIRROR_PRO_SERIES", "-1003004556512"))
@@ -363,33 +352,24 @@ print(f"🔗 Посилання сформовано: {tg_url}")
         extra_phrase = random.choice(FUN_CAPTIONS)
         caption = f"🎬 {title}\n\n{description}\n\n{extra_phrase}"
 
-        # 🎬 Копіюємо відео з уже вбудованим червоним банером
-        final_caption = f"{caption}"
+        # 🎬 Копіюємо відео
         mirror_msg = await bot.copy_message(
             chat_id=mirror_channel,
             from_chat_id=source_channel,
             message_id=message_id
         )
 
-
-                
         # 🌍 Формуємо правильне посилання для Telegram
         if str(mirror_channel).startswith("-100"):
-            # приватний або ID-канал → формат через /c/
             public_id = str(mirror_channel).replace("-100", "")
             tg_url = f"https://t.me/c/{public_id}/{mirror_msg.message_id}"
         else:
-            # публічний канал (username)
             username = str(mirror_channel).replace("@", "")
             tg_url = f"https://t.me/{username}/{mirror_msg.message_id}"
         print(f"🔗 Посилання сформовано: {tg_url}")
 
-        # 📨 Надсилаємо користувачу посилання на перегляд
-        await bot.send_message(
-            int(user_id),
-            f"🎬 Відкрити серію:\n{tg_url}"
-        )
-                    
+        # 📨 Надсилаємо користувачу посилання
+        await bot.send_message(int(user_id), f"🎬 Відкрити:\n{tg_url}")
 
         # 🕓 Авто-видалення
         delay_hours = 3 if "сер" in film_type else 6
@@ -397,8 +377,7 @@ print(f"🔗 Посилання сформовано: {tg_url}")
         print(f"✅ {title} дубльовано → {channel_label}")
         print(f"🗑️ Видалиться через {delay_hours} год")
 
-
-        # 🧾 Записуємо час видалення у Google Таблицю "Видалення"
+        # 🧾 Запис у Google Таблицю “Видалення”
         kyiv = timezone("Europe/Kyiv")
         delete_time = datetime.now(kyiv) + timedelta(hours=delay_hours)
         sheet = get_google_service().spreadsheets()
@@ -409,10 +388,6 @@ print(f"🔗 Посилання сформовано: {tg_url}")
             insertDataOption="INSERT_ROWS",
             body={"values": [[str(mirror_channel), str(mirror_msg.message_id), delete_time.isoformat()]]}
         ).execute()
-        print(f"🧾 Заплановано видалення через {delay_hours} год ({title})")
-
-        # 🌍 Формуємо остаточне посилання для перенаправлення
-        tg_url = f"https://t.me/{mirror_channel}/{mirror_msg.message_id}"
 
         # 🔁 Перенаправлення
         return RedirectResponse(url=tg_url)
@@ -812,6 +787,22 @@ async def send_film_by_id(request: Request):
                 message_id=int(message_id)
             )
             print(f"✅ Дубльовано '{title}' у {mirror_channel} (msg_id={mirror_msg.message_id})")
+
+            # 🌍 Формуємо правильне посилання для Telegram
+            if str(mirror_channel).startswith("-100"):
+                public_id = str(mirror_channel).replace("-100", "")
+                tg_url = f"https://t.me/c/{public_id}/{mirror_msg.message_id}"
+            else:
+                username = str(mirror_channel).replace("@", "")
+                tg_url = f"https://t.me/{username}/{mirror_msg.message_id}"
+            print(f"🔗 Посилання сформовано: {tg_url}")
+
+            # 📨 Надсилаємо користувачу посилання на фільм
+            try:
+                await bot.send_message(int(user_id), f"🎬 Відкрити:\n{tg_url}")
+            except Exception as e:
+                print(f"⚠️ Не вдалося надіслати користувачу посилання: {e}")
+
         except Exception as e:
             print(f"❌ Помилка копіювання: {e}")
             return {"success": False, "error": str(e)}

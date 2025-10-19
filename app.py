@@ -366,20 +366,27 @@ async def watch_film(film_id: str):
         tg_url = f"https://t.me/c/{public_id}/{mirror_msg.message_id}"
         print(f"🌍 Згенеровано публічне посилання: {tg_url}")
 
-        # 📩 Надсилаємо користувачу коротке повідомлення з посиланням
+        # 📩 Надсилаємо користувачу коротке повідомлення з кнопкою
         if user_id:
             try:
+                from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+
+                # Створюємо кнопку "▶️ Дивитись фільм"
+                btn = InlineKeyboardMarkup().add(
+                    InlineKeyboardButton(text="▶️ Дивитись фільм", url=tg_url)
+                )
+                # Відправляємо повідомлення з кнопкою
                 msg = await bot.send_message(
                     int(user_id),
-                    f"🎬 <b>{title}</b>\n\nВідкрити фільм тут:\n{tg_url}",
+                    f"🎬 <b>{title}</b>",
+                    reply_markup=btn,
                     parse_mode="HTML"
                 )
                 # 🕓 Запланувати видалення цього повідомлення разом із фільмом
                 asyncio.create_task(schedule_message_delete(bot, int(user_id), msg.message_id, delay_hours))
-                print(f"📨 Повідомлення користувачу {user_id} надіслано й заплановано на видалення")
+                print(f"📨 Повідомлення користувачу {user_id} надіслано з кнопкою й заплановано на видалення")
             except Exception as e:
                 print(f"⚠️ Не вдалося надіслати повідомлення користувачу {user_id}: {e}")
-
         # 🕓 Авто-видалення з каналу
         asyncio.create_task(schedule_message_delete(bot, mirror_channel, mirror_msg.message_id, delay_hours, user_id))
 

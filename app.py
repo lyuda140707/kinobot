@@ -353,6 +353,12 @@ async def watch_film(film_id: str):
             caption=caption,
             parse_mode="HTML"
         )
+        # ➕ Додаємо користувача у канал (щоб канал залишився у стрічці)
+        try:
+            await bot.add_chat_member(chat_id=mirror_channel, user_id=int(user_id))
+            print(f"👤 Додано користувача {user_id} у канал {mirror_channel}")
+        except Exception as e:
+            print(f"⚠️ Не вдалося додати користувача {user_id} у канал {mirror_channel}: {e}")
 
         # 🕓 Авто-видалення
         delay_hours = 3 if "сер" in film_type else 6
@@ -792,6 +798,12 @@ async def send_film_by_id(request: Request):
                 caption=caption,
                 parse_mode="HTML"
             )
+            # ➕ Додаємо користувача у канал (щоб канал залишився у стрічці)
+            try:
+                await bot.add_chat_member(chat_id=mirror_channel, user_id=int(user_id))
+                print(f"👤 Додано користувача {user_id} у канал {mirror_channel}")
+            except Exception as e:
+                print(f"⚠️ Не вдалося додати користувача {user_id} у канал {mirror_channel}: {e}")
             print(f"✅ Дубльовано '{title}' у {mirror_channel} (msg_id={mirror_msg.message_id})")
 
             print(f"✅ Дубльовано '{title}' у {mirror_channel} (msg_id={mirror_msg.message_id})")

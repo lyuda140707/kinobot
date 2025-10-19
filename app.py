@@ -307,6 +307,7 @@ async def watch_film(film_id: str):
             print(f"⚠️ Не знайдено запис із ID {film_id}")
             return {"error": "Фільм або серіал не знайдено"}
         film = data[0]
+        user_id = film.get("user_id") or 0
 
         # 🧩 Основні поля
         source_channel = int(film.get("channel_id") or os.getenv("MEDIA_CHANNEL_ID"))

@@ -298,14 +298,13 @@ async def watch_film(film_id: str):
         import urllib.parse, requests, os, asyncio
         from datetime import datetime, timedelta
         from fastapi.responses import RedirectResponse
-        from bot import bot
-        from app import schedule_message_delete
+        from bot import bot  # ✅ залишаємо тільки цей імпорт
 
         SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
         SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY") or os.getenv("SUPABASE_ANON") or ""
         headers = {"apikey": SUPABASE_ANON_KEY, "Authorization": f"Bearer {SUPABASE_ANON_KEY}"}
 
-        # 🔍 Отримуємо запис із таблиці за ID
+        # 🔍 Отримуємо запис із таблиці
         film_id_q = urllib.parse.quote(str(film_id))
         url = f"{SUPABASE_URL}/rest/v1/films?select=*&id=eq.{film_id_q}&limit=1"
         r = requests.get(url, headers=headers, timeout=10)
@@ -324,7 +323,7 @@ async def watch_film(film_id: str):
 
         print(f"🧾 ID={film_id} | type='{film_type}' | title='{title}' | message_id={message_id}")
 
-        # 🪞 Вибираємо дзеркальний канал
+        # 🪞 Вибір дзеркального каналу
         if access == "PRO":
             if any(x in film_type for x in ["серіал", "серія"]):
                 mirror_channel = int(os.getenv("MEDIA_CHANNEL_MIRROR_PRO_SERIES", "-1003004556512"))
@@ -361,24 +360,22 @@ async def watch_film(film_id: str):
         )
         print(f"✅ {title} дубльовано → {channel_label}")
 
-        # 🔗 Генеруємо пряме посилання (публічний канал)
+        # 🔗 Формуємо пряме посилання
         public_id = str(mirror_channel).replace("-100", "")
         tg_url = f"https://t.me/c/{public_id}/{mirror_msg.message_id}"
         print(f"🌍 Згенеровано публічне посилання: {tg_url}")
 
-        # 📩 Надсилаємо користувачу
+        # 📩 Відправляємо користувачу
         if user_id:
             try:
                 await bot.send_message(int(user_id), f"🎬 Фільм відкривається тут:\n{tg_url}")
-                print(f"📨 Надіслано користувачу {user_id}: {tg_url}")
             except Exception as e:
                 print(f"⚠️ Не вдалося надіслати лінк користувачу {user_id}: {e}")
 
         # 🕓 Авто-видалення
         asyncio.create_task(schedule_message_delete(bot, mirror_channel, mirror_msg.message_id, delay_hours, user_id))
-        print(f"🗑️ Видалиться через {delay_hours} год")
 
-        # 🧾 Записуємо у Google Таблицю
+        # 🧾 Запис у таблицю
         kyiv = timezone("Europe/Kyiv")
         delete_time = datetime.now(kyiv) + timedelta(hours=delay_hours)
         sheet = get_google_service().spreadsheets()
@@ -389,14 +386,14 @@ async def watch_film(film_id: str):
             insertDataOption="INSERT_ROWS",
             body={"values": [[str(mirror_channel), str(mirror_msg.message_id), delete_time.isoformat()]]}
         ).execute()
-        print(f"🧾 Записано у 'Видалення' ({title})")
 
-        # 🔁 Перенаправляємо користувача у Telegram
+        # 🔁 Перенаправлення
         return RedirectResponse(url=tg_url)
 
     except Exception as e:
         print(f"❌ Помилка у /watch/{film_id}: {e}")
         return {"error": str(e)}
+
 
 
 @app.post("/notify-payment")
@@ -779,13 +776,10 @@ async def send_film_by_id(request: Request):
             delay_hours = 6
             print(f"🎬 Фільм {title} → {mirror_channel}")
 
-        # 📝 Формуємо опис з банером
+        # 📝 Формуємо опис
         description = (row.get("description") or "").strip()
         extra_phrase = random.choice(FUN_CAPTIONS)
-        invite_text = (
-            "\n\n🚨 <b>УВАГА!</b> 🔴\n"
-            "👉 <b>ПІДПИСАТИСЯ НА КАНАЛ 🔔</b>"
-        )
+        invite_text = "\n\n🚨 <b>УВАГА!</b> 🔴\n👉 <b>ПІДПИСАТИСЯ НА КАНАЛ 🔔</b>"
         caption = f"🎬 {title}\n\n{description}\n\n{extra_phrase}{invite_text}"
 
         # 🎬 Відправляємо фільм у дзеркальний канал
@@ -798,7 +792,6 @@ async def send_film_by_id(request: Request):
                     parse_mode="HTML"
                 )
             else:
-                # fallback якщо немає file_id
                 mirror_msg = await bot.copy_message(
                     chat_id=mirror_channel,
                     from_chat_id=source_channel,
@@ -810,10 +803,12 @@ async def send_film_by_id(request: Request):
             print(f"❌ Помилка дублювання: {e}")
             return {"success": False, "error": str(e)}
 
-        print(f"✅ Відео '{title}' відправлено у дзеркальний канал без посилання користувачу {user_id}")
+        # 🔗 Формуємо посилання (публічний канал)
+        public_id = str(mirror_channel).replace("-100", "")
+        tg_url = f"https://t.me/c/{public_id}/{mirror_msg.message_id}"
+        print(f"🌍 Згенеровано посилання: {tg_url}")
 
-
-        # 🕓 Плануємо видалення через 3 або 6 год
+        # 🕓 Плануємо видалення
         asyncio.create_task(schedule_message_delete(bot, mirror_channel, mirror_msg.message_id, delay_hours))
 
         # 🧾 Записуємо у Google Таблицю “Видалення”
@@ -827,14 +822,14 @@ async def send_film_by_id(request: Request):
             insertDataOption="INSERT_ROWS",
             body={"values": [[str(mirror_channel), str(mirror_msg.message_id), delete_time.isoformat()]]}
         ).execute()
-
-        print(f"🧾 Заплановано видалення через {delay_hours} годин ({title})")
+        print(f"🧾 Заплановано видалення через {delay_hours} год ({title})")
 
         return {"success": True, "url": tg_url}
 
     except Exception as e:
         print(f"⚠️ Помилка у /send-film-id: {e}")
         return {"success": False, "error": str(e)}
+
 
 
 @app.post("/check-subscription")

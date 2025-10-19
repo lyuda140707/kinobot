@@ -48,7 +48,7 @@ SHEETS = SERVICE.spreadsheets()
 async def schedule_message_delete(bot, chat_id: int, message_id: int, delay_hours: int = 6):
     """Видаляє дубль через задану кількість годин."""
     try:
-        delay_seconds = delay_hours * 3600  # ⏳ переводимо години в секунди
+        delay_seconds = 30  # ⏳ тестове видалення через 30 секунд
         await asyncio.sleep(delay_seconds)
         await bot.delete_message(chat_id=chat_id, message_id=message_id)
         print(f"🗑️ Повідомлення {message_id} видалено з {chat_id}")
@@ -326,21 +326,37 @@ async def watch_film(film_id: str):
         print(f"✅ {title} дубльовано → {channel_label}")
         print(f"🗑️ Видалиться через {delay_hours} год")
 
-        # 🔗 Посилання (PRO — invite, звичайний — пряме)
+        # 🕓 Авто-видалення
+        delay_hours = 3 if "сер" in film_type else 6
+        asyncio.create_task(schedule_message_delete(bot, mirror_channel, mirror_msg.message_id, delay_hours))
+        print(f"✅ {title} дубльовано → {channel_label}")
+        print(f"🗑️ Видалиться через {delay_hours} год")
+
+        # 🧾 Записуємо час видалення у Google Таблицю "Видалення"
+        kyiv = timezone("Europe/Kyiv")
+        delete_time = datetime.now(kyiv) + timedelta(hours=delay_hours)
+        sheet = get_google_service().spreadsheets()
+        sheet.values().append(
+            spreadsheetId=os.getenv("SHEET_ID"),
+            range="Видалення!A2",
+            valueInputOption="USER_ENTERED",
+            insertDataOption="INSERT_ROWS",
+            body={"values": [[str(mirror_channel), str(mirror_msg.message_id), delete_time.isoformat()]]}
+        ).execute()
+        print(f"🧾 Заплановано видалення через {delay_hours} год ({title})")
+
+        # 🔗 Генеруємо invite link для всіх дзеркал (щоб канал зберігався)
         try:
-            if access == "PRO":
-                invite_link = await bot.create_chat_invite_link(
-                    chat_id=mirror_channel,
-                    expire_date=datetime.now() + timedelta(hours=delay_hours),
-                    creates_join_request=False
-                )
-                tg_url = invite_link.invite_link
-                print(f"🔗 Згенеровано тимчасове запрошення (PRO): {tg_url}")
-            else:
-                public_id = str(mirror_channel).replace("-100", "")
-                tg_url = f"https://t.me/c/{public_id}/{mirror_msg.message_id}"
+            invite_link = await bot.create_chat_invite_link(
+                chat_id=mirror_channel,
+                expire_date=datetime.now() + timedelta(hours=delay_hours),
+                creates_join_request=False
+            )
+            tg_url = invite_link.invite_link
+            print(f"🔗 Згенеровано invite link: {tg_url}")
         except Exception as e:
-            print(f"⚠️ Помилка створення посилання: {e}")
+            print(f"⚠️ Помилка створення invite link: {e}")
+            # fallback — пряме посилання
             public_id = str(mirror_channel).replace("-100", "")
             tg_url = f"https://t.me/c/{public_id}/{mirror_msg.message_id}"
 
@@ -754,22 +770,22 @@ async def send_film_by_id(request: Request):
             print(f"❌ Помилка копіювання в дзеркальний канал: {e}")
             return {"success": False, "error": f"Не вдалося дублювати у канал: {e}"}
 
-        # 🕓 Плануємо видалення через 3 або 6 год
+               # 🕓 Плануємо видалення через 3 або 6 год
         asyncio.create_task(schedule_message_delete(bot, mirror_channel, mirror_msg.message_id, delay_hours))
-
-        # 🕓 Плануємо видалення через 3 або 6 год
-        asyncio.create_task(schedule_message_delete(bot, mirror_channel, mirror_msg.message_id, delay_hours))
-        # 🔗 Генеруємо посилання або тимчасове запрошення
+        # 🔗 Генеруємо invite link для всіх (щоб канал залишався у Telegram)
         try:
-            if access == "PRO":
-                # 👑 Для PRO-контенту створюємо тимчасове запрошення
-                invite_link = await bot.create_chat_invite_link(
-                    chat_id=mirror_channel,
-                    expire_date=datetime.now() + timedelta(hours=delay_hours),
-                    creates_join_request=False
-                )
-                tg_url = invite_link.invite_link
-                print(f"🔗 Згенеровано тимчасове запрошення (PRO): {tg_url}")
+            invite_link = await bot.create_chat_invite_link(
+                chat_id=mirror_channel,
+                expire_date=datetime.now() + timedelta(hours=delay_hours),
+                creates_join_request=False
+            )
+            tg_url = invite_link.invite_link
+            print(f"🔗 Згенеровано invite link: {tg_url}")
+        except Exception as e:
+            print(f"⚠️ Помилка створення invite link: {e}")
+            # fallback — пряме посилання
+            public_id = str(mirror_channel).replace("-100", "")
+            tg_url = f"https://t.me/c/{public_id}/{mirror_msg.message_id}"
             else:
                 # 🌍 Для звичайних (публічних) дзеркал — пряме посилання
                 if str(mirror_channel).startswith("-100"):

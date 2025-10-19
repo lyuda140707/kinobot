@@ -1495,30 +1495,37 @@ async def notify_pro_expiring():
 @app.post("/notify-repair-done")
 async def notify_repair_done():
     """
-    Розсилає повідомлення всім користувачам із таблиці PRO
+    Розсилає повідомлення всім користувачам із аркушів PRO і Користувачі
     про завершення ремонтних робіт і нову систему перегляду.
     """
     service = get_google_service()
     sheet = service.spreadsheets()
 
-    # 📋 Отримуємо всіх користувачів із аркуша PRO
-    rows = sheet.values().get(
+    all_user_ids = set()  # щоб уникнути дублювань
+
+    # 🟢 1. Беремо користувачів із аркуша PRO
+    pro_rows = sheet.values().get(
         spreadsheetId=os.getenv("SHEET_ID"),
         range="PRO!A2:D1000"
     ).execute().get("values", [])
+    for row in pro_rows:
+        if row and len(row) > 0 and row[0].isdigit():
+            all_user_ids.add(int(row[0]))
+
+    # 🟢 2. Беремо користувачів із аркуша Користувачі
+    user_rows = sheet.values().get(
+        spreadsheetId=os.getenv("SHEET_ID"),
+        range="Користувачі!A2:D1000"
+    ).execute().get("values", [])
+    for row in user_rows:
+        if row and len(row) > 0 and row[0].isdigit():
+            all_user_ids.add(int(row[0]))
 
     notified = 0
-
-    for row in rows:
-        if not row or len(row) < 1:
-            continue
-        user_id = row[0]
-        if not user_id.isdigit():
-            continue
-
+    for user_id in all_user_ids:
         try:
             await bot.send_message(
-                int(user_id),
+                user_id,
                 "✅ Роботи завершено!\n\n"
                 "🎬 Ми оновили систему перегляду фільмів — тепер усе працює ще швидше й зручніше 😎\n\n"
                 "🔄 Раніше фільм надходив особисто від бота, а тепер він відкривається прямо через наші кіно-канали 📺\n"

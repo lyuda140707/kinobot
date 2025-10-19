@@ -843,7 +843,28 @@ async def send_film_by_id(request: Request):
             print(f"❌ Помилка копіювання: {e}")
             return {"success": False, "error": str(e)}
 
-        # 🕓 Плануємо
+        # 🕓 Плануємо видалення
+        asyncio.create_task(schedule_message_delete(bot, mirror_channel, mirror_msg.message_id, delay_hours))
+        print(f"🗑️ Заплановано видалення через {delay_hours} год ({title})")
+
+        # 🧾 Записуємо у Google Таблицю “Видалення”
+        kyiv = timezone("Europe/Kyiv")
+        delete_time = datetime.now(kyiv) + timedelta(hours=delay_hours)
+        sheet = get_google_service().spreadsheets()
+        sheet.values().append(
+            spreadsheetId=os.getenv("SHEET_ID"),
+            range="Видалення!A2",
+            valueInputOption="USER_ENTERED",
+            insertDataOption="INSERT_ROWS",
+            body={"values": [[str(mirror_channel), str(mirror_msg.message_id), delete_time.isoformat()]]}
+        ).execute()
+
+        return {"success": True}
+
+    except Exception as e:
+        print(f"⚠️ Помилка у /send-film-id: {e}")
+        return {"success": False, "error": str(e)}
+
 
 
 @app.post("/check-subscription")

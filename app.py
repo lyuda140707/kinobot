@@ -792,7 +792,7 @@ async def send_film_by_id(request: Request):
             from_chat_id=source_channel,
             message_id=int(message_id)
         )
-            print(f"✅ Дубльовано '{title}' у {mirror_channel} (msg_id={mirror_msg.message_id})")
+        print(f"✅ Дубльовано '{title}' у {mirror_channel} (msg_id={mirror_msg.message_id})")
         except Exception as e:
             print(f"❌ Помилка копіювання: {e}")
             return {"success": False, "error": str(e)}

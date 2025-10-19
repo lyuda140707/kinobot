@@ -354,18 +354,11 @@ async def watch_film(film_id: str):
         caption = f"🎬 {title}\n\n{description}\n\n{extra_phrase}"
 
         # 🎬 Копіюємо відео з уже вбудованим червоним банером
-        invite_text = (
-            "\n\n🚨 <b>УВАГА!</b> 🔴\n"
-            "👉 <b>ПІДПИШИСЬ НА КАНАЛ 🔔</b>"
-        )
-        final_caption = (caption or "") + invite_text
-
+        final_caption = f"{caption}"
         mirror_msg = await bot.copy_message(
             chat_id=mirror_channel,
             from_chat_id=source_channel,
-            message_id=message_id,
-            caption=final_caption,
-            parse_mode="HTML"
+            message_id=message_id
         )
 
 
@@ -792,20 +785,13 @@ async def send_film_by_id(request: Request):
         # 📝 Банер
         description = (row.get("description") or "").strip()
         extra_phrase = random.choice(FUN_CAPTIONS)
-        final_caption = (
-            f"🎬 {title}\n\n{description}\n\n{extra_phrase}"
-            "\n\n🚨 <b>УВАГА!</b> 🔴\n👉 <b>ПІДПИШИСЬ НА КАНАЛ 🔔</b>"
-        )
+        final_caption = f"🎬 {title}\n\n{description}\n\n{extra_phrase}"
 
-        # 🎬 Копіюємо повідомлення з оригінального каналу у дзеркальний
-        try:
-            mirror_msg = await bot.copy_message(
-                chat_id=mirror_channel,
-                from_chat_id=source_channel,
-                message_id=int(message_id),
-                caption=final_caption,
-                parse_mode="HTML"
-            )
+        mirror_msg = await bot.copy_message(
+            chat_id=mirror_channel,
+            from_chat_id=source_channel,
+            message_id=int(message_id)
+        )
             print(f"✅ Дубльовано '{title}' у {mirror_channel} (msg_id={mirror_msg.message_id})")
         except Exception as e:
             print(f"❌ Помилка копіювання: {e}")

@@ -90,11 +90,11 @@ async def schedule_message_delete(bot, chat_id: int, message_id: int, delay_hour
                     ).execute()
                     print(f"🧹 Видалено рядок з таблиці 'Видалення' ({chat_id}, {message_id})")
                     break
-            except Exception as e:
-                print(f"⚠️ Не вдалося очистити таблицю 'Видалення': {e}")
+        except Exception as e:
+            print(f"⚠️ Не вдалося очистити таблицю 'Видалення': {e}")
 
-    except Exception as e:
-        print(f"⚠️ Помилка у schedule_message_delete: {e}")
+        except Exception as e:
+            print(f"⚠️ Помилка у schedule_message_delete: {e}")
 
 
 # ==== Supabase REST helper ====

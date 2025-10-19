@@ -927,6 +927,11 @@ async def send_film_by_id(request: Request):
                     parse_mode="HTML"
                 )
                 print(f"🎬 Надіслано відео '{title}' через file_id → {mirror_channel} (msg_id={mirror_msg.message_id})")
+                # 🧰 Telegram CDN "kick fix" — змушує Telegram швидше підʼєднати відео
+                await asyncio.sleep(1)
+                await bot.send_chat_action(chat_id=mirror_channel, action="upload_video")
+                print("⚙️ CDN refresh triggered for better playback")
+                
             elif msg.document:
                 file_id = msg.document.file_id
                 mirror_msg = await bot.send_document(

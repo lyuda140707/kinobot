@@ -848,7 +848,6 @@ async def send_film(request: Request):
         print(f"❌ Помилка в /send-film: {e}")
         return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
 
-
 @app.post("/send-film-id")
 async def send_film_by_id(request: Request):
     """
@@ -885,8 +884,12 @@ async def send_film_by_id(request: Request):
         mirror_pro_films = int(os.getenv("MEDIA_CHANNEL_MIRROR_PRO_FILMS", "-1003160463240"))
         mirror_pro_series = int(os.getenv("MEDIA_CHANNEL_MIRROR_PRO_SERIES", "-1003004556512"))
 
+        # 🔍 Визначаємо, серіал це чи фільм
+        film_type_lower = film_type.lower()
+        is_series = any(word in film_type_lower for word in ["серіал", "серія", "season", "episode", "ep", "s0", "e0"])
+
         if access == "PRO":
-            if "серіал" in film_type or "series" in film_type:
+            if is_series:
                 mirror_channel = mirror_pro_series
                 delay_hours = 3
                 print(f"👑 PRO серіал {title} → {mirror_channel}")
@@ -894,7 +897,7 @@ async def send_film_by_id(request: Request):
                 mirror_channel = mirror_pro_films
                 delay_hours = 6
                 print(f"👑 PRO фільм {title} → {mirror_channel}")
-        elif "серіал" in film_type or "series" in film_type:
+        elif is_series:
             mirror_channel = mirror_series
             delay_hours = 3
             print(f"📺 Серіал {title} → {mirror_channel}")
@@ -909,7 +912,7 @@ async def send_film_by_id(request: Request):
         invite_text = "\n\n🚨 <b>УВАГА!</b> 🔴\n👉 <b>ПІДПИСАТИСЯ НА КАНАЛ 🔔</b>"
         caption = f"🎬 {title}\n\n{description}\n\n{extra_phrase}{invite_text}"
 
-        # 🎬 Копіюємо повідомлення у дзеркальний канал (без file_id)
+        # 🎬 Копіюємо повідомлення у дзеркальний канал
         try:
             mirror_msg = await bot.copy_message(
                 chat_id=mirror_channel,
@@ -923,10 +926,10 @@ async def send_film_by_id(request: Request):
             print(f"❌ Помилка дублювання: {e}")
             return {"success": False, "error": str(e)}
 
-        # 🔗 Генеруємо правильне публічне посилання
+        # 🔗 Генеруємо посилання
         try:
             chat = await bot.get_chat(mirror_channel)
-            if chat.username:  # якщо канал публічний
+            if chat.username:
                 tg_url = f"https://t.me/{chat.username}/{mirror_msg.message_id}"
             else:
                 public_id = str(mirror_channel).replace("-100", "")
@@ -940,7 +943,7 @@ async def send_film_by_id(request: Request):
         # 🕓 Плануємо авто-видалення
         asyncio.create_task(schedule_message_delete(bot, mirror_channel, mirror_msg.message_id, delay_hours))
 
-        # 🧾 Записуємо у Google Таблицю “Видалення”
+        # 🧾 Запис у Google Таблицю “Видалення”
         kyiv = timezone("Europe/Kyiv")
         delete_time = datetime.now(kyiv) + timedelta(hours=delay_hours)
         sheet = get_google_service().spreadsheets()
@@ -953,30 +956,35 @@ async def send_film_by_id(request: Request):
         ).execute()
         print(f"🧾 Заплановано видалення через {delay_hours} год ({title})")
 
-        # 👉 додай цей блок тут
         # 📩 Надсилаємо користувачу кнопку "Дивитись фільм"
         if user_id:
             try:
                 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-                btn = InlineKeyboardMarkup().add(
-                    InlineKeyboardButton(text="▶️ Дивитись фільм", url=tg_url)
+
+                keyboard = InlineKeyboardMarkup(
+                    inline_keyboard=[
+                        [InlineKeyboardButton(text="▶️ Дивитись фільм", url=tg_url)]
+                    ]
                 )
+
                 msg = await bot.send_message(
-                    int(user_id),
-                    f"🎬 <b>{title}</b>",
-                    reply_markup=btn,
+                    chat_id=int(user_id),
+                    text=f"🎬 <b>{title}</b>",
+                    reply_markup=keyboard,
                     parse_mode="HTML"
                 )
+
                 asyncio.create_task(schedule_message_delete(bot, int(user_id), msg.message_id, delay_hours))
                 print(f"📨 Надіслано кнопку '▶️ Дивитись фільм' користувачу {user_id}")
+
             except Exception as e:
                 print(f"⚠️ Не вдалося надіслати кнопку користувачу {user_id}: {e}")
+
         return {"success": True, "url": tg_url}
 
     except Exception as e:
         print(f"⚠️ Помилка у /send-film-id: {e}")
         return {"success": False, "error": str(e)}
-
 
 
 @app.post("/check-subscription")

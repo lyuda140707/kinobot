@@ -370,35 +370,15 @@ async def watch_film(film_id: str):
 
 
                 
-        # 🔗 Надсилаємо користувачу посилання на публічний канал
-        try:
-            invite_link = await bot.create_chat_invite_link(
-                chat_id=mirror_channel,
-                expire_date=datetime.now() + timedelta(hours=delay_hours),
-                creates_join_request=False
-            )
-            tg_url = invite_link.invite_link
-            await bot.send_message(
-                int(user_id),
-                f"🎬 Фільм відкривається тут:\n{tg_url}"
-            )
-            print(f"🔗 Надіслано invite-link користувачу {user_id}: {tg_url}")
-        except Exception as e:
-            print(f"⚠️ Не вдалося створити invite-link: {e}")
-            # fallback — пряме публічне посилання, якщо invite не створюється
-            try:
-                if str(mirror_channel).startswith("-100"):
-                    public_id = str(mirror_channel).replace("-100", "")
-                    tg_url = f"https://t.me/c/{public_id}/{mirror_msg.message_id}"
-                else:
-                    tg_url = f"https://t.me/{mirror_channel}/{mirror_msg.message_id}"
-                await bot.send_message(
-                    int(user_id),
-                    f"🎬 Фільм відкривається тут:\n{tg_url}"
-                )
-                print(f"🌍 Використано fallback-посилання: {tg_url}")
-            except Exception as e2:
-                print(f"❌ Помилка надсилання fallback-посилання: {e2}")
+        # 🌍 Формуємо публічне посилання (всі канали публічні)
+        tg_url = f"https://t.me/{mirror_channel}/{mirror_msg.message_id}"
+        print(f"🔗 Публічне посилання: {tg_url}")
+
+        # 📨 Надсилаємо користувачу посилання на перегляд
+        await bot.send_message(
+            int(user_id),
+            f"🎬 Відкрити серію:\n{tg_url}"
+        )
                     
 
         # 🕓 Авто-видалення
@@ -421,20 +401,8 @@ async def watch_film(film_id: str):
         ).execute()
         print(f"🧾 Заплановано видалення через {delay_hours} год ({title})")
 
-        # 🔗 Генеруємо invite link для всіх дзеркал (щоб канал зберігався)
-        try:
-            invite_link = await bot.create_chat_invite_link(
-                chat_id=mirror_channel,
-                expire_date=datetime.now() + timedelta(hours=delay_hours),
-                creates_join_request=False
-            )
-            tg_url = invite_link.invite_link
-            print(f"🔗 Згенеровано invite link: {tg_url}")
-        except Exception as e:
-            print(f"⚠️ Помилка створення invite link: {e}")
-            # fallback — пряме посилання
-            public_id = str(mirror_channel).replace("-100", "")
-            tg_url = f"https://t.me/c/{public_id}/{mirror_msg.message_id}"
+        # 🌍 Формуємо остаточне посилання для перенаправлення
+        tg_url = f"https://t.me/{mirror_channel}/{mirror_msg.message_id}"
 
         # 🔁 Перенаправлення
         return RedirectResponse(url=tg_url)

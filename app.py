@@ -361,12 +361,26 @@ async def watch_film(film_id: str):
             caption=caption,
             parse_mode="HTML"
         )
-        # ➕ Додаємо користувача у канал (щоб канал залишився у стрічці)
+        # ➕ Додаємо користувача у канал або надсилаємо invite-link
         try:
             await bot.add_chat_member(chat_id=mirror_channel, user_id=int(user_id))
             print(f"👤 Додано користувача {user_id} у канал {mirror_channel}")
         except Exception as e:
             print(f"⚠️ Не вдалося додати користувача {user_id} у канал {mirror_channel}: {e}")
+            try:
+                invite_link = await bot.create_chat_invite_link(
+                    chat_id=mirror_channel,
+                    expire_date=datetime.now() + timedelta(hours=delay_hours),
+                    creates_join_request=False
+                )
+                await bot.send_message(
+                    int(user_id),
+                    f"🎬 Фільм відкривається тут:\n{invite_link.invite_link}"
+                )
+                print(f"🔗 Надіслано invite-link користувачу {user_id}")
+            except Exception as e2:
+                print(f"⚠️ Не вдалося створити або надіслати invite-link: {e2}")
+                    
 
         # 🕓 Авто-видалення
         delay_hours = 3 if "сер" in film_type else 6
@@ -806,13 +820,26 @@ async def send_film_by_id(request: Request):
                 caption=caption,
                 parse_mode="HTML"
             )
-            # ➕ Додаємо користувача у канал (щоб канал залишився у стрічці)
+            # ➕ Додаємо користувача у канал або надсилаємо invite-link
             try:
                 await bot.add_chat_member(chat_id=mirror_channel, user_id=int(user_id))
                 print(f"👤 Додано користувача {user_id} у канал {mirror_channel}")
             except Exception as e:
                 print(f"⚠️ Не вдалося додати користувача {user_id} у канал {mirror_channel}: {e}")
-            print(f"✅ Дубльовано '{title}' у {mirror_channel} (msg_id={mirror_msg.message_id})")
+                try:
+                    invite_link = await bot.create_chat_invite_link(
+                        chat_id=mirror_channel,
+                        expire_date=datetime.now() + timedelta(hours=delay_hours),
+                        creates_join_request=False
+                    )
+                    await bot.send_message(
+                        int(user_id),
+                        f"🎬 Фільм відкривається тут:\n{invite_link.invite_link}"
+                    )
+                    print(f"🔗 Надіслано invite-link користувачу {user_id}")
+                except Exception as e2:
+                    print(f"⚠️ Не вдалося створити або надіслати invite-link: {e2}")
+
 
             print(f"✅ Дубльовано '{title}' у {mirror_channel} (msg_id={mirror_msg.message_id})")
         except Exception as e:

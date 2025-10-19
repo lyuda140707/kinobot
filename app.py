@@ -52,7 +52,8 @@ async def schedule_message_delete(bot, chat_id: int, message_id: int, delay_hour
     Також очищає запис у таблиці 'Видалення'.
     """
     try:
-        delay_seconds = 60  # тест – 1 хвилина
+        # ⏳ Конвертуємо години у секунди
+        delay_seconds = delay_hours * 3600
         await asyncio.sleep(delay_seconds)
 
         # 🗑️ Видаляємо повідомлення

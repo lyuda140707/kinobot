@@ -1,7 +1,5 @@
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import JSONResponse
-from fastapi.responses import RedirectResponse
 from aiogram import types
 from bot import dp, bot
 from google_api import get_gsheet_data, get_google_service
@@ -26,79 +24,11 @@ from fastapi import Request
 from utils.date_utils import safe_parse_date
 from contextlib import asynccontextmanager
 from supabase_api import get_films
-import random
-from fastapi.responses import HTMLResponse
-
-# 🎬 Варіанти фінальних фраз під описом фільму
-FUN_CAPTIONS = [
-    "🎞️🤩 Попкорн є? Світло вимкнено?\n🚀 Цей фільм точно не дасть засумувати!",
-    "🍿 Готовий до кіношного кайфу?\n🎬 Тисни Play і забувай про все!",
-    "🌙 Ідеальний момент для фільму.\n🔥 Лови атмосферу вечора!",
-    "🎥 Постав чай, вдягни плед — кіно починається ❤️",
-    "🤩 Без спойлерів, але фінал тебе здивує 😉",
-    "💥 Увімкни фільм і насолоджуйся якістю!",
-    "🎬 Це той випадок, коли фільм кращий за серіал 😎",
-]
 
 # singleton Google Sheets client
 from google_api import get_google_service
 SERVICE = get_google_service()
 SHEETS = SERVICE.spreadsheets()
-
-# 🧹 Авто-видалення дубльованих постів у дзеркальному каналі
-async def schedule_message_delete(bot, chat_id: int, message_id: int, delay_hours: int = 6, user_id: int = None):
-    """
-    Видаляє повідомлення з каналу (і користувача, якщо задано) через delay_hours.
-    Також очищає запис у таблиці 'Видалення'.
-    """
-    try:
-        # ⏳ Конвертуємо години у секунди
-        delay_seconds = delay_hours * 3600
-        await asyncio.sleep(delay_seconds)
-
-        # 🗑️ Видаляємо повідомлення
-        try:
-            await bot.delete_message(chat_id=chat_id, message_id=message_id)
-            print(f"🗑️ Повідомлення {message_id} видалено з {chat_id}")
-        except Exception as e:
-            print(f"⚠️ Не вдалося видалити повідомлення {message_id}: {e}")
-
-        # 🚫 Видаляємо користувача з каналу, якщо задано
-        if user_id:
-            try:
-                await bot.ban_chat_member(chat_id=chat_id, user_id=user_id)
-                await bot.unban_chat_member(chat_id=chat_id, user_id=user_id)
-                print(f"🚫 Користувача {user_id} видалено з каналу {chat_id}")
-            except Exception as e:
-                print(f"⚠️ Не вдалося видалити користувача {user_id} з каналу {chat_id}: {e}")
-
-        # 🧹 Очищаємо запис про відправлення з таблиці "Видалення"
-        try:
-            sheet = get_google_service().spreadsheets()
-            rows = sheet.values().get(
-                spreadsheetId=os.getenv("SHEET_ID"),
-                range="Видалення!A2:C1000"
-            ).execute().get("values", [])
-
-            for idx, row in enumerate(rows, start=2):
-                if len(row) < 2:
-                    continue
-                if row[0] == str(chat_id) and row[1] == str(message_id):
-                    sheet.values().update(
-                        spreadsheetId=os.getenv("SHEET_ID"),
-                        range=f"Видалення!A{idx}:C{idx}",
-                        valueInputOption="RAW",
-                        body={"values": [["", "", ""]]}
-                    ).execute()
-                    print(f"🧹 Видалено рядок з таблиці 'Видалення' ({chat_id}, {message_id})")
-                    break
-        except Exception as e:
-            print(f"⚠️ Не вдалося очистити таблицю 'Видалення': {e}")
-
-    except Exception as e:
-        print(f"⚠️ Помилка у schedule_message_delete: {e}")
-
-
 
 # ==== Supabase REST helper ====
 SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
@@ -287,244 +217,6 @@ async def block_bots(request: Request, call_next):
 @app.get("/")
 async def root():
     return {"status": "alive"}
-    
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-
-@app.get("/watch/{film_id}")
-async def watch_film(film_id: str, request: Request):
-    """
-    Дублює фільм або серію у відповідний дзеркальний канал.
-    Для публічних каналів invite-link не створюється — генерується пряме посилання.
-    """
-    try:
-        import urllib.parse, requests, os, asyncio
-        from datetime import datetime, timedelta
-        from fastapi.responses import RedirectResponse, HTMLResponse
-        from bot import bot  # ✅ імпорт тільки бота
-
-        SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
-        SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY") or os.getenv("SUPABASE_ANON") or ""
-        headers = {"apikey": SUPABASE_ANON_KEY, "Authorization": f"Bearer {SUPABASE_ANON_KEY}"}
-
-        # 🔍 Отримуємо запис із таблиці
-        film_id_q = urllib.parse.quote(str(film_id))
-        url = f"{SUPABASE_URL}/rest/v1/films?select=*&id=eq.{film_id_q}&limit=1"
-        r = requests.get(url, headers=headers, timeout=10)
-        data = r.json()
-        if not data:
-            print(f"⚠️ Не знайдено запис із ID {film_id}")
-            return {"error": "Фільм або серіал не знайдено"}
-
-        film = data[0]
-        # 👤 user_id передається з WebApp через ?user_id=
-        try:
-            user_id = int(request.query_params.get("user_id", 0))
-        except:
-            user_id = int(film.get("user_id") or 0)
-
-        print(f"👤 USER_ID = {user_id}")
-        source_channel = int(film.get("channel_id") or os.getenv("MEDIA_CHANNEL_ID"))
-        message_id = int(film.get("message_id"))
-        film_type = (film.get("type") or "").strip().lower()
-        title = film.get("title") or film.get("Назва") or "Без назви"
-        access = (film.get("access") or film.get("Доступ") or "").upper()
-
-        print(f"🧾 ID={film_id} | type='{film_type}' | title='{title}' | message_id={message_id}")
-
-        # 🪞 Вибір дзеркального каналу
-        if access == "PRO":
-            if any(x in film_type for x in ["серіал", "серія"]):
-                mirror_channel = int(os.getenv("MEDIA_CHANNEL_MIRROR_PRO_SERIES", "-1003004556512"))
-                channel_label = "👑 PRO Серіал → RelaxBox PRO | Серіали"
-                delay_hours = 3
-            else:
-                mirror_channel = int(os.getenv("MEDIA_CHANNEL_MIRROR_PRO_FILMS", "-1003160463240"))
-                channel_label = "👑 PRO Фільм → RelaxTime PRO | Фільми"
-                delay_hours = 6
-        elif any(x in film_type for x in ["серіал", "серія"]):
-            mirror_channel = int(os.getenv("MEDIA_CHANNEL_MIRROR_SERIES", "-1003153440872"))
-            channel_label = "📺 Серіал → RelaxBox | Серіали"
-            delay_hours = 3
-        else:
-            mirror_channel = int(os.getenv("MEDIA_CHANNEL_MIRROR_FILMS", "-1002863248325"))
-            channel_label = "🎬 Фільм → RelaxTime View"
-            delay_hours = 6
-
-        print(f"➡️ Тип: {film_type} | Дзеркало: {mirror_channel} ({channel_label})")
-
-        # 📝 Формуємо опис
-        description = (film.get("description") or film.get("Опис") or "").strip()
-        extra_phrase = random.choice(FUN_CAPTIONS)
-        invite_text = "\n\n🚨 <b>УВАГА!</b> 🔴\n👉 <b>ПІДПИСАТИСЯ НА КАНАЛ 🔔</b>"
-        final_caption = f"🎬 {title}\n\n{description}\n\n{extra_phrase}{invite_text}"
-
-                # 🎬 Копіюємо відео в дзеркальний канал
-        # Але спершу перевіримо, чи message_id коректний (щоб не було Telegram error)
-        if not str(message_id).isdigit():
-            html = """
-            <html>
-            <head>
-                <meta charset="utf-8">
-                <title>🎞 Фільм недоступний</title>
-                <style>
-                    body {
-                        background: #0f0f0f;
-                        color: #fff;
-                        font-family: 'Russo One', sans-serif;
-                        display: flex;
-                        flex-direction: column;
-                        align-items: center;
-                        justify-content: center;
-                        height: 100vh;
-                        text-align: center;
-                    }
-                    h1 { font-size: 30px; margin-bottom: 15px; color: #00f7ff; }
-                    p { font-size: 17px; color: #ccc; max-width: 340px; line-height: 1.5; }
-                    a {
-                        display: inline-block;
-                        margin-top: 25px;
-                        padding: 10px 22px;
-                        background: linear-gradient(90deg, #00f7ff, #ff00d4);
-                        color: #000;
-                        border-radius: 10px;
-                        text-decoration: none;
-                        font-weight: bold;
-                    }
-                </style>
-            </head>
-            <body>
-                <h1>🎬 Фільм недоступний</h1>
-                <p>На жаль, це відео не може бути відтворене 😔<br>
-                Спробуйте інший фільм або поверніться пізніше 💫</p>
-                <a href="https://relaxbox.site/">🔁 Повернутись до каталогу</a>
-            </body>
-            </html>
-            """
-            return HTMLResponse(content=html, status_code=200)
-
-        # якщо все добре — копіюємо відео
-        mirror_msg = await bot.copy_message(
-            chat_id=mirror_channel,
-            from_chat_id=source_channel,
-            message_id=message_id,
-            caption=final_caption,
-            parse_mode="HTML"
-        )
-
-        print(f"✅ {title} дубльовано → {channel_label}")
-
-        # 🔗 Формуємо пряме посилання
-        public_id = str(mirror_channel).replace("-100", "")
-        tg_url = f"https://t.me/c/{public_id}/{mirror_msg.message_id}"
-        print(f"🌍 Згенеровано публічне посилання: {tg_url}")
-
-        # 🕓 Авто-видалення з каналу
-        asyncio.create_task(schedule_message_delete(bot, mirror_channel, mirror_msg.message_id, delay_hours, user_id))
-
-        # 🧾 Запис у таблицю
-        kyiv = timezone("Europe/Kyiv")
-        delete_time = datetime.now(kyiv) + timedelta(hours=delay_hours)
-        sheet = get_google_service().spreadsheets()
-        sheet.values().append(
-            spreadsheetId=os.getenv("SHEET_ID"),
-            range="Видалення!A2",
-            valueInputOption="USER_ENTERED",
-            insertDataOption="INSERT_ROWS",
-            body={"values": [[str(mirror_channel), str(mirror_msg.message_id), delete_time.isoformat()]]}
-        ).execute()
-
-        # 📩 Надсилаємо користувачу коротке повідомлення з кнопкою
-        if user_id:
-            try:
-                from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-
-                keyboard = InlineKeyboardMarkup(
-                    inline_keyboard=[
-                        [InlineKeyboardButton(text="▶️ Дивитись фільм", url=tg_url)]
-                    ]
-                )
-                msg = await bot.send_message(
-                    chat_id=int(user_id),
-                    text=f"🎬 <b>{title}</b>",
-                    reply_markup=keyboard,
-                    parse_mode="HTML"
-                )
-                asyncio.create_task(schedule_message_delete(bot, int(user_id), msg.message_id, delay_hours))
-                print(f"📨 Повідомлення користувачу {user_id} надіслано з кнопкою й заплановано на видалення")
-            except Exception as e:
-                print(f"⚠️ Не вдалося надіслати повідомлення користувачу {user_id}: {e}")
-
-        # 🔁 Перенаправлення у Telegram
-        return RedirectResponse(url=tg_url)
-
-
-    except Exception as e:
-        print(f"❌ Помилка у /watch/{film_id}: {e}")
-        # Якщо це повідомлення не знайдено — показуємо спокійний текст у WebApp
-        if "message to copy not found" in str(e) or "wrong remote file identifier" in str(e).lower():
-            html = """
-            <html>
-            <head>
-                <meta charset="utf-8">
-                <title>🎞 Фільм недоступний</title>
-                <style>
-                    body {
-                    background: #0f0f0f;
-                    color: #fff;
-                    font-family: 'Russo One', sans-serif;
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    justify-content: center;
-                    height: 100vh;
-                    text-align: center;
-                }
-                h1 {
-                    font-size: 30px;
-                    margin-bottom: 15px;
-                    color: #00f7ff;
-                }
-                p {
-                    font-size: 17px;
-                    color: #ccc;
-                    max-width: 340px;
-                    line-height: 1.5;
-                }
-                a {
-                    display: inline-block;
-                    margin-top: 25px;
-                    padding: 10px 22px;
-                    background: linear-gradient(90deg, #00f7ff, #ff00d4);
-                    color: #000;
-                    border-radius: 10px;
-                    text-decoration: none;
-                    font-weight: bold;
-                }
-            </style>
-        </head>
-        <body>
-            <h1>🎬 Фільм тимчасово недоступний</h1>
-            <p>На жаль, це відео зараз недоступне або було видалене 😔<br>
-            Спробуйте обрати інший фільм або зайдіть пізніше 💫</p>
-            <a href="https://relaxbox.site/">🔁 Повернутись до каталогу</a>
-        </body>
-        </html>
-        """
-            return HTMLResponse(content=html, status_code=200)
-
-        # Якщо інша помилка — теж відобразимо красиво
-        html = f"""
-        <html>
-        <head><meta charset="utf-8"><title>Помилка</title></head>
-        <body style="background:#111;color:#fff;font-family:sans-serif;text-align:center;padding-top:100px;">
-            <h2>⚠️ Помилка</h2>
-            <p>{str(e)}</p>
-        </body>
-        </html>
-        """
-        return HTMLResponse(content=html, status_code=200)
-
-
 
 @app.post("/notify-payment")
 async def notify_payment(req: Request):
@@ -848,204 +540,116 @@ async def send_film(request: Request):
         print(f"❌ Помилка в /send-film: {e}")
         return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
 
+
 @app.post("/send-film-id")
 async def send_film_by_id(request: Request):
-    """
-    Дублює фільм або серію у дзеркальний канал і повертає посилання.
-    ⚙️ Працює лише через message_id (без file_id).
-    """
+    data = await request.json()
+    user_id = str(data.get("user_id"))
+    message_id = str(data.get("message_id", "")).strip()
+    channel_in = str(data.get("channel_id", "")).strip()
+
+    if not user_id or not message_id:
+        return {"success": False, "error": "user_id або message_id відсутні"}
+
+    print(f"📽️ /send-film-id {message_id} від {user_id}")
+    print(f"    channel_in={channel_in}")
+
+    # 🔍 Визначаємо, file_id це чи message_id
     try:
-        data = await request.json()
-        user_id = str(data.get("user_id"))
-        message_id = str(data.get("message_id", "")).strip()
-        channel_in = str(data.get("channel_id", "")).strip()
-
-        if not user_id or user_id == "0":
-            print("❌ USER_ID порожній або 0 — не відправляємо фільм")
-            return {"success": False, "error": "Некоректний user_id (0 або порожній)"}
-
-        print(f"📽️ /send-film-id {message_id} від {user_id}")
-        print(f"    channel_in={channel_in}")
-
-        # 🔍 Отримуємо фільм або серію із Supabase
-        rows = sb_find_by_message_and_channel(message_id, channel_in) if channel_in else sb_find_by_message_id(message_id)
-        if not rows:
-            return {"success": False, "error": "Фільм не знайдено"}
-
-        row = rows[0]
-        title = row.get("title") or row.get("Назва") or "Без назви"
-        film_type = (row.get("type") or row.get("Тип") or "").lower()
-        access = (row.get("access") or row.get("Доступ") or "").upper()
-        source_channel = int(row.get("channel_id") or os.getenv("MEDIA_CHANNEL_ID"))
-
-        # 🪞 Вибираємо дзеркальний канал
-        mirror_films = int(os.getenv("MEDIA_CHANNEL_MIRROR_FILMS", "-1002863248325"))
-        mirror_series = int(os.getenv("MEDIA_CHANNEL_MIRROR_SERIES", "-1003153440872"))
-        mirror_pro_films = int(os.getenv("MEDIA_CHANNEL_MIRROR_PRO_FILMS", "-1003160463240"))
-        mirror_pro_series = int(os.getenv("MEDIA_CHANNEL_MIRROR_PRO_SERIES", "-1003004556512"))
-
-        # 🔍 Визначаємо, серіал це чи фільм
-        film_type_lower = film_type.lower()
-        is_series = any(word in film_type_lower for word in ["серіал", "серія", "season", "episode", "ep", "s0", "e0"])
-
-        if access == "PRO":
-            if is_series:
-                mirror_channel = mirror_pro_series
-                delay_hours = 3
-                print(f"👑 PRO серіал {title} → {mirror_channel}")
-            else:
-                mirror_channel = mirror_pro_films
-                delay_hours = 6
-                print(f"👑 PRO фільм {title} → {mirror_channel}")
-        elif is_series:
-            mirror_channel = mirror_series
-            delay_hours = 3
-            print(f"📺 Серіал {title} → {mirror_channel}")
+        row = None
+        if len(message_id) > 20:
+            print("🔍 Виявлено file_id — шукаємо по колонці file_id")
+            rows = sb_find_by_file_and_channel(message_id, channel_in) if channel_in else sb_find_by_file_id(message_id)
         else:
-            mirror_channel = mirror_films
-            delay_hours = 6
-            print(f"🎬 Фільм {title} → {mirror_channel}")
+            print("🔍 Виявлено message_id — шукаємо по колонці message_id")
+            rows = sb_find_by_message_and_channel(message_id, channel_in) if channel_in else sb_find_by_message_id(message_id)
+        if rows:
+            row = rows[0]
+    except Exception as e:
+        print("❌ Помилка Supabase:", e)
+        return {"success": False, "error": "Помилка доступу до бази"}
 
-        # 📝 Формуємо опис
-        description = (row.get("description") or "").strip()
-        extra_phrase = random.choice(FUN_CAPTIONS)
-        invite_text = "\n\n🚨 <b>УВАГА!</b> 🔴\n👉 <b>ПІДПИСАТИСЯ НА КАНАЛ 🔔</b>"
-        caption = f"🎬 {title}\n\n{description}\n\n{extra_phrase}{invite_text}"
+    if not row:
+        return {"success": False, "error": "Фільм не знайдено"}
 
-        # 🎬 Копіюємо або надсилаємо відео у дзеркальний канал
-        try:
-            # Спочатку отримуємо оригінальне повідомлення, щоб дістати file_id
-            msg = await bot.forward_message(chat_id=int(user_id), from_chat_id=source_channel, message_id=int(message_id))
-            await bot.delete_message(chat_id=int(user_id), message_id=msg.message_id)  # приховуємо тимчасовий форвард
+    # 🔒 Перевірка PRO
+    if (row.get("access") == "PRO") and (not has_active_pro(user_id)):
+        return {"success": False, "error": "⛔ Доступ лише для PRO користувачів"}
 
-            if msg.video:
-                file_id = msg.video.file_id
-                try:
-                    # 🧩 Основна спроба відправлення відео
-                    mirror_msg = await bot.send_video(
-                        chat_id=mirror_channel,
-                        video=file_id,
-                        caption=caption,
-                        parse_mode="HTML",
-                        supports_streaming=True
+    title = row.get("title") or ""
+    description = row.get("description") or ""
+    caption = (
+        f"🎬 {title}\n\n{description}\n\n"
+        "🎞️🤩 Попкорн є? Світло вимкнено?\n"
+        "🚀 Бо цей фільм точно не дасть засумувати!"
+    )
+
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[[
+            InlineKeyboardButton(
+                text="🎥 Обрати інший фільм 📚",
+                web_app=WebAppInfo(url="https://relaxbox.site/")
+            )
+        ]]
+    )
+
+    try:
+        channel_id = int(row.get("channel_id") or channel_in or os.getenv("MEDIA_CHANNEL_ID"))
+        file_id = str(row.get("file_id", "")).strip()
+
+        # 🧠 1️⃣ Основний спосіб — через file_id
+        if file_id and len(file_id) > 20:
+            print(f"🎬 Відправка через file_id={file_id} → {title}")
+            try:
+                sent_message = await bot.send_video(
+                    chat_id=int(user_id),
+                    video=file_id,
+                    caption=caption,
+                    reply_markup=keyboard,
+                    parse_mode="HTML",
+                    supports_streaming=True
+                )
+                print(f"✅ Надіслано напряму через file_id ({user_id}) → {title}")
+            except Exception as e:
+                print(f"⚠️ Помилка send_video: {e}")
+                # fallback — якщо file_id не спрацював
+                if row.get("message_id"):
+                    print("🔁 Використовуємо резервний copy_message()")
+                    sent_message = await bot.copy_message(
+                        chat_id=int(user_id),
+                        from_chat_id=channel_id,
+                        message_id=int(row.get("message_id"))
                     )
-                    print(f"🎬 Надіслано відео '{title}' через file_id → {mirror_channel} (msg_id={mirror_msg.message_id})")
-                    
-                    # 🧰 Telegram CDN refresh
-                    await asyncio.sleep(1)
-                    await bot.send_chat_action(chat_id=mirror_channel, action="upload_video")
-                    print("⚙️ CDN refresh triggered for better playback")
-                except Exception as e:
-                    print(f"⚠️ Помилка при надсиланні через file_id: {e}")
-                    print("🔁 Пробуємо перезалити відео у Telegram...")
-                    
-                    try:
-                        # ⚙️ Перезавантажуємо відео у головний канал, щоб отримати новий CDN
-                        reupload = await bot.send_video(chat_id=int(os.getenv('MEDIA_CHANNEL_ID')), video=file_id)
-                        new_file_id = reupload.video.file_id
-                        print(f"✅ Новий file_id отримано: {new_file_id}")
-                        
-                        # 📤 Надсилаємо новий екземпляр у дзеркальний канал
-                        mirror_msg = await bot.send_video(
-                            chat_id=mirror_channel,
-                            video=new_file_id,
-                            caption=caption,
-                            parse_mode="HTML",
-                            supports_streaming=True
-                        )
-                        print(f"🎬 Відео '{title}' перезалито й повторно відправлено → {mirror_channel} (msg_id={mirror_msg.message_id})")
+                    print(f"✅ Відправлено копією після помилки file_id ({user_id}) → {title}")
+                else:
+                    raise e
+        else:
+            # 🧩 2️⃣ Якщо file_id немає — резервна копія
+            print(f"📦 Відправка копією (message_id={row.get('message_id')}) → {title}")
+            sent_message = await bot.copy_message(
+                chat_id=int(user_id),
+                from_chat_id=channel_id,
+                message_id=int(row.get("message_id"))
+            )
+            print(f"✅ Відправлено копією ({user_id}) → {title}")
 
-                        # 🧰 Telegram CDN refresh (ще раз)
-                        await asyncio.sleep(1)
-                        await bot.send_chat_action(chat_id=mirror_channel, action="upload_video")
-                        print("⚙️ CDN refresh triggered after reupload")
-                    except Exception as ex2:
-                        print(f"❌ Помилка навіть після перезаливу: {ex2}")
-                        return {"success": False, "error": str(ex2)}
-                
-            elif msg.document:
-                file_id = msg.document.file_id
-                mirror_msg = await bot.send_document(
-                    chat_id=mirror_channel,
-                    document=file_id,
-                    caption=caption,
-                    parse_mode="HTML"
-                )
-                print(f"📄 Надіслано документ '{title}' → {mirror_channel} (msg_id={mirror_msg.message_id})")
-
-            else:
-                mirror_msg = await bot.copy_message(
-                    chat_id=mirror_channel,
-                    from_chat_id=source_channel,
-                    message_id=int(message_id),
-                    caption=caption,
-                    parse_mode="HTML"
-                )
-                print(f"📋 Копія '{title}' створена (без відео/документа)")
-        except Exception as e:
-            print(f"❌ Помилка надсилання/копіювання: {e}")
-            return {"success": False, "error": str(e)}
-                
-                
-
-        # 🔗 Генеруємо посилання
-        try:
-            chat = await bot.get_chat(mirror_channel)
-            if chat.username:
-                tg_url = f"https://t.me/{chat.username}/{mirror_msg.message_id}"
-            else:
-                public_id = str(mirror_channel).replace("-100", "")
-                tg_url = f"https://t.me/c/{public_id}/{mirror_msg.message_id}"
-            print(f"🌍 Згенеровано посилання: {tg_url}")
-        except Exception as e:
-            print(f"⚠️ Не вдалося отримати username каналу: {e}")
-            public_id = str(mirror_channel).replace("-100", "")
-            tg_url = f"https://t.me/c/{public_id}/{mirror_msg.message_id}"
-
-        # 🕓 Плануємо авто-видалення
-        asyncio.create_task(schedule_message_delete(bot, mirror_channel, mirror_msg.message_id, delay_hours))
-
-        # 🧾 Запис у Google Таблицю “Видалення”
+        # 🕓 3️⃣ Запис у таблицю видалення
         kyiv = timezone("Europe/Kyiv")
-        delete_time = datetime.now(kyiv) + timedelta(hours=delay_hours)
+        delete_time = datetime.now(kyiv) + timedelta(hours=24)
         sheet = get_google_service().spreadsheets()
         sheet.values().append(
             spreadsheetId=os.getenv("SHEET_ID"),
             range="Видалення!A2",
             valueInputOption="USER_ENTERED",
             insertDataOption="INSERT_ROWS",
-            body={"values": [[str(mirror_channel), str(mirror_msg.message_id), delete_time.isoformat()]]}
+            body={"values": [[str(user_id), str(sent_message.message_id), delete_time.isoformat()]]}
         ).execute()
-        print(f"🧾 Заплановано видалення через {delay_hours} год ({title})")
 
-        # 📩 Надсилаємо користувачу кнопку "Дивитись фільм"
-        if user_id:
-            try:
-                from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-
-                keyboard = InlineKeyboardMarkup(
-                    inline_keyboard=[
-                        [InlineKeyboardButton(text="▶️ Дивитись фільм", url=tg_url)]
-                    ]
-                )
-
-                msg = await bot.send_message(
-                    chat_id=int(user_id),
-                    text=f"🎬 <b>{title}</b>",
-                    reply_markup=keyboard,
-                    parse_mode="HTML"
-                )
-
-                asyncio.create_task(schedule_message_delete(bot, int(user_id), msg.message_id, delay_hours))
-                print(f"📨 Надіслано кнопку '▶️ Дивитись фільм' користувачу {user_id}")
-
-            except Exception as e:
-                print(f"⚠️ Не вдалося надіслати кнопку користувачу {user_id}: {e}")
-
-        return {"success": True, "url": tg_url}
+        print(f"🧾 Записано у 'Видалення' для користувача {user_id}")
+        return {"success": True}
 
     except Exception as e:
-        print(f"⚠️ Помилка у /send-film-id: {e}")
+        print(f"❌ Помилка надсилання: {e}")
         return {"success": False, "error": str(e)}
 
 
@@ -1369,7 +973,6 @@ async def check_pro(req: Request):
 
 
 
-
 @app.post("/clean-pro")
 async def clean_pro_endpoint():
     from bot import clean_expired_pro
@@ -1553,52 +1156,3 @@ async def notify_pro_expiring():
                     print(f"❌ Не вдалося надіслати нагадування {user_id}: {e}")
 
         await asyncio.sleep(60 * 60 * 2)  # раз на 2 години
-
-@app.post("/notify-repair-done")
-async def notify_repair_done():
-    """
-    Розсилає повідомлення всім користувачам із аркушів PRO і Користувачі
-    про завершення ремонтних робіт і нову систему перегляду.
-    """
-    service = get_google_service()
-    sheet = service.spreadsheets()
-
-    all_user_ids = set()  # щоб уникнути дублювань
-
-    # 🟢 1. Беремо користувачів із аркуша PRO
-    pro_rows = sheet.values().get(
-        spreadsheetId=os.getenv("SHEET_ID"),
-        range="PRO!A2:D1000"
-    ).execute().get("values", [])
-    for row in pro_rows:
-        if row and len(row) > 0 and row[0].isdigit():
-            all_user_ids.add(int(row[0]))
-
-    # 🟢 2. Беремо користувачів із аркуша Користувачі
-    user_rows = sheet.values().get(
-        spreadsheetId=os.getenv("SHEET_ID"),
-        range="Користувачі!A2:D1000"
-    ).execute().get("values", [])
-    for row in user_rows:
-        if row and len(row) > 0 and row[0].isdigit():
-            all_user_ids.add(int(row[0]))
-
-    notified = 0
-    for user_id in all_user_ids:
-        try:
-            await bot.send_message(
-                user_id,
-                "✅ Роботи завершено!\n\n"
-                "🎬 Ми оновили систему перегляду фільмів — тепер усе працює ще швидше й зручніше 😎\n\n"
-                "🔄 Раніше фільм надходив особисто від бота, а тепер він відкривається прямо через наші кіно-канали 📺\n"
-                "🚀 Перегляд став стабільним — без зависань, глюків і збоїв 💪\n\n"
-                "🍿 Приємного кіно! ❤️"
-            )
-            notified += 1
-            await asyncio.sleep(0.1)
-        except Exception as e:
-            print(f"⚠️ Не вдалося надіслати {user_id}: {e}")
-
-    print(f"✅ Розсилку завершено — повідомлено {notified} користувачів.")
-    return {"ok": True, "sent": notified}
-

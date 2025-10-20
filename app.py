@@ -187,9 +187,18 @@ from contextlib import asynccontextmanager
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # 🚫 НЕ ставимо webhook при старті, щоб не падало
+    # 🚀 1️⃣ Запускаємо автоочистку PRO користувачів
     from bot import clean_expired_pro
     await asyncio.to_thread(clean_expired_pro)
+    
+    # 🧩 2️⃣ Автоматично запускаємо очищення таблиці "Видалення"
+    try:
+        from auto_notify_added import background_deleter
+        asyncio.create_task(background_deleter())
+        print("🚀 Фонова задача background_deleter запущена!")
+    except Exception as e:
+        print(f"⚠️ Не вдалося запустити background_deleter: {e}")
+        
     yield
 
 

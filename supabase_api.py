@@ -43,29 +43,52 @@ def get_films():
         }
         for row in rows
     ]
-
 def sb_update_fileid_by_message_id(msg_id, file_id):
     """
     Оновлює поле file_id у таблиці 'films' для конкретного message_id
     """
+    import urllib.parse
     try:
-        url = f"{SUPABASE_URL}/rest/v1/films"
+        # 🔧 Безпечне кодування message_id
+        msg_q = urllib.parse.quote(str(msg_id))
+        url = f"{SUPABASE_URL}/rest/v1/films?message_id=eq.{msg_q}&select=file_id"
+
         headers = {
             "apikey": SUPABASE_ANON,
             "Authorization": f"Bearer {SUPABASE_ANON}",
             "Content-Type": "application/json",
             "Prefer": "return=representation"
         }
+
         payload = {"file_id": file_id}
 
-        # 🔧 PATCH за message_id
-        r = requests.patch(f"{url}?message_id=eq.{msg_id}", headers=headers, json=payload, timeout=20)
+        r = requests.patch(url, headers=headers, json=payload, timeout=20)
 
-        if r.status_code in [200, 204]:
-            print(f"✅ Supabase оновлено для message_id={msg_id}")
+        if r.ok:
+            print(f"✅ Supabase оновлено для message_id={msg_id} | file_id={file_id}")
         else:
-            print(f"⚠️ Supabase не оновлено ({r.status_code}): {r.text}")
+            print(f"⚠️ Помилка оновлення Supabase ({r.status_code}): {r.text}")
 
     except Exception as e:
         print(f"❌ Помилка оновлення Supabase: {e}")
+
+
+# 🚀 Перевірка доступу до Supabase при старті сервера
+if __name__ == "__main__":
+    import requests
+
+    print("🧩 Testing Supabase connection...")
+    try:
+        url = f"{SUPABASE_URL}/rest/v1/films?select=message_id&limit=1"
+        headers = {
+            "apikey": SUPABASE_ANON,
+            "Authorization": f"Bearer {SUPABASE_ANON}"
+        }
+        r = requests.get(url, headers=headers, timeout=10)
+        if r.status_code == 200:
+            print("✅ Supabase доступний — з’єднання працює.")
+        else:
+            print(f"⚠️ Supabase відповів помилкою ({r.status_code}): {r.text}")
+    except Exception as e:
+        print(f"❌ Немає доступу до Supabase: {e}")
 

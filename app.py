@@ -656,7 +656,7 @@ async def send_film_by_id(request: Request):
                 if sent_message.video and sent_message.video.file_id:
                     new_file_id = sent_message.video.file_id
                     print(f"🧠 Отримано новий file_id: {new_file_id}")
-                    sb_update_fileid_by_message_id(message_id, new_file_id)
+                    sb_update_fileid_by_message_id(row.get("message_id"), new_file_id)
                 else:
                     print("⚠️ Не знайдено file_id у відповіді Telegram (можливо це не video)")
             except Exception as e:

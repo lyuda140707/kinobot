@@ -43,3 +43,29 @@ def get_films():
         }
         for row in rows
     ]
+
+def sb_update_fileid_by_message_id(msg_id, file_id):
+    """
+    Оновлює поле file_id у таблиці 'films' для конкретного message_id
+    """
+    try:
+        url = f"{SUPABASE_URL}/rest/v1/films"
+        headers = {
+            "apikey": SUPABASE_ANON,
+            "Authorization": f"Bearer {SUPABASE_ANON}",
+            "Content-Type": "application/json",
+            "Prefer": "return=representation"
+        }
+        payload = {"file_id": file_id}
+
+        # 🔧 PATCH за message_id
+        r = requests.patch(f"{url}?message_id=eq.{msg_id}", headers=headers, json=payload, timeout=20)
+
+        if r.status_code in [200, 204]:
+            print(f"✅ Supabase оновлено для message_id={msg_id}")
+        else:
+            print(f"⚠️ Supabase не оновлено ({r.status_code}): {r.text}")
+
+    except Exception as e:
+        print(f"❌ Помилка оновлення Supabase: {e}")
+

@@ -17,21 +17,19 @@ from datetime import datetime, timedelta
 from aiogram import types
 from google_api import add_user_if_not_exists
 MEDIA_CHANNEL_ID = int(os.getenv("MEDIA_CHANNEL_ID"))
-MEDIA_CHANNEL_MIRROR = int(os.getenv("MEDIA_CHANNEL_MIRROR", "0"))
 import requests
 import urllib.parse
-import asyncio
-
-# 🧩 Планувальник авто-видалення повідомлень
-async def schedule_message_delete(chat_id: int, message_id: int, delay_hours: int = 6):
-    """Видаляє дубль через задану кількість годин."""
+# ⚙️ Отримує file_id з повідомлення в каналі за message_id
+async def get_file_id_from_message(bot, channel_id: int, message_id: int):
     try:
-        delay = delay_hours * 3600  # год → секунди
-        await asyncio.sleep(delay)
-        await bot.delete_message(chat_id=chat_id, message_id=message_id)
-        print(f"🗑 Видалено дубльований пост {message_id} з каналу {chat_id}")
+        msg = await bot.forward_message(chat_id=8265377605, from_chat_id=channel_id, message_id=message_id)
+        # ⛔️ одразу видаляємо, щоб користувачу не надсилало нічого
+        await bot.delete_message(chat_id=8265377605, message_id=msg.message_id)
+        if msg.video:
+            return msg.video.file_id
     except Exception as e:
-        print(f"⚠️ Не вдалося видалити повідомлення {message_id}: {e}")
+        print(f"⚠️ Не вдалося отримати file_id з message_id {message_id}: {e}")
+    return None
 
 
 SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
@@ -51,6 +49,20 @@ def sb_find_by_message_or_file(mid_or_fid: str):
         if r.ok and r.json():
             return r.json()[0]
     return None
+def sb_update_fileid_by_message_id(message_id: str, new_file_id: str):
+    """Оновлює file_id у таблиці films за message_id"""
+    import urllib.parse
+    try:
+        msg_q = urllib.parse.quote(str(message_id))
+        url = f"{SUPABASE_URL}/rest/v1/films?message_id=eq.{msg_q}"
+        data = {"file_id": new_file_id}
+        r = requests.patch(url, headers=_sb_headers(), json=data, timeout=10)
+        if r.ok:
+            print(f"✅ file_id оновлено в Supabase для message_id={message_id}")
+        else:
+            print(f"⚠️ Помилка оновлення Supabase ({r.status_code}): {r.text}")
+    except Exception as e:
+        print(f"❌ Помилка при оновленні file_id у Supabase: {e}")
 
 def sb_find_by_name_like(name: str):
     q = urllib.parse.quote(f"*{name}*")
@@ -125,16 +137,12 @@ bot = Bot(
 )
 dp = Dispatcher(storage=MemoryStorage())
 
-# 🎬 Кнопка для відкриття WebApp
-webapp_keyboard = InlineKeyboardMarkup(
-    inline_keyboard=[
-        [InlineKeyboardButton(
-            text="🛋 Відкрити застосунок",
-            web_app=WebAppInfo(url="https://relaxbox.site/")
-        )]
-    ]
-)
-
+webapp_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(
+        text="🛋 Відкрити застосунок",
+        web_app=WebAppInfo(url="https://relaxbox.site/")
+    )]
+])
 
 
 async def safe_send_admin(bot, admin_id, text, **kwargs):
@@ -253,34 +261,19 @@ from aiogram.filters import Command
 
 @dp.message(Command("start"))
 async def start_handler(message: types.Message):
-    # 1️⃣ Записуємо користувача
+    # 1) Записуємо користувача
     add_user_if_not_exists(
         user_id=message.from_user.id,
         username=message.from_user.username or "",
         first_name=message.from_user.first_name or ""
     )
 
-    # 2️⃣ Дістаємо payload після /start
+    # 2) Дістаємо payload після /start
     payload = None
     if message.text and len(message.text.split()) > 1:
         payload = message.text.split(maxsplit=1)[1].strip()
 
-    # 🟢 якщо користувач натиснув "Відкрити RelaxBox" з каналу
-    if payload == "webapp":
-        await message.answer(
-            "🌐 Відкрий RelaxBox нижче 👇",
-            reply_markup=InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [InlineKeyboardButton(
-                        text="🎬 Відкрити RelaxBox",
-                        web_app=WebAppInfo(url="https://relaxbox.site/")
-                    )]
-                ]
-            )
-        )
-        return
-
-    # 3️⃣ Якщо payload відсутній — показуємо кнопку WebApp
+    # 3) Якщо payload відсутній — просто показуємо кнопку WebApp
     if not payload or not (payload.startswith("film_") or payload.startswith("series_")):
         await safe_send(
             bot,
@@ -290,42 +283,47 @@ async def start_handler(message: types.Message):
         )
         return
 
-    # 4️⃣ Якщо payload валідний — шукаємо фільм
+    # 4) Якщо payload валідний — дістаємо id і шукаємо фільм
+    film_id = payload.split("_", 1)[1]
+    films = get_gsheet_data()
+
+    found = next(
+        (f for f in films
+         if str(f.get("message_id", "")).strip() == film_id
+         or str(f.get("file_id", "")).strip() == film_id),
+        None
+    )
+
+    if not found:
+        await safe_send(
+            bot,
+            message.chat.id,
+            "🎬 Відкрий застосунок і обери фільм 👇",
+            reply_markup=webapp_keyboard
+        )
+        return
+
+    name = found.get("Назва", "Без назви")
+    desc = found.get("Опис", "Без опису")
+    msg_id = found.get("message_id")
+    file_id = found.get("file_id")
+    channel_id = int(found.get("channel_id") or os.getenv("MEDIA_CHANNEL_ID"))
+
+    caption = (
+        f"*🎬 {name}*\n{desc}\n\n"
+        "🎞️🤩 Попкорн є? Світло вимкнено?\n"
+        "🚀 Бо цей фільм точно не дасть засумувати!"
+    )
+    # 🔍 Якщо немає file_id — спробуй отримати його з message_id
+    if not file_id and msg_id:
+        file_id = await get_file_id_from_message(bot, channel_id, int(msg_id))
+        if file_id:
+            print(f"✅ Отримано file_id: {file_id}")
+            # 👉 тут можна зберегти його в базу або таблицю (Google Sheets / Supabase)
+            sb_update_fileid_by_message_id(msg_id, file_id)
     try:
-        film_id = payload.split("_", 1)[1]
-        films = get_gsheet_data()
-
-        found = next(
-            (f for f in films
-             if str(f.get("message_id", "")).strip() == film_id
-             or str(f.get("file_id", "")).strip() == film_id),
-            None
-        )
-
-        if not found:
-            await safe_send(
-                bot,
-                message.chat.id,
-                "🎬 Відкрий застосунок і обери фільм 👇",
-                reply_markup=webapp_keyboard
-            )
-            return
-
-        name = found.get("Назва", "Без назви")
-        desc = found.get("Опис", "Без опису")
-        msg_id = found.get("message_id")
-        file_id = found.get("file_id")
-        channel_id = int(found.get("channel_id") or os.getenv("MEDIA_CHANNEL_ID"))
-
-        caption = (
-            f"*🎬 {name}*\n{desc}\n\n"
-            "🎞️🤩 Попкорн є? Світло вимкнено?\n"
-            "🚀 Бо цей фільм точно не дасть засумувати!"
-        )
-
-        # 🧱 Надсилаємо фільм користувачу
         if msg_id:
-            sent = await bot.copy_message(
+            await bot.copy_message(
                 chat_id=message.chat.id,
                 from_chat_id=channel_id,
                 message_id=int(msg_id),
@@ -333,42 +331,22 @@ async def start_handler(message: types.Message):
                 parse_mode="Markdown"
             )
         elif file_id:
-            sent = await bot.send_video(
+            await bot.send_video(
                 chat_id=message.chat.id,
                 video=file_id,
                 caption=caption,
                 parse_mode="Markdown"
             )
+        # 🧰 Telegram CDN "kick fix" — змушує Telegram швидше підʼєднати відео
+        await asyncio.sleep(1)
+        await bot.send_chat_action(chat_id=message.chat.id, action="upload_video")
+        print("⚙️ CDN refresh triggered for better playback")
         else:
             await safe_send(bot, message.chat.id, "⚠️ Не знайдено message_id або file_id")
-            return
-
-        # 🪞 Після відправки — дублюємо пост у публічний канал (дзеркало), якщо не PRO
-        MIRROR_CHANNEL_ID = int(os.getenv("MEDIA_CHANNEL_MIRROR", "0"))
-        access = found.get("Доступ") or found.get("access") or ""  # PRO / Free
-
-        if MIRROR_CHANNEL_ID and msg_id and access.upper() != "PRO":
-            try:
-                mirror_msg = await bot.copy_message(
-                    chat_id=MIRROR_CHANNEL_ID,
-                    from_chat_id=channel_id,
-                    message_id=int(msg_id)
-                )
-                print(f"✅ Фільм {name} дубльовано у публічний канал: msg_id={mirror_msg.message_id}")
-
-                # 🕓 Плануємо авто-видалення через 6 годин
-                asyncio.create_task(
-                    schedule_message_delete(MIRROR_CHANNEL_ID, mirror_msg.message_id, delay_hours=6)
-                )
-                print(f"🗑 Заплановано видалення дубліката {name} через 6 годин")
-            except Exception as e:
-                print(f"⚠️ Не вдалося дублювати у публічний канал: {e}")
-        else:
-            print(f"🔒 PRO фільм ({name}) — не копіюємо у публічний канал")
-
     except Exception as e:
         print(f"❌ Помилка копіювання відео: {e}")
         await safe_send(bot, message.chat.id, "⚠️ Не вдалося відправити відео")
+
 
 
 @dp.message(F.video)
@@ -429,9 +407,14 @@ async def process_message(message: types.Message):
     )
     print(f"✅ Надсилаємо фільм: {name}")
     print(f"🆔 message_id: {msg_id} | file_id: {file_id} | channel: {channel_id}")
-
+    # 🔍 Якщо немає file_id — спробуй отримати його з message_id
+    if not file_id and msg_id:
+        file_id = await get_file_id_from_message(bot, channel_id, int(msg_id))
+        if file_id:
+            print(f"✅ Отримано file_id: {file_id}")
+            # 👉 тут можна зберегти його в базу або таблицю
+            sb_update_fileid_by_message_id(msg_id, file_id)
     try:
-       
         if msg_id:
             await bot.copy_message(
                 chat_id=message.chat.id,
@@ -449,6 +432,10 @@ async def process_message(message: types.Message):
             )
         else:
             await message.answer(caption, parse_mode="Markdown")
+        # 🧰 Telegram CDN "kick fix" — змушує Telegram швидше підʼєднати відео
+        await asyncio.sleep(1)
+        await bot.send_chat_action(chat_id=message.chat.id, action="upload_video")
+        print("⚙️ CDN refresh triggered for better playback")
     except Exception as e:
         print(f"❌ Помилка копіювання відео: {e}")
         await safe_send(bot, message.chat.id, "⚠️ Не вдалося відправити відео")

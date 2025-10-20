@@ -24,6 +24,23 @@ from fastapi import Request
 from utils.date_utils import safe_parse_date
 from contextlib import asynccontextmanager
 from supabase_api import get_films
+# 🧩 Перевірка доступу до Supabase при старті сервера
+import requests
+
+print("🧩 Testing Supabase connection...")
+try:
+    url = f"{SUPABASE_URL}/rest/v1/films?select=message_id&limit=1"
+    headers = {
+        "apikey": SUPABASE_ANON,
+        "Authorization": f"Bearer {SUPABASE_ANON}"
+    }
+    r = requests.get(url, headers=headers, timeout=10)
+    if r.status_code == 200:
+        print("✅ Supabase доступний — з’єднання працює.")
+    else:
+        print(f"⚠️ Supabase відповів помилкою ({r.status_code}): {r.text}")
+except Exception as e:
+    print(f"❌ Немає доступу до Supabase: {e}")
 
 # singleton Google Sheets client
 from google_api import get_google_service

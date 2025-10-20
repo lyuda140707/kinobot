@@ -45,13 +45,17 @@ def get_films():
     ]
 def sb_update_fileid_by_message_id(msg_id, file_id):
     """
-    Оновлює поле file_id у таблиці 'films' для конкретного message_id
+    Оновлює поле file_id у таблиці 'films' для конкретного message_id (int8)
     """
+    import requests
     import urllib.parse
+
+    print(f"🧩 [DEBUG] sb_update_fileid_by_message_id викликано для message_id={msg_id}, file_id={file_id}")
     try:
-        # 🔧 Безпечне кодування message_id
-        msg_q = urllib.parse.quote(str(msg_id))
-        url = f"{SUPABASE_URL}/rest/v1/films?message_id=eq.{msg_q}&select=file_id"
+        # ✅ Перетворюємо у число (бо в Supabase message_id — int8)
+        msg_id_int = int(msg_id)
+        msg_q = urllib.parse.quote(str(msg_id_int))
+        url = f"{SUPABASE_URL}/rest/v1/films?message_id=eq.{msg_q}"
 
         headers = {
             "apikey": SUPABASE_ANON,
@@ -61,16 +65,17 @@ def sb_update_fileid_by_message_id(msg_id, file_id):
         }
 
         payload = {"file_id": file_id}
-
         r = requests.patch(url, headers=headers, json=payload, timeout=20)
 
+        # 🧠 Логування відповіді
         if r.ok:
-            print(f"✅ Supabase оновлено для message_id={msg_id} | file_id={file_id}")
+            print(f"✅ [Supabase] Оновлено file_id для message_id={msg_id_int}")
         else:
-            print(f"⚠️ Помилка оновлення Supabase ({r.status_code}): {r.text}")
+            print(f"⚠️ [Supabase] Помилка оновлення ({r.status_code}): {r.text}")
 
     except Exception as e:
-        print(f"❌ Помилка оновлення Supabase: {e}")
+        print(f"❌ [Supabase] Помилка оновлення: {e}")
+
 
 
 # 🚀 Перевірка доступу до Supabase при старті сервера

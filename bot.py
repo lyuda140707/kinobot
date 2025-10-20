@@ -18,6 +18,7 @@ from aiogram import types
 from google_api import add_user_if_not_exists
 MEDIA_CHANNEL_ID = int(os.getenv("MEDIA_CHANNEL_ID"))
 import requests
+import asyncio
 import urllib.parse
 # ⚙️ Отримує file_id з повідомлення в каналі за message_id
 async def get_file_id_from_message(bot, channel_id: int, message_id: int):
@@ -259,6 +260,7 @@ from google_api import find_film_by_name
 
 from aiogram.filters import Command
 
+# 🚀 Обробник команди /start
 @dp.message(Command("start"))
 async def start_handler(message: types.Message):
     # 1) Записуємо користувача
@@ -334,6 +336,7 @@ async def start_handler(message: types.Message):
 
         # 🧩 Після надсилання — отримуємо file_id (якщо його ще нема)
         if not file_id and msg_id:
+            await asyncio.sleep(1.5)  # коротка пауза перед запитом
             file_id = await get_file_id_from_message(bot, channel_id, int(msg_id))
             if file_id:
                 print(f"✅ Отримано file_id: {file_id}")
@@ -350,8 +353,6 @@ async def start_handler(message: types.Message):
         print(f"❌ Помилка копіювання відео: {e}")
         await safe_send(bot, message.chat.id, "⚠️ Не вдалося відправити відео")
 
-    else:
-        await safe_send(bot, message.chat.id, "⚠️ Не знайдено message_id або file_id")
 
 
 
@@ -411,15 +412,10 @@ async def process_message(message: types.Message):
         "🎞️🤩 Попкорн є? Світло вимкнено?\n"
         "🚀 Бо цей фільм точно не дасть засумувати!"
     )
+
     print(f"✅ Надсилаємо фільм: {name}")
     print(f"🆔 message_id: {msg_id} | file_id: {file_id} | channel: {channel_id}")
-    # 🔍 Якщо немає file_id — спробуй отримати його з message_id
-    if not file_id and msg_id:
-        file_id = await get_file_id_from_message(bot, channel_id, int(msg_id))
-        if file_id:
-            print(f"✅ Отримано file_id: {file_id}")
-            # 👉 тут можна зберегти його в базу або таблицю
-            sb_update_fileid_by_message_id(msg_id, file_id)
+
     try:
         if msg_id:
             await bot.copy_message(
@@ -438,12 +434,25 @@ async def process_message(message: types.Message):
             )
         else:
             await message.answer(caption, parse_mode="Markdown")
-        # 🧰 Telegram CDN "kick fix" — змушує Telegram швидше підʼєднати відео
+
+        # 🧩 Після надсилання — отримуємо file_id (якщо його ще нема)
+        if not file_id and msg_id:
+            await asyncio.sleep(1.5)  # коротка пауза перед запитом
+            file_id = await get_file_id_from_message(bot, channel_id, int(msg_id))
+            if file_id:
+                print(f"✅ Отримано file_id: {file_id}")
+                sb_update_fileid_by_message_id(msg_id, file_id)
+            else:
+                print(f"⚠️ Не вдалося отримати file_id для message_id={msg_id}")
+
+        # 🧰 Telegram CDN "kick fix"
         await asyncio.sleep(1)
         await bot.send_chat_action(chat_id=message.chat.id, action="upload_video")
         print("⚙️ CDN refresh triggered for better playback")
+
     except Exception as e:
         print(f"❌ Помилка копіювання відео: {e}")
         await safe_send(bot, message.chat.id, "⚠️ Не вдалося відправити відео")
+
 
     

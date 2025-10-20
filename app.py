@@ -628,6 +628,7 @@ async def send_film_by_id(request: Request):
                     parse_mode="HTML",
                     supports_streaming=True
                 )
+                print(f"⚡ Використано кешований file_id (миттєва відправка) → {title}")
                 print(f"✅ Надіслано напряму через file_id ({user_id}) → {title}")
             except Exception as e:
                 print(f"⚠️ Помилка send_video: {e}")

@@ -650,17 +650,25 @@ async def send_film_by_id(request: Request):
                 message_id=int(row.get("message_id"))
             )
             print(f"✅ Відправлено копією ({user_id}) → {title}")
+
+            # 🧠 Отримуємо file_id через get_messages() і оновлюємо Supabase
             from supabase_api import sb_update_fileid_by_message_id
-            
             try:
-                if sent_message.video and sent_message.video.file_id:
-                    new_file_id = sent_message.video.file_id
+                # ⏳ Коротка пауза, щоб Telegram встиг "записати" копію
+                await asyncio.sleep(1)
+
+                # 🔍 Отримуємо повне повідомлення користувача, щоб дістати file_id
+                full_msg = await bot.get_messages(chat_id=int(user_id), message_ids=[sent_message.message_id])
+
+                if full_msg and full_msg[0].video and full_msg[0].video.file_id:
+                    new_file_id = full_msg[0].video.file_id
                     print(f"🧠 Отримано новий file_id: {new_file_id}")
                     sb_update_fileid_by_message_id(row.get("message_id"), new_file_id)
                 else:
-                    print("⚠️ Не знайдено file_id у відповіді Telegram (можливо це не video)")
+                    print("⚠️ Не вдалося отримати video.file_id через get_messages()")
+
             except Exception as e:
-                print(f"❌ Помилка під час оновлення file_id у Supabase: {e}")
+                print(f"❌ Помилка при отриманні file_id через get_messages: {e}")
 
         # 🕓 3️⃣ Запис у таблицю видалення
         kyiv = timezone("Europe/Kyiv")
@@ -680,6 +688,7 @@ async def send_film_by_id(request: Request):
     except Exception as e:
         print(f"❌ Помилка надсилання: {e}")
         return {"success": False, "error": str(e)}
+
 
 
 @app.post("/check-subscription")

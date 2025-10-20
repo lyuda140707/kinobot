@@ -614,6 +614,7 @@ async def send_film_by_id(request: Request):
     try:
         channel_id = int(row.get("channel_id") or channel_in or os.getenv("MEDIA_CHANNEL_ID"))
         file_id = str(row.get("file_id", "")).strip()
+        ADMIN_ID = int(os.getenv("ADMIN_ID", "941416029"))  # ← твій адмінський ID з ENV
 
         # 🧠 1️⃣ Основний спосіб — через file_id
         if file_id and len(file_id) > 20:
@@ -651,29 +652,32 @@ async def send_film_by_id(request: Request):
             )
             print(f"✅ Відправлено копією ({user_id}) → {title}")
 
-            # 🧠 Отримуємо file_id через get_messages() і оновлюємо Supabase
+            # 🧠 Потай отримуємо file_id через forward у ADMIN_ID (користувач цього не бачить)
             from supabase_api import sb_update_fileid_by_message_id
             try:
-                # ⏳ Пауза, щоб Telegram гарантовано віддав медіа
-                await asyncio.sleep(1)
-                
-                # 📥 Отримуємо оригінальне повідомлення з каналу, щоб дістати file_id
-                original_msg = await bot.forward_message(
-                    chat_id=int(user_id),
+                await asyncio.sleep(1)  # коротка пауза
+
+                fwd = await bot.forward_message(
+                    chat_id=ADMIN_ID,
                     from_chat_id=channel_id,
                     message_id=int(row.get("message_id"))
                 )
-                await bot.delete_message(chat_id=int(user_id), message_id=original_msg.message_id)
-                
-                if original_msg.video and original_msg.video.file_id:
-                    new_file_id = original_msg.video.file_id
-                    print(f"🧠 Отримано новий file_id: {new_file_id}")
+
+                if fwd.video and fwd.video.file_id:
+                    new_file_id = fwd.video.file_id
+                    print(f"🧠 Отримано новий file_id через ADMIN_ID: {new_file_id}")
                     sb_update_fileid_by_message_id(row.get("message_id"), new_file_id)
+                    # прибираємо службову пересилку з адмін-чату
+                    try:
+                        await bot.delete_message(chat_id=ADMIN_ID, message_id=fwd.message_id)
+                    except Exception as de:
+                        print(f"⚠️ Не вдалося видалити службовий forward у ADMIN_ID: {de}")
                 else:
-                    print("⚠️ Не вдалося отримати video.file_id через forward_message()")
+                    print("⚠️ Не вдалося отримати video.file_id через forward до ADMIN_ID")
+
             except Exception as e:
-                print(f"❌ Помилка при отриманні file_id через forward_message: {e}")
-                
+                print(f"❌ Помилка при forward до ADMIN_ID: {e}")
+
         # 🕓 3️⃣ Запис у таблицю видалення
         kyiv = timezone("Europe/Kyiv")
         delete_time = datetime.now(kyiv) + timedelta(hours=24)
@@ -692,7 +696,6 @@ async def send_film_by_id(request: Request):
     except Exception as e:
         print(f"❌ Помилка надсилання: {e}")
         return {"success": False, "error": str(e)}
-
 
 
 @app.post("/check-subscription")

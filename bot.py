@@ -340,7 +340,11 @@ async def start_handler(message: types.Message):
             file_id = await get_file_id_from_message(bot, channel_id, int(msg_id))
             if file_id:
                 print(f"✅ Отримано file_id: {file_id}")
-                sb_update_fileid_by_message_id(msg_id, file_id)
+                ok = sb_update_fileid_by_message_id(msg_id, file_id)
+                if ok:
+                    print(f"💾 file_id записано у Supabase для message_id={msg_id}")
+                else:
+                    print(f"⚠️ Не вдалося записати file_id у Supabase (message_id={msg_id})")
             else:
                 print(f"⚠️ Не вдалося отримати file_id для message_id={msg_id}")
 
@@ -441,7 +445,11 @@ async def process_message(message: types.Message):
             file_id = await get_file_id_from_message(bot, channel_id, int(msg_id))
             if file_id:
                 print(f"✅ Отримано file_id: {file_id}")
-                sb_update_fileid_by_message_id(msg_id, file_id)
+                ok = sb_update_fileid_by_message_id(msg_id, file_id)
+                if ok:
+                    print(f"💾 file_id записано у Supabase для message_id={msg_id}")
+                else:
+                    print(f"⚠️ Не вдалося записати file_id у Supabase (message_id={msg_id})")
             else:
                 print(f"⚠️ Не вдалося отримати file_id для message_id={msg_id}")
 

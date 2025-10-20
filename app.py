@@ -624,6 +624,7 @@ async def send_film_by_id(request: Request):
         channel_id = int(row.get("channel_id") or channel_in or os.getenv("MEDIA_CHANNEL_ID"))
         file_id = str(row.get("file_id", "")).strip()
         ADMIN_ID = int(os.getenv("ADMIN_ID", "941416029"))  # ← твій адмінський ID з ENV
+        print(f"🧩 ADMIN_ID = {ADMIN_ID}")
 
         # 🧠 1️⃣ Основний спосіб — через file_id
         if file_id and len(file_id) > 20:

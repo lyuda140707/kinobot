@@ -654,22 +654,26 @@ async def send_film_by_id(request: Request):
             # 🧠 Отримуємо file_id через get_messages() і оновлюємо Supabase
             from supabase_api import sb_update_fileid_by_message_id
             try:
-                # ⏳ Коротка пауза, щоб Telegram встиг "записати" копію
+                # ⏳ Пауза, щоб Telegram гарантовано віддав медіа
                 await asyncio.sleep(1)
-
-                # 🔍 Отримуємо повне повідомлення користувача, щоб дістати file_id
-                full_msg = await bot.get_messages(chat_id=int(user_id), message_ids=[sent_message.message_id])
-
-                if full_msg and full_msg[0].video and full_msg[0].video.file_id:
-                    new_file_id = full_msg[0].video.file_id
+                
+                # 📥 Отримуємо оригінальне повідомлення з каналу, щоб дістати file_id
+                original_msg = await bot.forward_message(
+                    chat_id=int(user_id),
+                    from_chat_id=channel_id,
+                    message_id=int(row.get("message_id"))
+                )
+                await bot.delete_message(chat_id=int(user_id), message_id=original_msg.message_id)
+                
+                if original_msg.video and original_msg.video.file_id:
+                    new_file_id = original_msg.video.file_id
                     print(f"🧠 Отримано новий file_id: {new_file_id}")
                     sb_update_fileid_by_message_id(row.get("message_id"), new_file_id)
                 else:
-                    print("⚠️ Не вдалося отримати video.file_id через get_messages()")
-
+                    print("⚠️ Не вдалося отримати video.file_id через forward_message()")
             except Exception as e:
-                print(f"❌ Помилка при отриманні file_id через get_messages: {e}")
-
+                print(f"❌ Помилка при отриманні file_id через forward_message: {e}")
+                
         # 🕓 3️⃣ Запис у таблицю видалення
         kyiv = timezone("Europe/Kyiv")
         delete_time = datetime.now(kyiv) + timedelta(hours=24)

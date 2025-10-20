@@ -51,19 +51,28 @@ def sb_find_by_message_or_file(mid_or_fid: str):
             return r.json()[0]
     return None
 def sb_update_fileid_by_message_id(message_id: str, new_file_id: str):
-    """Оновлює file_id у таблиці films за message_id"""
+    """Оновлює file_id у таблиці films за message_id (int8)"""
     import urllib.parse
+
+    print(f"🧩 [DEBUG] sb_update_fileid_by_message_id викликано для message_id={message_id}, file_id={new_file_id}")
     try:
-        msg_q = urllib.parse.quote(str(message_id))
+        msg_id_int = int(message_id)
+        msg_q = urllib.parse.quote(str(msg_id_int))
         url = f"{SUPABASE_URL}/rest/v1/films?message_id=eq.{msg_q}"
+
         data = {"file_id": new_file_id}
         r = requests.patch(url, headers=_sb_headers(), json=data, timeout=10)
+
         if r.ok:
-            print(f"✅ file_id оновлено в Supabase для message_id={message_id}")
+            print(f"✅ [Supabase] Оновлено file_id для message_id={msg_id_int}")
+            return True
         else:
-            print(f"⚠️ Помилка оновлення Supabase ({r.status_code}): {r.text}")
+            print(f"⚠️ [Supabase] Помилка оновлення ({r.status_code}): {r.text}")
+            return False
     except Exception as e:
-        print(f"❌ Помилка при оновленні file_id у Supabase: {e}")
+        print(f"❌ [Supabase] Помилка при оновленні file_id: {e}")
+        return False
+
 
 def sb_find_by_name_like(name: str):
     q = urllib.parse.quote(f"*{name}*")

@@ -25,6 +25,7 @@ from utils.date_utils import safe_parse_date
 from contextlib import asynccontextmanager
 from supabase_api import get_films
 # 🧩 Перевірка доступу до Supabase при старті сервера
+from supabase_api import SUPABASE_URL, SUPABASE_ANON
 import requests
 
 print("🧩 Testing Supabase connection...")

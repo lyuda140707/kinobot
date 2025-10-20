@@ -650,6 +650,17 @@ async def send_film_by_id(request: Request):
                 message_id=int(row.get("message_id"))
             )
             print(f"✅ Відправлено копією ({user_id}) → {title}")
+            from supabase_api import sb_update_fileid_by_message_id
+            
+            try:
+                if sent_message.video and sent_message.video.file_id:
+                    new_file_id = sent_message.video.file_id
+                    print(f"🧠 Отримано новий file_id: {new_file_id}")
+                    sb_update_fileid_by_message_id(message_id, new_file_id)
+                else:
+                    print("⚠️ Не знайдено file_id у відповіді Telegram (можливо це не video)")
+            except Exception as e:
+                print(f"❌ Помилка під час оновлення file_id у Supabase: {e}")
 
         # 🕓 3️⃣ Запис у таблицю видалення
         kyiv = timezone("Europe/Kyiv")

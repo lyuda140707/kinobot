@@ -341,11 +341,11 @@ async def start_handler(message: types.Message):
         await asyncio.sleep(1)
         await bot.send_chat_action(chat_id=message.chat.id, action="upload_video")
         print("⚙️ CDN refresh triggered for better playback")
-    else:
-            await safe_send(bot, message.chat.id, "⚠️ Не знайдено message_id або file_id")
     except Exception as e:
         print(f"❌ Помилка копіювання відео: {e}")
         await safe_send(bot, message.chat.id, "⚠️ Не вдалося відправити відео")
+    else:
+        await safe_send(bot, message.chat.id, "⚠️ Не знайдено message_id або file_id")
 
 
 

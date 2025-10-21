@@ -183,6 +183,19 @@ def update_referrals(inviter_id: str, invited_id: str):
             body={"values": [[str(inviter_id), str(invited_id), "FALSE", 1]]}
         ).execute()
         print(f"🆕 Новий рядок для {inviter_id} створено з першим запрошеним {invited_id}")
+        # 🧭 Якщо вже 3 або більше — повідомляємо адміну
+    try:
+        invited_count_now = len(invited_ids) if found_idx else 1
+        if invited_count_now >= 3:
+            admin_id = 8265377605  # <-- заміни на свій Telegram ID, якщо інший
+            bot_token = os.getenv("BOT_TOKEN")
+            msg = f"🎯 Користувач {inviter_id} запросив {invited_count_now} друзів — готовий до PRO 🎁"
+            requests.post(f"https://api.telegram.org/bot{bot_token}/sendMessage",
+                          json={"chat_id": admin_id, "text": msg})
+            print(f"📩 Повідомлення адміну: {msg}")
+    except Exception as e:
+        print(f"⚠️ Не вдалося надіслати повідомлення адміну: {e}")
+
     
 
 bot = Bot(

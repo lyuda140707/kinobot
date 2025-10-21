@@ -139,6 +139,50 @@ async def safe_send(bot: Bot, user_id: int, text: str, **kwargs):
     except Exception as e:
         print(f"❌ Інша помилка {user_id}: {e}")
     return False
+# === 📋 Реферальна система ===
+def update_referrals(inviter_id: str, invited_id: str):
+    """Оновлює таблицю 'Referrals' у Google Sheets."""
+    service = get_google_service()
+    sheet = service.spreadsheets()
+    spreadsheet_id = os.getenv("SHEET_ID")
+
+    # Зчитуємо всі рядки з аркуша Referrals
+    res = sheet.values().get(
+        spreadsheetId=spreadsheet_id,
+        range="Referrals!A2:D1000"
+    ).execute()
+    rows = res.get("values", [])
+
+    # Шукаємо запрошувача
+    found_idx = None
+    for i, row in enumerate(rows, start=2):
+        if len(row) > 0 and row[0] == str(inviter_id):
+            found_idx = i
+            break
+
+    if found_idx:
+        invited_ids = []
+        if len(rows[found_idx - 2]) > 1 and rows[found_idx - 2][1]:
+            invited_ids = [x.strip() for x in rows[found_idx - 2][1].split(",") if x.strip()]
+        if str(invited_id) not in invited_ids:
+            invited_ids.append(str(invited_id))
+            invited_count = len(invited_ids)
+            sheet.values().update(
+                spreadsheetId=spreadsheet_id,
+                range=f"Referrals!B{found_idx}:D{found_idx}",
+                valueInputOption="USER_ENTERED",
+                body={"values": [[",".join(invited_ids), "", invited_count]]}
+            ).execute()
+            print(f"✅ Додано {invited_id} до запрошень {inviter_id}")
+    else:
+        # Якщо запрошувача немає — додаємо нового
+        sheet.values().append(
+            spreadsheetId=spreadsheet_id,
+            range="Referrals!A2:D2",
+            valueInputOption="USER_ENTERED",
+            body={"values": [[str(inviter_id), str(invited_id), "FALSE", 1]]}
+        ).execute()
+        print(f"🆕 Новий рядок для {inviter_id} створено з першим запрошеним {invited_id}")
     
 
 bot = Bot(
@@ -283,6 +327,13 @@ async def start_handler(message: types.Message):
     payload = None
     if message.text and len(message.text.split()) > 1:
         payload = message.text.split(maxsplit=1)[1].strip()
+
+    # 🧩 Перевірка реферального запрошення
+    if payload and payload.startswith("ref_"):
+        inviter_id = payload.replace("ref_", "")
+        if str(inviter_id) != str(message.from_user.id):
+            update_referrals(inviter_id, str(message.from_user.id))
+            print(f"🎯 Користувач {message.from_user.id} прийшов за реф-посиланням від {inviter_id}")
 
     # 3) Якщо payload відсутній — просто показуємо кнопку WebApp
     if not payload or not (payload.startswith("film_") or payload.startswith("series_")):

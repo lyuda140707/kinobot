@@ -26,6 +26,7 @@ from contextlib import asynccontextmanager
 from supabase_api import get_films
 # 🧩 Перевірка доступу до Supabase при старті сервера
 from supabase_api import SUPABASE_URL, SUPABASE_ANON
+from fastapi.responses import PlainTextResponse
 import requests
 
 print("🧩 Testing Supabase connection...")
@@ -207,6 +208,17 @@ async def lifespan(app: FastAPI):
 # ✅ Оголошення FastAPI ДО використання декораторів
 app = FastAPI(lifespan=lifespan)
 
+# 🛡️ Безпечні HTTP-заголовки
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Frame-Options"] = "DENY"               # не дозволяє вбудовувати у iframe
+    response.headers["X-Content-Type-Options"] = "nosniff"     # блокує MIME-атаки
+    response.headers["Referrer-Policy"] = "no-referrer"        # не передає URL між сайтами
+    response.headers["Permissions-Policy"] = "geolocation=()"  # заборона на доступ до гео/камери
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    return response
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -244,7 +256,10 @@ async def block_bots(request: Request, call_next):
 @app.get("/")
 async def root():
     return {"status": "alive"}
-
+@app.get("/robots.txt")
+async def robots():
+    return PlainTextResponse("User-agent: *\nDisallow: /\n")
+    
 @app.post("/notify-payment")
 async def notify_payment(req: Request):
     data = await req.json()

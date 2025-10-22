@@ -655,6 +655,13 @@ async def send_film_by_id(request: Request):
                 )
                 print(f"⚡ Використано кешований file_id (миттєва відправка) → {title}")
                 print(f"✅ Надіслано напряму через file_id ({user_id}) → {title}")
+                # ⚙️ Telegram CDN warm-up — прискорюємо прогрузку сірої полоси
+                try:
+                    await asyncio.sleep(1)
+                    await bot.send_chat_action(chat_id=int(user_id), action="upload_video")
+                    print("⚙️ CDN warmed up для швидкого стріму ✅")
+                except Exception as e:
+                    print(f"⚠️ CDN warm-up error: {e}")
             except Exception as e:
                 print(f"⚠️ Помилка send_video: {e}")
                 # fallback — якщо file_id не спрацював

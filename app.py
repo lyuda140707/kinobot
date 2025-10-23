@@ -772,14 +772,22 @@ async def background_deleter():
         from pytz import utc
         now = datetime.now(utc)
 
-        # Отримати всі записи з аркуша "Видалення"
-        data = sheet.values().get(
-            spreadsheetId=os.getenv("SHEET_ID"),
-            range="Видалення!A2:C1000"
-        ).execute().get("values", [])
+        try:
+            # 🧾 Отримати всі записи з аркуша "Видалення"
+            data = sheet.values().get(
+                spreadsheetId=os.getenv("SHEET_ID"),
+                range="Видалення!A2:C1000"
+            ).execute().get("values", [])
+        except TimeoutError:
+            print("⚠️ Google Sheets timeout — повторна спроба через 30 сек.")
+            await asyncio.sleep(30)
+            continue
+        except Exception as e:
+            print(f"❌ Помилка запиту до Google Sheets: {e}")
+            await asyncio.sleep(60)
+            continue
 
         print(f"🔍 Вміст таблиці Видалення:\n{data}")
-
         print(f"⏳ Перевірка на видалення: {len(data)} в черзі")
 
         for i, row in enumerate(data):
@@ -807,14 +815,21 @@ async def background_deleter():
                 except Exception as e:
                     print(f"❌ Помилка видалення повідомлення {message_id}: {e}")
 
-                # Очистити рядок
+                # 🧹 Очистити рядок після видалення
                 row_number = i + 2
-                sheet.values().update(
-                    spreadsheetId=os.getenv("SHEET_ID"),
-                    range=f"Видалення!A{row_number}:C{row_number}",
-                    valueInputOption="RAW",
-                    body={"values": [["", "", ""]]}
-                ).execute()
+                try:
+                    sheet.values().update(
+                        spreadsheetId=os.getenv("SHEET_ID"),
+                        range=f"Видалення!A{row_number}:C{row_number}",
+                        valueInputOption="RAW",
+                        body={"values": [["", "", ""]]}
+                    ).execute()
+                except Exception as e:
+                    print(f"⚠️ Не вдалося очистити рядок {row_number}: {e}")
+
+        # ⏳ Пауза перед наступною перевіркою
+        await asyncio.sleep(60)
+
                     
 
         

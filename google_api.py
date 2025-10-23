@@ -19,12 +19,20 @@ def get_gsheet_data():
     return sheet.get_all_records()
 
 def get_google_service():
+    import httplib2
+    from google_auth_httplib2 import AuthorizedHttp
+
     creds_dict = json.loads(os.getenv("GOOGLE_SHEETS_CREDENTIALS_JSON"))
     scopes = ["https://www.googleapis.com/auth/spreadsheets"]
     creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
 
-    service = build("sheets", "v4", credentials=creds)
+    # 🕒 додаємо таймаут у 15 секунд
+    http = httplib2.Http(timeout=15)
+    authed_http = AuthorizedHttp(creds, http=http)
+
+    service = build("sheets", "v4", http=authed_http)
     return service
+
 
 from datetime import datetime
 from pytz import timezone

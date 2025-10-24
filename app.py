@@ -28,8 +28,6 @@ from supabase_api import get_films
 from supabase_api import SUPABASE_URL, SUPABASE_ANON
 from fastapi.responses import PlainTextResponse
 import requests
-from fastapi.responses import StreamingResponse
-import requests
 
 print("🧩 Testing Supabase connection...")
 try:
@@ -69,14 +67,13 @@ def _sb_headers():
 
 
 def sb_find_by_name_like(name: str):
+    # Пошук за частковою назвою
     import urllib.parse
     q = urllib.parse.quote(f"*{name}*")
-    # 👇 міняємо поле title → Назва
-    url = f"{SUPABASE_URL}/rest/v1/films?select=*&Назва=ilike.{q}&limit=50"
+    url = f"{SUPABASE_URL}/rest/v1/films?select=*&title=ilike.{q}&limit=50"
     r = requests.get(url, headers=_sb_headers(), timeout=10)
     r.raise_for_status()
     return r.json()
-
 
 def sb_find_by_message_id(mid: str):
     import urllib.parse
@@ -1180,26 +1177,6 @@ async def rate_film(data: RateRequest):
     except Exception as e:
         print(f"❌ Помилка в /rate: {e}")
         return JSONResponse(status_code=500, content={"success": False, "error": "Внутрішня помилка сервера"})
-@app.get("/get-film-by-name")
-async def get_film_by_name(title: str):
-    """
-    Повертає JSON із полем stream_url для WebApp кнопки 'Дивитись на TV'
-    """
-    try:
-        rows = sb_find_by_name_like(title)
-        if not rows:
-            return {"found": False}
-
-        film = rows[0]
-        return {
-            "found": True,
-            "title": film.get("title"),
-            "description": film.get("description"),
-            "stream_url": film.get("stream_url")
-        }
-    except Exception as e:
-        print(f"❌ Помилка /get-film-by-name: {e}")
-        return {"found": False, "error": str(e)}
 
 from pytz import timezone
 from datetime import datetime
@@ -1272,29 +1249,3 @@ async def notify_pro_expiring():
                     print(f"❌ Не вдалося надіслати нагадування {user_id}: {e}")
 
         await asyncio.sleep(60 * 60 * 2)  # раз на 2 години
-
-
-
-@app.get("/proxy-stream")
-async def proxy_stream(url: str):
-    try:
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125 Safari/537.36",
-            "Accept": "*/*",
-            "Referer": "https://ashdi.vip/",
-            "Origin": "https://ashdi.vip",
-            "Connection": "keep-alive",
-            "Range": "bytes=0-"
-        }
-
-        response = requests.get(url, headers=headers, stream=True, timeout=20)
-        return StreamingResponse(
-            response.iter_content(chunk_size=1024*128),
-            media_type=response.headers.get("Content-Type", "video/mp2t"),
-            headers={
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Expose-Headers": "*"
-            }
-        )
-    except Exception as e:
-        return {"error": str(e)}

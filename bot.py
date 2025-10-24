@@ -76,12 +76,10 @@ def sb_update_fileid_by_message_id(message_id: str, new_file_id: str):
 
 def sb_find_by_name_like(name: str):
     q = urllib.parse.quote(f"*{name}*")
-    url = f"{SUPABASE_URL}/rest/v1/films?select=*&Назва=ilike.{q}&limit=50"
+    url = f"{SUPABASE_URL}/rest/v1/films?select=*&title=ilike.{q}&limit=50"
     r = requests.get(url, headers=_sb_headers(), timeout=10)
     r.raise_for_status()
     return r.json()
-
-
 
 
 

@@ -67,13 +67,14 @@ def _sb_headers():
 
 
 def sb_find_by_name_like(name: str):
-    # Пошук за частковою назвою
     import urllib.parse
     q = urllib.parse.quote(f"*{name}*")
-    url = f"{SUPABASE_URL}/rest/v1/films?select=*&title=ilike.{q}&limit=50"
+    # 👇 міняємо поле title → Назва
+    url = f"{SUPABASE_URL}/rest/v1/films?select=*&Назва=ilike.{q}&limit=50"
     r = requests.get(url, headers=_sb_headers(), timeout=10)
     r.raise_for_status()
     return r.json()
+
 
 def sb_find_by_message_id(mid: str):
     import urllib.parse

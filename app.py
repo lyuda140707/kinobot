@@ -1273,19 +1273,28 @@ async def notify_pro_expiring():
 
         await asyncio.sleep(60 * 60 * 2)  # раз на 2 години
 
+
+
 @app.get("/proxy-stream")
 async def proxy_stream(url: str):
-    """
-    Проксі для HLS — дозволяє Telegram WebApp і Cloudflare Player відкривати відео
-    """
     try:
         headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125 Safari/537.36",
+            "Accept": "*/*",
             "Referer": "https://ashdi.vip/",
+            "Origin": "https://ashdi.vip",
+            "Connection": "keep-alive",
+            "Range": "bytes=0-"
         }
-        r = requests.get(url, headers=headers, stream=True, timeout=15)
-        if r.status_code != 200:
-            return {"error": f"Upstream returned {r.status_code}"}
-        return StreamingResponse(r.iter_content(1024), media_type="application/vnd.apple.mpegurl")
+
+        response = requests.get(url, headers=headers, stream=True, timeout=20)
+        return StreamingResponse(
+            response.iter_content(chunk_size=1024*128),
+            media_type=response.headers.get("Content-Type", "video/mp2t"),
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Expose-Headers": "*"
+            }
+        )
     except Exception as e:
         return {"error": str(e)}

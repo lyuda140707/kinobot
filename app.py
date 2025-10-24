@@ -1177,6 +1177,26 @@ async def rate_film(data: RateRequest):
     except Exception as e:
         print(f"❌ Помилка в /rate: {e}")
         return JSONResponse(status_code=500, content={"success": False, "error": "Внутрішня помилка сервера"})
+@app.get("/get-film-by-name")
+async def get_film_by_name(title: str):
+    """
+    Повертає JSON із полем stream_url для WebApp кнопки 'Дивитись на TV'
+    """
+    try:
+        rows = sb_find_by_name_like(title)
+        if not rows:
+            return {"found": False}
+
+        film = rows[0]
+        return {
+            "found": True,
+            "title": film.get("title"),
+            "description": film.get("description"),
+            "stream_url": film.get("stream_url")
+        }
+    except Exception as e:
+        print(f"❌ Помилка /get-film-by-name: {e}")
+        return {"found": False, "error": str(e)}
 
 from pytz import timezone
 from datetime import datetime

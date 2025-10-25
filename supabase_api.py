@@ -53,10 +53,11 @@ def sb_update_fileid_by_message_id(msg_id, file_id):
 
     print(f"🧩 [DEBUG] sb_update_fileid_by_message_id викликано для message_id={msg_id}, file_id={file_id}")
     try:
-        # ✅ Перетворюємо у число (бо в Supabase message_id — int8)
-        msg_id_int = int(msg_id)
-        msg_q = urllib.parse.quote(str(msg_id_int))
+        # ✅ Перетворюємо у текст (бо в Supabase message_id — text)
+        msg_id_str = str(msg_id).strip()
+        msg_q = urllib.parse.quote(msg_id_str)
         url = f"{SUPABASE_URL}/rest/v1/films?message_id=eq.{msg_q}"
+
 
         headers = {
             "apikey": SUPABASE_KEY,

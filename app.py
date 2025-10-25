@@ -757,6 +757,15 @@ async def get_stream_url(film_id: int):
 
         return {"stream_url": data[0].get("stream_url")}
 
+# 🎬 Логування відкриття фільму на ТВ
+@app.post("/log-tv")
+async def log_tv(request: Request):
+    data = await request.json()
+    uid = data.get("uid")
+    film_id = data.get("filmId")
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print(f"📺 [{now}] Користувач {uid} відкрив фільм ID={film_id}")
+    return {"ok": True}
 
 @app.post("/check-subscription")
 async def check_subscription(request: Request):

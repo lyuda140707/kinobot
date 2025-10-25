@@ -52,8 +52,9 @@ SHEETS = SERVICE.spreadsheets()
 # ==== Supabase REST helper ====
 SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
 SUPABASE_KEY = (
-    os.getenv("SUPABASE_KEY")
+    os.getenv("SUPABASE_SERVICE_KEY")
     or os.getenv("SUPABASE_KEY")
+    or os.getenv("SUPABASE_ANON_KEY")
     or ""
 )
 

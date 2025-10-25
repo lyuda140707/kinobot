@@ -730,6 +730,32 @@ async def send_film_by_id(request: Request):
     except Exception as e:
         print(f"❌ Помилка надсилання: {e}")
         return {"success": False, "error": str(e)}
+# ✅ Новий ендпоінт для віддачі stream_url у player.html
+import httpx
+
+@app.get("/stream/{film_id}")
+async def get_stream_url(film_id: int):
+    """Повертає stream_url для гравця (через service_role ключ)."""
+    SUPABASE_URL = os.getenv("SUPABASE_URL")
+    SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
+
+    headers = {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}"
+    }
+
+    url = f"{SUPABASE_URL}/rest/v1/films?select=stream_url&id=eq.{film_id}"
+    async with httpx.AsyncClient() as client:
+        res = await client.get(url, headers=headers)
+
+        if res.status_code != 200:
+            return {"error": f"bad_response {res.status_code}"}
+
+        data = res.json()
+        if not data:
+            return {"error": "not_found"}
+
+        return {"stream_url": data[0].get("stream_url")}
 
 
 @app.post("/check-subscription")

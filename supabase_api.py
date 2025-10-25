@@ -21,29 +21,32 @@ def get_films():
     """
     url = (
         f"{SUPABASE_URL}/rest/v1/films"
-        "?select=title,type,genre,description,photo,message_id,collection,country,year,access,imdb,season,episode"
+        "?select=title,type,genre,description,photo,message_id,file_id,channel_id,collection,country,year,access,imdb,season,episode,stream_url"
     )
     r = requests.get(url, headers=_headers(), timeout=20)
     r.raise_for_status()
     rows = r.json()
     return [
-        {
-            "Назва"     : row.get("title", "") or "",
-            "Тип"       : row.get("type", "") or "",
-            "Жанр"      : row.get("genre", "") or "",
-            "Опис"      : row.get("description", "") or "",
-            "Фото"      : row.get("photo", "") or "",
-            "IMDb"      : row.get("imdb", "") or "",
-            "Добірка"   : row.get("collection", "") or "",
-            "Доступ"    : row.get("access", "") or "",
-            "Країна"    : row.get("country", "") or "",
-            "Рік"       : row.get("year", "") or "",
-            "message_id": row.get("message_id", "") or "",
-            "Сезон"     : row.get("season", "") or "",
-            "Серія"     : row.get("episode", "") or "",
-        }
-        for row in rows
-    ]
+    {
+        "Назва"      : row.get("title", "") or "",
+        "Тип"        : row.get("type", "") or "",
+        "Жанр"       : row.get("genre", "") or "",
+        "Опис"       : row.get("description", "") or "",
+        "Фото"       : row.get("photo", "") or "",
+        "IMDb"       : row.get("imdb", "") or "",
+        "Добірка"    : row.get("collection", "") or "",
+        "Доступ"     : row.get("access", "") or "",
+        "Країна"     : row.get("country", "") or "",
+        "Рік"        : row.get("year", "") or "",
+        "message_id" : row.get("message_id", "") or "",
+        "file_id"    : row.get("file_id", "") or "",
+        "channel_id" : row.get("channel_id", "") or "",
+        "stream_url" : row.get("stream_url", "") or "",
+        "Сезон"      : row.get("season", "") or "",
+        "Серія"      : row.get("episode", "") or "",
+    }
+    for row in rows
+]
 def sb_update_fileid_by_message_id(msg_id, file_id):
     """
     Оновлює поле file_id у таблиці 'films' для конкретного message_id (int8)

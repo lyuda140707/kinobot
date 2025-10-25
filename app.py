@@ -25,7 +25,7 @@ from utils.date_utils import safe_parse_date
 from contextlib import asynccontextmanager
 from supabase_api import get_films
 # 🧩 Перевірка доступу до Supabase при старті сервера
-from supabase_api import SUPABASE_URL, SUPABASE_ANON
+from supabase_api import SUPABASE_URL, SUPABASE_KEY
 from fastapi.responses import PlainTextResponse
 import requests
 
@@ -33,8 +33,8 @@ print("🧩 Testing Supabase connection...")
 try:
     url = f"{SUPABASE_URL}/rest/v1/films?select=message_id&limit=1"
     headers = {
-        "apikey": SUPABASE_ANON,
-        "Authorization": f"Bearer {SUPABASE_ANON}"
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}"
     }
     r = requests.get(url, headers=headers, timeout=10)
     if r.status_code == 200:
@@ -51,18 +51,18 @@ SHEETS = SERVICE.spreadsheets()
 
 # ==== Supabase REST helper ====
 SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
-SUPABASE_ANON_KEY = (
-    os.getenv("SUPABASE_ANON_KEY")
-    or os.getenv("SUPABASE_ANON")
+SUPABASE_KEY = (
+    os.getenv("SUPABASE_KEY")
+    or os.getenv("SUPABASE_KEY")
     or ""
 )
 
 def _sb_headers():
-    if not SUPABASE_URL or not SUPABASE_ANON_KEY:
+    if not SUPABASE_URL or not SUPABASE_KEY:
         raise RuntimeError("Supabase URL/KEY не задані в ENV")
     return {
-        "apikey": SUPABASE_ANON_KEY,
-        "Authorization": f"Bearer {SUPABASE_ANON_KEY}",
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
     }
 
 

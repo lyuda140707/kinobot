@@ -3,12 +3,13 @@ import os
 import requests
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_ANON = os.getenv("SUPABASE_ANON_KEY")
+SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY") or os.getenv("SUPABASE_ANON_KEY")
 
 def _headers():
     return {
-        "apikey": SUPABASE_ANON,
-        "Authorization": f"Bearer {SUPABASE_ANON}",
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "Content-Type": "application/json"
     }
 
 
@@ -58,8 +59,8 @@ def sb_update_fileid_by_message_id(msg_id, file_id):
         url = f"{SUPABASE_URL}/rest/v1/films?message_id=eq.{msg_q}"
 
         headers = {
-            "apikey": SUPABASE_ANON,
-            "Authorization": f"Bearer {SUPABASE_ANON}",
+            "apikey": SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
             "Content-Type": "application/json",
             "Prefer": "return=representation"
         }
@@ -86,8 +87,8 @@ if __name__ == "__main__":
     try:
         url = f"{SUPABASE_URL}/rest/v1/films?select=message_id&limit=1"
         headers = {
-            "apikey": SUPABASE_ANON,
-            "Authorization": f"Bearer {SUPABASE_ANON}"
+            "apikey": SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}"
         }
         r = requests.get(url, headers=headers, timeout=10)
         if r.status_code == 200:

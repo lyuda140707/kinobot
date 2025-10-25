@@ -67,6 +67,7 @@ def sb_update_fileid_by_message_id(msg_id, file_id):
 
         payload = {"file_id": file_id}
         r = requests.patch(url, headers=headers, json=payload, timeout=20)
+        print("[DEBUG] Відповідь Supabase:", r.status_code, r.text[:300])  # 🟡 новий рядок
 
         # 🧠 Логування відповіді
         if r.ok:

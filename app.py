@@ -744,7 +744,7 @@ async def get_stream_url(film_id: int):
         "Authorization": f"Bearer {SUPABASE_KEY}"
     }
 
-    url = f"{SUPABASE_URL}/rest/v1/films?select=stream_url&id=eq.{film_id}"
+    url = f"{SUPABASE_URL}/rest/v1/films?select=stream_url,Назва&id=eq.{film_id}"
     async with httpx.AsyncClient() as client:
         res = await client.get(url, headers=headers)
 
@@ -755,7 +755,9 @@ async def get_stream_url(film_id: int):
         if not data:
             return {"error": "not_found"}
 
-        return {"stream_url": data[0].get("stream_url")}
+        stream_url = data[0].get("stream_url")
+        title = data[0].get("Назва") or "Фільм"
+        return {"stream_url": stream_url, "title": title}
 # 🎬 Логування відкриття фільму на ТВ
 @app.post("/log-tv")
 async def log_tv(request: Request):

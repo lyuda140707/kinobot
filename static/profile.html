@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Мій кабінет — KinoSite</title>
+  <link rel="stylesheet" href="style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    .profile-wrap{max-width:860px;margin:24px auto;padding:16px}
+    .card{background:#0e0f13;border:1px solid #222;border-radius:16px;padding:20px;margin-bottom:16px}
+    .muted{color:#9aa0a6;font-size:13px}
+    .btn{padding:10px 14px;border-radius:10px;border:none;cursor:pointer}
+    .btn-primary{background:#00ffd5;color:#000;font-weight:600}
+    .btn-ghost{background:transparent;border:1px solid #444;color:#ddd}
+    .input{width:100%;padding:10px 12px;border:1px solid #333;border-radius:10px;background:#111;color:#eee}
+  </style>
+</head>
+<body>
+
+<!-- підвантажуємо твій спільний хедер -->
+<div id="header-placeholder"></div>
+<script>
+  fetch("header.html").then(r=>r.text()).then(html=>{
+    document.getElementById("header-placeholder").innerHTML = html;
+  }).catch(console.error);
+</script>
+
+<main class="profile-wrap">
+  <h1>Мій кабінет</h1>
+
+  <!-- картка користувача (поки схована) -->
+  <div class="card" id="user-card" style="display:none;">
+    <h3 id="hello-line">Вітаю!</h3>
+    <p class="muted">Статус: <span id="pro-status">—</span></p>
+    <button class="btn btn-ghost" id="logout-btn">Вийти</button>
+  </div>
+
+<div class="card" id="auth-card">
+  <h3>Увійти через Email</h3>
+  <div style="display:flex;flex-direction:column;gap:8px;max-width:320px;">
+    <input id="email-input" class="input" type="email" placeholder="email@example.com" />
+    <button class="btn btn-primary" id="email-login-btn">Надіслати посилання для входу</button>
+  </div>
+</div>
+<!-- === Вхід через Telegram === -->
+<div class="card">
+  <h3>Увійти через Telegram</h3>
+  <p class="muted">
+    Якщо ви використовуєте наш Telegram-бот, цей спосіб автоматично синхронізує ваш PRO-статус.
+  </p>
+
+  <!-- Telegram Login Widget -->
+  <script async src="https://telegram.org/js/telegram-widget.js?22"
+        data-telegram-login="RelaxBox_UA_bot"
+        data-size="large"
+        data-userpic="false"
+        data-request-access="write"
+        data-radius="8"
+        data-auth-url="https://relaxbox.site/profile.html"
+        data-onauth="onTelegramAuth">
+</script>
+
+</div>
+
+
+
+<footer style="text-align:center;color:#8a8f98;margin:32px 0">© 2025 KinoSite</footer>
+<!-- Supabase SDK -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  // ⚙️ Підключаємо твій проєкт Supabase
+  const supabaseUrl = "https://zerlqvbmqszomlondlte.supabase.co";
+  const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InplcmxxdmJtcXN6b21sb25kbHRlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUzMzg3NzQsImV4cCI6MjA3MDkxNDc3NH0.8wUBYIeQRC6KVp6vdzv0oqofIf4PeZyzbV5GcD0vxTE";
+  const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+</script>
+<script>
+// ===== Вхід через Email (magic link) =====
+document.getElementById("email-login-btn").onclick = async () => {
+  const email = document.getElementById("email-input").value.trim();
+  if (!email) return alert("Введіть email");
+  const { error } = await supabase.auth.signInWithOtp({ email });
+  alert(error ? "Помилка: " + error.message : "Перевірте пошту, щоб увійти!");
+};
+
+
+// ===== Перевіряємо, чи користувач уже залогінений =====
+supabase.auth.getUser().then(({ data }) => {
+  if (data?.user) onUserLoggedIn(data.user);
+});
+
+// ===== Вихід =====
+document.getElementById("logout-btn").onclick = async () => {
+  await supabase.auth.signOut();
+  location.reload();
+};
+
+// ===== Коли користувач увійшов =====
+function onUserLoggedIn(user) {
+  document.getElementById("auth-card").style.display = "none";
+  document.getElementById("user-card").style.display = "block";
+  document.getElementById("hello-line").innerText = "Вітаю, " + (user.email || user.phone);
+  document.getElementById("pro-status").innerText = "Free — увійди через Telegram, щоб синхронізувати PRO.";
+}
+// === Вхід через Telegram ===
+async function onTelegramAuth(user) {
+  console.log("Telegram user:", user);
+
+  // 1️⃣ ховаємо блок входу
+  document.getElementById("auth-card").style.display = "none";
+  document.getElementById("user-card").style.display = "block";
+
+  // 2️⃣ показуємо ім’я користувача
+  document.getElementById("hello-line").innerText =
+    `Вітаю, ${user.first_name || ""} ${user.last_name || ""}`.trim();
+
+  // 🧩 Допоміжна функція форматування
+  function formatExpireDate(dateStr) {
+    if (!dateStr) return "";
+    // якщо приходить "2025-11-19T22:00:00.000Z"
+    return dateStr.split("T")[0].split("-").reverse().join(".");
+  }
+
+  // 3️⃣ перевіряємо PRO у Google Таблиці
+  try {
+    const res = await fetch("https://script.google.com/macros/s/AKfycbyrCxL8N7w1XC3JDU-A1QMlZn8NKs5QKaS1vg-TRjijk_zI00i_y5KP-N5_VNjUA17xyA/exec?user_id=" + encodeURIComponent(user.id));
+    const json = await res.json();
+
+    if (json.isPro) {
+      const date = formatExpireDate(json.expireDate);
+      document.getElementById("pro-status").innerHTML = `✅ PRO активний до <b>${date}</b>`;
+    } else {
+      document.getElementById("pro-status").innerText = "❌ Без PRO";
+    }
+  } catch (e) {
+    console.error(e);
+    document.getElementById("pro-status").innerText = "⚠️ Помилка перевірки PRO";
+  }
+}
+
+</script>
+
+</body>
+</html>

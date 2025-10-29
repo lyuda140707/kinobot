@@ -208,6 +208,22 @@ async def lifespan(app: FastAPI):
 
 # ✅ Оголошення FastAPI ДО використання декораторів
 app = FastAPI(lifespan=lifespan)
+# === 🧩 Подача статичних файлів та сторінки профілю ===
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+import os
+
+# створюємо папку, якщо її немає
+os.makedirs("static", exist_ok=True)
+
+# монтуємо статичні файли
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# маршрут для /profile.html
+@app.get("/profile.html", include_in_schema=False)
+async def serve_profile():
+    return FileResponse("static/profile.html")
+
 
 # 🛡️ Безпечні HTTP-заголовки
 @app.middleware("http")

@@ -280,34 +280,58 @@ async def robots():
 @app.post("/notify-payment")
 async def notify_payment(req: Request):
     data = await req.json()
-    user_id = data.get("user_id")
+    user_id = data.get("user_id")           # якщо користувач з Telegram
+    web_id = data.get("web_id")             # якщо користувач із сайту без Telegram
     username = data.get("username", "")
     first_name = data.get("first_name", "")
+    source = data.get("source", "unknown")  # від кого прийшов запит (site / webapp)
 
-    if not user_id:
-        raise HTTPException(status_code=400, detail="user_id відсутній")
-
+    # ✅ 1. Підключаємо Google Sheets
     service = get_google_service()
     sheet = service.spreadsheets()
-
     kyiv = timezone("Europe/Kyiv")
     now_kyiv = datetime.now(kyiv).strftime("%Y-%m-%d %H:%M:%S")
 
-    sheet.values().append(
-        spreadsheetId=os.getenv("SHEET_ID"),
-        range="PRO!A2:D2",
-        valueInputOption="USER_ENTERED",
-        body={"values": [[str(user_id), username, "Очікує підтвердження", now_kyiv]]}
-    ).execute()
-    
-    admin_id = os.getenv("ADMIN_ID")
-    await safe_send_admin(
-        bot, admin_id,
-        f"💳 Користувач [{first_name}](tg://user?id={user_id}) натиснув 'Я оплатив'\n\n✅ Щоб підтвердити PRO, надішли:\n`/ok {user_id}`",
-        parse_mode="Markdown"
-    )
+    # ✅ 2. Якщо користувач з Telegram (WebApp)
+    if user_id:
+        sheet.values().append(
+            spreadsheetId=os.getenv("SHEET_ID"),
+            range="PRO!A2:D2",
+            valueInputOption="USER_ENTERED",
+            body={"values": [[str(user_id), username, "Очікує підтвердження", now_kyiv]]}
+        ).execute()
 
-    return {"ok": True}
+        admin_id = os.getenv("ADMIN_ID")
+        await safe_send_admin(
+            bot, admin_id,
+            f"💳 Користувач [{first_name}](tg://user?id={user_id}) натиснув 'Я оплатив' ({source})\n\n"
+            f"✅ Щоб підтвердити PRO, надішли:\n`/ok {user_id}`",
+            parse_mode="Markdown"
+        )
+        return {"ok": True}
+
+    # ✅ 3. Якщо користувач із сайту (без Telegram)
+    elif web_id:
+        sheet.values().append(
+            spreadsheetId=os.getenv("SHEET_ID"),
+            range="PRO!A2:D2",
+            valueInputOption="USER_ENTERED",
+            body={"values": [[str(web_id), "WEB", "Очікує підтвердження", now_kyiv]]}
+        ).execute()
+
+        admin_id = os.getenv("ADMIN_ID")
+        await safe_send_admin(
+            bot, admin_id,
+            f"💳 Новий запит на оплату через САЙТ ({source})\n🌐 WEB-ID: `{web_id}`\n\n"
+            "Щоб активувати, додай цей WEB-ID у Google Таблицю (лист PRO).",
+            parse_mode="Markdown"
+        )
+        return {"ok": True}
+
+    # ❌ Якщо обидва відсутні — повертаємо помилку
+    else:
+        raise HTTPException(status_code=400, detail="user_id або web_id відсутній")
+
 
 from uuid import uuid4
 

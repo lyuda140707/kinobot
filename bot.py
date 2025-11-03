@@ -78,6 +78,42 @@ def sb_update_fileid_by_message_id(message_id: str, new_file_id: str):
     except Exception as e:
         print(f"❌ [Supabase] Помилка при оновленні file_id: {e}")
         return False
+def sb_update_telegram_url_by_file_id(file_id: str):
+    """Отримує прямий CDN-лінк Telegram і зберігає його у колонку telegram_url"""
+    import requests
+    import os
+
+    if not file_id or len(file_id) < 10:
+        print("⚠️ Невірний file_id")
+        return
+
+    BOT_TOKEN = os.getenv("BOT_TOKEN")
+    SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
+    SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY") or os.getenv("SUPABASE_ANON_KEY")
+
+    # 1️⃣ Отримуємо шлях до файлу
+    info = requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/getFile?file_id={file_id}").json()
+    if not info.get("ok"):
+        print(f"⚠️ Telegram не повернув file_path для {file_id}")
+        return
+
+    file_path = info["result"]["file_path"]
+    cdn_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_path}"
+
+    # 2️⃣ Оновлюємо telegram_url у таблиці films
+    url = f"{SUPABASE_URL}/rest/v1/films?file_id=eq.{file_id}"
+    headers = {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "Content-Type": "application/json"
+    }
+    payload = {"telegram_url": cdn_url}
+
+    r = requests.patch(url, headers=headers, json=payload)
+    if r.ok:
+        print(f"✅ telegram_url записано у Supabase для file_id={file_id}")
+    else:
+        print(f"⚠️ Не вдалося записати telegram_url ({r.status_code}): {r.text}")
 
 
 def sb_find_by_name_like(name: str):
@@ -422,6 +458,7 @@ async def start_handler(message: types.Message):
                 ok = sb_update_fileid_by_message_id(msg_id, file_id)
                 if ok:
                     print(f"💾 file_id записано у Supabase для message_id={msg_id}")
+                    sb_update_telegram_url_by_file_id(file_id)
                 else:
                     print(f"⚠️ Не вдалося записати file_id у Supabase (message_id={msg_id})")
             else:
@@ -527,6 +564,7 @@ async def process_message(message: types.Message):
                 ok = sb_update_fileid_by_message_id(msg_id, file_id)
                 if ok:
                     print(f"💾 file_id записано у Supabase для message_id={msg_id}")
+                    sb_update_telegram_url_by_file_id(file_id)
                 else:
                     print(f"⚠️ Не вдалося записати file_id у Supabase (message_id={msg_id})")
             else:

@@ -53,13 +53,20 @@ def sb_update_fileid_by_message_id(msg_id, file_id):
     """
     import requests
     import urllib.parse
+    import os
 
     print(f"🧩 [DEBUG] sb_update_fileid_by_message_id викликано для message_id={msg_id}, file_id={file_id}")
     try:
-        # ✅ Перетворюємо у число (бо message_id = int8)
-        msg_id_int = int(msg_id)
-        msg_q = urllib.parse.quote(str(msg_id_int))
-        url = f"{SUPABASE_URL}/rest/v1/films?message_id=eq.{str(msg_id)}"
+        SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
+        SUPABASE_KEY = (
+            os.getenv("SUPABASE_SERVICE_KEY")
+            or os.getenv("SUPABASE_KEY")
+            or os.getenv("SUPABASE_ANON_KEY")
+        )
+
+        # ✅ кодуємо параметр message_id
+        msg_q = urllib.parse.quote(str(msg_id))
+        url = f"{SUPABASE_URL}/rest/v1/films?message_id=eq.{msg_q}"
 
         headers = {
             "apikey": SUPABASE_KEY,
@@ -70,16 +77,19 @@ def sb_update_fileid_by_message_id(msg_id, file_id):
 
         payload = {"file_id": file_id}
         r = requests.patch(url, headers=headers, json=payload, timeout=20)
-        print("[DEBUG] Відповідь Supabase:", r.status_code, r.text[:300])  # 🟡 новий рядок
 
-        # 🧠 Логування відповіді
+        print(f"[DEBUG] Відповідь Supabase: {r.status_code} {r.text[:300]}")
+
         if r.ok:
-            print(f"✅ [Supabase] Оновлено file_id для message_id={msg_id_int}")
+            print(f"✅ [Supabase] Оновлено file_id для message_id={msg_id}")
+            return True    # 🟢 ТЕПЕР ПОВЕРТАЄ TRUE
         else:
             print(f"⚠️ [Supabase] Помилка оновлення ({r.status_code}): {r.text}")
+            return False
 
     except Exception as e:
         print(f"❌ [Supabase] Помилка оновлення: {e}")
+        return False
 
 
 

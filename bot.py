@@ -128,18 +128,7 @@ def sb_update_telegram_url_by_file_id(file_id: str):
     else:
         print(f"⚠️ Не вдалося записати telegram_url ({r.status_code}): {r.text}")
 
-    # 3️⃣ Копіюємо у таблицю films_site, щоб сайт теж бачив посилання
-    try:
-        site_url = f"{SUPABASE_URL}/rest/v1/films_site?file_id=eq.{file_q}"
-        payload2 = {"stream_url": cdn_url}
-        r2 = requests.patch(site_url, headers=headers, json=payload2)
-        if r2.ok:
-            print(f"✅ Скопійовано telegram_url → films_site.stream_url")
-        else:
-            print(f"⚠️ Не вдалося скопіювати telegram_url у films_site ({r2.status_code})")
-    except Exception as e:
-        print(f"⚠️ Помилка копіювання у films_site: {e}")
-
+    
 
 
 def sb_find_by_name_like(name: str):

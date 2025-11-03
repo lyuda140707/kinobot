@@ -79,9 +79,8 @@ def sb_update_fileid_by_message_id(message_id: str, new_file_id: str):
         print(f"❌ [Supabase] Помилка при оновленні file_id: {e}")
         return False
 def sb_update_telegram_url_by_file_id(file_id: str):
-    """Отримує прямий CDN-лінк Telegram і зберігає його у колонку telegram_url"""
-    import requests
-    import os
+    """Отримує CDN-лінк Telegram або Worker-посилання для великих файлів і зберігає його в Supabase"""
+    import requests, os, urllib.parse
 
     print(f"🧩 [DEBUG] sb_update_telegram_url_by_file_id запущено для file_id={file_id}")
 
@@ -91,42 +90,47 @@ def sb_update_telegram_url_by_file_id(file_id: str):
 
     BOT_TOKEN = os.getenv("BOT_TOKEN")
     SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
-
-    # ✅ Ключ з трьох можливих джерел (деякі на Render бувають порожні)
     SUPABASE_KEY = (
         os.getenv("SUPABASE_SERVICE_KEY")
         or os.getenv("SUPABASE_KEY")
         or os.getenv("SUPABASE_ANON_KEY")
     )
 
-    # 1️⃣ Отримуємо шлях до файлу
-    info = requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/getFile?file_id={file_id}").json()
-    if not info.get("ok"):
-        print(f"⚠️ Telegram не повернув file_path для {file_id}")
-        return
-
-    file_path = info["result"]["file_path"]
-    cdn_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_path}"
-    print(f"🎥 Telegram URL: {cdn_url}")  # 🟢 щоб бачити його в логах
-
-    # 2️⃣ Оновлюємо telegram_url у таблиці films
-    import urllib.parse
-    file_q = urllib.parse.quote(str(file_id))
-    url = f"{SUPABASE_URL}/rest/v1/films?file_id=eq.{file_q}"
     headers = {
         "apikey": SUPABASE_KEY,
         "Authorization": f"Bearer {SUPABASE_KEY}",
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
     }
-    payload = {"telegram_url": cdn_url}
 
-    print(f"📤 PATCH {url} → {payload}")  # 🧩 дебаг-запит
+    # 1️⃣ Пробуємо отримати шлях до файлу
+    info = requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/getFile?file_id={file_id}").json()
 
-    r = requests.patch(url, headers=headers, json=payload)
+    # 🟡 Якщо Telegram не повернув file_path (великий файл) → використовуємо Worker
+    if not info.get("ok"):
+        print(f"⚠️ Telegram не повернув file_path, файл великий — створюємо Worker-лінк")
+        cdn_url = f"https://fileid.lyuda14070702.workers.dev/?file_id={urllib.parse.quote(file_id)}"
+        # записуємо Worker-посилання
+        url = f"{SUPABASE_URL}/rest/v1/films?file_id=eq.{urllib.parse.quote(file_id)}"
+        r = requests.patch(url, headers=headers, json={"telegram_url": cdn_url})
+        if r.ok:
+            print(f"✅ [Worker] Посилання записано у Supabase для великих відео")
+        else:
+            print(f"⚠️ [Worker] Не вдалося записати посилання ({r.status_code}): {r.text}")
+        return
+
+    # 2️⃣ Якщо file_path отримали — створюємо пряме Telegram-посилання
+    file_path = info["result"]["file_path"]
+    cdn_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_path}"
+    print(f"🎥 Telegram URL: {cdn_url}")
+
+    # 3️⃣ Записуємо у Supabase
+    url = f"{SUPABASE_URL}/rest/v1/films?file_id=eq.{urllib.parse.quote(file_id)}"
+    r = requests.patch(url, headers=headers, json={"telegram_url": cdn_url})
     if r.ok:
         print(f"✅ telegram_url записано у Supabase для file_id={file_id}")
     else:
         print(f"⚠️ Не вдалося записати telegram_url ({r.status_code}): {r.text}")
+
 
     
 

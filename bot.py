@@ -82,7 +82,7 @@ def sb_update_telegram_url_by_file_id(file_id: str):
     """Отримує прямий CDN-лінк Telegram і зберігає його у колонку telegram_url"""
     import requests
     import os
-print(f"🧩 [DEBUG] sb_update_telegram_url_by_file_id запущено для file_id={file_id}")
+    print(f"🧩 [DEBUG] sb_update_telegram_url_by_file_id запущено для file_id={file_id}")
     if not file_id or len(file_id) < 10:
         print("⚠️ Невірний file_id")
         return

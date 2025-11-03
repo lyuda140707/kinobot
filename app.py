@@ -695,6 +695,11 @@ async def send_film_by_id(request: Request):
                     supports_streaming=True
                 )
                 print(f"⚡ Використано кешований file_id (миттєва відправка) → {title}")
+                from bot import sb_update_telegram_url_by_file_id
+                try:
+                    sb_update_telegram_url_by_file_id(row.get("file_id"))
+                except Exception as e:
+                    print(f"⚠️ Не вдалося оновити telegram_url для кешованого file_id: {e}")
                 print(f"✅ Надіслано напряму через file_id ({user_id}) → {title}")
                 # ⚙️ Telegram CDN warm-up — прискорюємо прогрузку сірої полоси
                 try:

@@ -78,61 +78,6 @@ def sb_update_fileid_by_message_id(message_id: str, new_file_id: str):
     except Exception as e:
         print(f"❌ [Supabase] Помилка при оновленні file_id: {e}")
         return False
-def sb_update_telegram_url_by_file_id(file_id: str):
-    """Отримує CDN-лінк Telegram або Worker-посилання для великих файлів і зберігає його в Supabase"""
-    import requests, os, urllib.parse
-
-    print(f"🧩 [DEBUG] sb_update_telegram_url_by_file_id запущено для file_id={file_id}")
-
-    if not file_id or len(file_id) < 10:
-        print("⚠️ Невірний file_id")
-        return
-
-    BOT_TOKEN = os.getenv("BOT_TOKEN")
-    SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
-    SUPABASE_KEY = (
-        os.getenv("SUPABASE_SERVICE_KEY")
-        or os.getenv("SUPABASE_KEY")
-        or os.getenv("SUPABASE_ANON_KEY")
-    )
-
-    headers = {
-        "apikey": SUPABASE_KEY,
-        "Authorization": f"Bearer {SUPABASE_KEY}",
-        "Content-Type": "application/json",
-    }
-
-    # 1️⃣ Пробуємо отримати шлях до файлу
-    info = requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/getFile?file_id={file_id}").json()
-
-    # 🟡 Якщо Telegram не повернув file_path (великий файл) → використовуємо Worker
-    if not info.get("ok"):
-        print(f"⚠️ Telegram не повернув file_path, файл великий — створюємо Worker-лінк")
-        cdn_url = f"https://fileid.lyuda14070702.workers.dev/?file_id={urllib.parse.quote(file_id)}"
-        # записуємо Worker-посилання
-        url = f"{SUPABASE_URL}/rest/v1/films?file_id=eq.{urllib.parse.quote(file_id)}"
-        r = requests.patch(url, headers=headers, json={"telegram_url": cdn_url})
-        if r.ok:
-            print(f"✅ [Worker] Посилання записано у Supabase для великих відео")
-        else:
-            print(f"⚠️ [Worker] Не вдалося записати посилання ({r.status_code}): {r.text}")
-        return
-
-    # 2️⃣ Якщо file_path отримали — створюємо пряме Telegram-посилання
-    file_path = info["result"]["file_path"]
-    cdn_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_path}"
-    print(f"🎥 Telegram URL: {cdn_url}")
-
-    # 3️⃣ Записуємо у Supabase
-    url = f"{SUPABASE_URL}/rest/v1/films?file_id=eq.{urllib.parse.quote(file_id)}"
-    r = requests.patch(url, headers=headers, json={"telegram_url": cdn_url})
-    if r.ok:
-        print(f"✅ telegram_url записано у Supabase для file_id={file_id}")
-    else:
-        print(f"⚠️ Не вдалося записати telegram_url ({r.status_code}): {r.text}")
-
-
-    
 
 
 def sb_find_by_name_like(name: str):
@@ -453,30 +398,13 @@ async def start_handler(message: types.Message):
 
     try:
         if msg_id:
-            fwd_msg = await bot.forward_message(
+            await bot.copy_message(
                 chat_id=message.chat.id,
                 from_chat_id=channel_id,
-                message_id=int(msg_id)
+                message_id=int(msg_id),
+                caption=caption,
+                parse_mode="Markdown"
             )
-            print(f"✅ Форвард зроблено (message_id={msg_id})")
-        
-            # Отримуємо file_id одразу
-            file_id = None
-            if getattr(fwd_msg, "video", None):
-                file_id = fwd_msg.video.file_id
-            elif getattr(fwd_msg, "document", None) and (fwd_msg.document.mime_type or "").startswith("video/"):
-                file_id = fwd_msg.document.file_id
-        
-            if file_id:
-                ok = sb_update_fileid_by_message_id(msg_id, file_id)
-                if ok:
-                    print(f"💾 file_id записано у Supabase для message_id={msg_id}")
-                    sb_update_telegram_url_by_file_id(file_id)
-                else:
-                    print(f"⚠️ Не вдалося записати file_id у Supabase (message_id={msg_id})")
-            else:
-                print(f"⚠️ Не знайдено file_id у форварді (message_id={msg_id})")
-
         elif file_id:
             await bot.send_video(
                 chat_id=message.chat.id,
@@ -494,7 +422,6 @@ async def start_handler(message: types.Message):
                 ok = sb_update_fileid_by_message_id(msg_id, file_id)
                 if ok:
                     print(f"💾 file_id записано у Supabase для message_id={msg_id}")
-                    sb_update_telegram_url_by_file_id(file_id)
                 else:
                     print(f"⚠️ Не вдалося записати file_id у Supabase (message_id={msg_id})")
             else:
@@ -574,30 +501,13 @@ async def process_message(message: types.Message):
 
     try:
         if msg_id:
-            fwd_msg = await bot.forward_message(
+            await bot.copy_message(
                 chat_id=message.chat.id,
                 from_chat_id=channel_id,
-                message_id=int(msg_id)
+                message_id=int(msg_id),
+                caption=caption,
+                parse_mode="Markdown"
             )
-            print(f"✅ Форвард зроблено (message_id={msg_id})")
-        
-            # Отримуємо file_id одразу
-            file_id = None
-            if getattr(fwd_msg, "video", None):
-                file_id = fwd_msg.video.file_id
-            elif getattr(fwd_msg, "document", None) and (fwd_msg.document.mime_type or "").startswith("video/"):
-                file_id = fwd_msg.document.file_id
-        
-            if file_id:
-                ok = sb_update_fileid_by_message_id(msg_id, file_id)
-                if ok:
-                    print(f"💾 file_id записано у Supabase для message_id={msg_id}")
-                    sb_update_telegram_url_by_file_id(file_id)
-                else:
-                    print(f"⚠️ Не вдалося записати file_id у Supabase (message_id={msg_id})")
-            else:
-                print(f"⚠️ Не знайдено file_id у форварді (message_id={msg_id})")
-
         elif file_id:
             await bot.send_video(
                 chat_id=message.chat.id,
@@ -617,7 +527,6 @@ async def process_message(message: types.Message):
                 ok = sb_update_fileid_by_message_id(msg_id, file_id)
                 if ok:
                     print(f"💾 file_id записано у Supabase для message_id={msg_id}")
-                    sb_update_telegram_url_by_file_id(file_id)
                 else:
                     print(f"⚠️ Не вдалося записати file_id у Supabase (message_id={msg_id})")
             else:

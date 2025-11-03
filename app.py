@@ -695,11 +695,6 @@ async def send_film_by_id(request: Request):
                     supports_streaming=True
                 )
                 print(f"⚡ Використано кешований file_id (миттєва відправка) → {title}")
-                from bot import sb_update_telegram_url_by_file_id
-                try:
-                    sb_update_telegram_url_by_file_id(row.get("file_id"))
-                except Exception as e:
-                    print(f"⚠️ Не вдалося оновити telegram_url для кешованого file_id: {e}")
                 print(f"✅ Надіслано напряму через file_id ({user_id}) → {title}")
                 # ⚙️ Telegram CDN warm-up — прискорюємо прогрузку сірої полоси
                 try:
@@ -722,39 +717,40 @@ async def send_film_by_id(request: Request):
                 else:
                     raise e
         else:
-            # 🧩 2️⃣ Якщо file_id немає — форвардимо напряму
-            print(f"🔁 Форвардимо повідомлення (message_id={row.get('message_id')}) → {title}")
+            # 🧩 2️⃣ Якщо file_id немає — резервна копія
+            print(f"📦 Відправка копією (message_id={row.get('message_id')}) → {title}")
+            sent_message = await bot.copy_message(
+                chat_id=int(user_id),
+                from_chat_id=channel_id,
+                message_id=int(row.get("message_id"))
+            )
+            print(f"✅ Відправлено копією ({user_id}) → {title}")
+
+            # 🧠 Потай отримуємо file_id через forward у ADMIN_ID (користувач цього не бачить)
+            from supabase_api import sb_update_fileid_by_message_id
             try:
-                fwd_msg = await bot.forward_message(
-                    chat_id=int(user_id),
+                await asyncio.sleep(1)  # коротка пауза
+
+                fwd = await bot.forward_message(
+                    chat_id=ADMIN_ID,
                     from_chat_id=channel_id,
                     message_id=int(row.get("message_id"))
                 )
-                print(f"✅ Форвард виконано ({user_id}) → {title}")
-            
-                file_id = None
-                if getattr(fwd_msg, "video", None):
-                    file_id = fwd_msg.video.file_id
-                elif getattr(fwd_msg, "document", None) and (fwd_msg.document.mime_type or "").startswith("video/"):
-                    file_id = fwd_msg.document.file_id
-            
-                if file_id:
-                    print(f"✅ Отримано file_id: {file_id}")
-                    from supabase_api import sb_update_fileid_by_message_id
-                    ok = sb_update_fileid_by_message_id(row.get("message_id"), file_id)
-                    if ok:
-                        print(f"💾 file_id записано у Supabase для message_id={row.get('message_id')}")
-                        from bot import sb_update_telegram_url_by_file_id
-                        sb_update_telegram_url_by_file_id(file_id)
-                    else:
-                        print(f"⚠️ Не вдалося записати file_id у Supabase (message_id={row.get('message_id')})")
-                else:
-                    print("⚠️ Не знайдено file_id у форварді")
-            
-            except Exception as e:
-                print(f"⚠️ Помилка при форварді: {e}")
 
-        sent_message = fwd_msg if 'fwd_msg' in locals() else None
+                if fwd.video and fwd.video.file_id:
+                    new_file_id = fwd.video.file_id
+                    print(f"🧠 Отримано новий file_id через ADMIN_ID: {new_file_id}")
+                    sb_update_fileid_by_message_id(row.get("message_id"), new_file_id)
+                    # прибираємо службову пересилку з адмін-чату
+                    try:
+                        await bot.delete_message(chat_id=ADMIN_ID, message_id=fwd.message_id)
+                    except Exception as de:
+                        print(f"⚠️ Не вдалося видалити службовий forward у ADMIN_ID: {de}")
+                else:
+                    print("⚠️ Не вдалося отримати video.file_id через forward до ADMIN_ID")
+
+            except Exception as e:
+                print(f"❌ Помилка при forward до ADMIN_ID: {e}")
 
         # 🕓 3️⃣ Запис у таблицю видалення
         kyiv = timezone("Europe/Kyiv")
@@ -765,7 +761,7 @@ async def send_film_by_id(request: Request):
             range="Видалення!A2",
             valueInputOption="USER_ENTERED",
             insertDataOption="INSERT_ROWS",
-            body={"values": [[str(user_id), str(getattr(sent_message, 'message_id', '')), delete_time.isoformat()]]}
+            body={"values": [[str(user_id), str(sent_message.message_id), delete_time.isoformat()]]}
         ).execute()
 
         print(f"🧾 Записано у 'Видалення' для користувача {user_id}")

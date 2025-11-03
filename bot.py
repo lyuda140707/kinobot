@@ -110,7 +110,9 @@ def sb_update_telegram_url_by_file_id(file_id: str):
     print(f"🎥 Telegram URL: {cdn_url}")  # 🟢 щоб бачити його в логах
 
     # 2️⃣ Оновлюємо telegram_url у таблиці films
-    url = f"{SUPABASE_URL}/rest/v1/films?file_id=eq.{file_id}"
+    import urllib.parse
+    file_q = urllib.parse.quote(str(file_id))
+    url = f"{SUPABASE_URL}/rest/v1/films?file_id=eq.{file_q}"
     headers = {
         "apikey": SUPABASE_KEY,
         "Authorization": f"Bearer {SUPABASE_KEY}",
@@ -128,7 +130,7 @@ def sb_update_telegram_url_by_file_id(file_id: str):
 
     # 3️⃣ Копіюємо у таблицю films_site, щоб сайт теж бачив посилання
     try:
-        site_url = f"{SUPABASE_URL}/rest/v1/films_site?file_id=eq.{file_id}"
+        site_url = f"{SUPABASE_URL}/rest/v1/films_site?file_id=eq.{file_q}"
         payload2 = {"stream_url": cdn_url}
         r2 = requests.patch(site_url, headers=headers, json=payload2)
         if r2.ok:

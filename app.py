@@ -749,6 +749,7 @@ async def send_film_by_id(request: Request):
             except Exception as e:
                 print(f"⚠️ Помилка при форварді: {e}")
 
+        sent_message = fwd_msg if 'fwd_msg' in locals() else None
 
         # 🕓 3️⃣ Запис у таблицю видалення
         kyiv = timezone("Europe/Kyiv")
@@ -759,7 +760,7 @@ async def send_film_by_id(request: Request):
             range="Видалення!A2",
             valueInputOption="USER_ENTERED",
             insertDataOption="INSERT_ROWS",
-            body={"values": [[str(user_id), str(sent_message.message_id), delete_time.isoformat()]]}
+            body={"values": [[str(user_id), str(getattr(sent_message, 'message_id', '')), delete_time.isoformat()]]}
         ).execute()
 
         print(f"🧾 Записано у 'Видалення' для користувача {user_id}")

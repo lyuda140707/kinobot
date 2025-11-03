@@ -434,13 +434,30 @@ async def start_handler(message: types.Message):
 
     try:
         if msg_id:
-            await bot.copy_message(
+            fwd_msg = await bot.forward_message(
                 chat_id=message.chat.id,
                 from_chat_id=channel_id,
-                message_id=int(msg_id),
-                caption=caption,
-                parse_mode="Markdown"
+                message_id=int(msg_id)
             )
+            print(f"✅ Форвард зроблено (message_id={msg_id})")
+        
+            # Отримуємо file_id одразу
+            file_id = None
+            if getattr(fwd_msg, "video", None):
+                file_id = fwd_msg.video.file_id
+            elif getattr(fwd_msg, "document", None) and (fwd_msg.document.mime_type or "").startswith("video/"):
+                file_id = fwd_msg.document.file_id
+        
+            if file_id:
+                ok = sb_update_fileid_by_message_id(msg_id, file_id)
+                if ok:
+                    print(f"💾 file_id записано у Supabase для message_id={msg_id}")
+                    sb_update_telegram_url_by_file_id(file_id)
+                else:
+                    print(f"⚠️ Не вдалося записати file_id у Supabase (message_id={msg_id})")
+            else:
+                print(f"⚠️ Не знайдено file_id у форварді (message_id={msg_id})")
+
         elif file_id:
             await bot.send_video(
                 chat_id=message.chat.id,
@@ -538,13 +555,30 @@ async def process_message(message: types.Message):
 
     try:
         if msg_id:
-            await bot.copy_message(
+            fwd_msg = await bot.forward_message(
                 chat_id=message.chat.id,
                 from_chat_id=channel_id,
-                message_id=int(msg_id),
-                caption=caption,
-                parse_mode="Markdown"
+                message_id=int(msg_id)
             )
+            print(f"✅ Форвард зроблено (message_id={msg_id})")
+        
+            # Отримуємо file_id одразу
+            file_id = None
+            if getattr(fwd_msg, "video", None):
+                file_id = fwd_msg.video.file_id
+            elif getattr(fwd_msg, "document", None) and (fwd_msg.document.mime_type or "").startswith("video/"):
+                file_id = fwd_msg.document.file_id
+        
+            if file_id:
+                ok = sb_update_fileid_by_message_id(msg_id, file_id)
+                if ok:
+                    print(f"💾 file_id записано у Supabase для message_id={msg_id}")
+                    sb_update_telegram_url_by_file_id(file_id)
+                else:
+                    print(f"⚠️ Не вдалося записати file_id у Supabase (message_id={msg_id})")
+            else:
+                print(f"⚠️ Не знайдено file_id у форварді (message_id={msg_id})")
+
         elif file_id:
             await bot.send_video(
                 chat_id=message.chat.id,

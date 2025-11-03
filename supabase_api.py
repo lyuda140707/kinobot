@@ -59,7 +59,7 @@ def sb_update_fileid_by_message_id(msg_id, file_id):
         # ✅ Перетворюємо у число (бо message_id = int8)
         msg_id_int = int(msg_id)
         msg_q = urllib.parse.quote(str(msg_id_int))
-        url = f"{SUPABASE_URL}/rest/v1/films?message_id=eq.{msg_q}"
+        url = f"{SUPABASE_URL}/rest/v1/films?message_id=eq.{str(msg_id)}"
 
         headers = {
             "apikey": SUPABASE_KEY,

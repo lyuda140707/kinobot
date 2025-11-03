@@ -82,14 +82,22 @@ def sb_update_telegram_url_by_file_id(file_id: str):
     """Отримує прямий CDN-лінк Telegram і зберігає його у колонку telegram_url"""
     import requests
     import os
+
     print(f"🧩 [DEBUG] sb_update_telegram_url_by_file_id запущено для file_id={file_id}")
+
     if not file_id or len(file_id) < 10:
         print("⚠️ Невірний file_id")
         return
 
     BOT_TOKEN = os.getenv("BOT_TOKEN")
     SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
-    SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY") or os.getenv("SUPABASE_ANON_KEY")
+
+    # ✅ Ключ з трьох можливих джерел (деякі на Render бувають порожні)
+    SUPABASE_KEY = (
+        os.getenv("SUPABASE_SERVICE_KEY")
+        or os.getenv("SUPABASE_KEY")
+        or os.getenv("SUPABASE_ANON_KEY")
+    )
 
     # 1️⃣ Отримуємо шлях до файлу
     info = requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/getFile?file_id={file_id}").json()
@@ -99,6 +107,7 @@ def sb_update_telegram_url_by_file_id(file_id: str):
 
     file_path = info["result"]["file_path"]
     cdn_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_path}"
+    print(f"🎥 Telegram URL: {cdn_url}")  # 🟢 щоб бачити його в логах
 
     # 2️⃣ Оновлюємо telegram_url у таблиці films
     url = f"{SUPABASE_URL}/rest/v1/films?file_id=eq.{file_id}"
@@ -109,11 +118,26 @@ def sb_update_telegram_url_by_file_id(file_id: str):
     }
     payload = {"telegram_url": cdn_url}
 
+    print(f"📤 PATCH {url} → {payload}")  # 🧩 дебаг-запит
+
     r = requests.patch(url, headers=headers, json=payload)
     if r.ok:
         print(f"✅ telegram_url записано у Supabase для file_id={file_id}")
     else:
         print(f"⚠️ Не вдалося записати telegram_url ({r.status_code}): {r.text}")
+
+    # 3️⃣ Копіюємо у таблицю films_site, щоб сайт теж бачив посилання
+    try:
+        site_url = f"{SUPABASE_URL}/rest/v1/films_site?file_id=eq.{file_id}"
+        payload2 = {"stream_url": cdn_url}
+        r2 = requests.patch(site_url, headers=headers, json=payload2)
+        if r2.ok:
+            print(f"✅ Скопійовано telegram_url → films_site.stream_url")
+        else:
+            print(f"⚠️ Не вдалося скопіювати telegram_url у films_site ({r2.status_code})")
+    except Exception as e:
+        print(f"⚠️ Помилка копіювання у films_site: {e}")
+
 
 
 def sb_find_by_name_like(name: str):

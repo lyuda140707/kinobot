@@ -23,9 +23,9 @@ import urllib.parse
 # ⚙️ Отримує file_id з повідомлення в каналі за message_id
 async def get_file_id_from_message(bot, channel_id: int, message_id: int):
     try:
-        msg = await bot.forward_message(chat_id=8265377605, from_chat_id=channel_id, message_id=message_id)
+        msg = await bot.forward_message(chat_id=8380727351, from_chat_id=channel_id, message_id=message_id)
         # ⛔️ одразу видаляємо, щоб користувачу не надсилало нічого
-        await bot.delete_message(chat_id=8265377605, message_id=msg.message_id)
+        await bot.delete_message(chat_id=8380727351, message_id=msg.message_id)
         if msg.video:
             return msg.video.file_id
     except Exception as e:
@@ -193,7 +193,7 @@ def update_referrals(inviter_id: str, invited_id: str):
     try:
         invited_count_now = len(invited_ids) if found_idx else 1
         if invited_count_now >= 3:
-            admin_id = 8265377605  # <-- заміни на свій Telegram ID, якщо інший
+            admin_id = 8380727351  # <-- заміни на свій Telegram ID, якщо інший
             bot_token = os.getenv("BOT_TOKEN")
             msg = f"🎯 Користувач {inviter_id} запросив {invited_count_now} друзів — готовий до PRO 🎁"
             requests.post(f"https://api.telegram.org/bot{bot_token}/sendMessage",
@@ -245,7 +245,7 @@ async def approve_pro(message: types.Message):
     print("✅ Стартував approve_pro")
     print(f"From user id: {message.from_user.id}, text: {message.text}")
 
-    if message.from_user.id not in [8265377605, 7963871119]:
+    if message.from_user.id not in [8380727351, 7963871119]:
         print("⛔ Не твій адмінський ID, вихід.")
         return
 

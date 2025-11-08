@@ -245,7 +245,7 @@ async def approve_pro(message: types.Message):
     print("✅ Стартував approve_pro")
     print(f"From user id: {message.from_user.id}, text: {message.text}")
 
-    if message.from_user.id not in [8380727351, 7963871119, 8265377605]:
+if message.from_user.id not in [8380727351, 7963871119, 8265377605]:
     print("⛔ Не твій адмінський ID, вихід.")
     return
 

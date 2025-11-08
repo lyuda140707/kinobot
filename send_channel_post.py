@@ -9,40 +9,35 @@ async def main():
 
     bot = Bot(token=token)
 
-    channels = ["@KinoTochkaUA", "@KinoTochkaFilms"]
-    qr_path = "qr.png"
+    # 🎬 Актуальні канали
+    channels = ["@KinoTochkaFilms1", "@KinoTochkaUA"]
 
-    # ✅ Прямий deep-link у Telegram
-    button_url = "tg://resolve?domain=RelaxBox_UA_bot&start=promo"
+    # 🎯 Унікальні посилання для кожного каналу
+    links = {
+        "@KinoTochkaFilms1": "https://relaxbox.fun/films/promo",
+        "@KinoTochkaUA": "https://relaxbox.fun/series/promo"
+    }
 
+    # 🩷 Твій текст-заклик (універсальний і безпечний)
     text = (
-        "🍿 Привіт! Поділися кіношним настроєм 🎬\n"
-        "Запроси друзів у наш бот — нехай теж мають, що дивитися 😉\n\n"
-        "📲 Тисни кнопку або скануй QR-код і вперед! 🚀\n"
-        "👇👇👇"
+        "🍿 Хапай попкорн і заходь до нас 🎬\n"
+        "Тут щодня нові фільми й серіали без реклами, як треба 😎\n\n"
+        "🎥 Тисни кнопку нижче і дивись у боті 👇"
     )
 
-    keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🔓 Відкрити", url=button_url)]
-    ])
-
     for ch in channels:
+        button_url = links[ch]
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🔓 Відкрити в боті", url=button_url)]
+        ])
+
         try:
-            if os.path.exists(qr_path):
-                with open(qr_path, 'rb') as photo:
-                    await bot.send_photo(
-                        chat_id=ch,
-                        photo=photo,
-                        caption=text,
-                        reply_markup=keyboard
-                    )
-            else:
-                await bot.send_message(
-                    chat_id=ch,
-                    text=text,
-                    reply_markup=keyboard,
-                    disable_web_page_preview=True
-                )
+            await bot.send_message(
+                chat_id=ch,
+                text=text,
+                reply_markup=keyboard,
+                disable_web_page_preview=True
+            )
             print(f"✅ Надіслано у {ch}")
         except Exception as e:
             print(f"❌ Помилка у {ch}: {e}")

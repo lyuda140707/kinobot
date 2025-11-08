@@ -817,27 +817,32 @@ async def check_subscription(request: Request):
 
     bot_token = os.getenv("BOT_TOKEN")
 
-    channels = os.getenv("CHANNEL_LIST", "").split(",")  # ← тут заміни на свій другий канал
+    # 🔹 Список каналів — два канали, без пробілів
+    channels = ["@KinoTochkaFilms1", "@KinoTochkaUA"]
 
-    subscribed_to_any = False
+    subscribed_to_all = True  # вважаємо, що підписаний на всі
 
     for channel_username in channels:
+        if not channel_username.strip():
+            continue
+
         url = f"https://api.telegram.org/bot{bot_token}/getChatMember"
-        params = {
-            "chat_id": channel_username,
-            "user_id": user_id
-        }
+        params = {"chat_id": channel_username, "user_id": user_id}
 
         try:
-            response = requests.get(url, params=params)
+            response = requests.get(url, params=params, timeout=10)
             result = response.json()
-            if result.get("ok") and result["result"]["status"] in ["member", "administrator", "creator"]:
-                subscribed_to_any = True
-                break  # можна припинити перевірку, бо вже є підписка
+            if not (result.get("ok") and result["result"]["status"] in ["member", "administrator", "creator"]):
+                subscribed_to_all = False
+                print(f"❌ Не підписаний на {channel_username}")
+                break
         except Exception as e:
-            print(f"❗️Помилка перевірки підписки на {channel_username}: {e}")
+            print(f"⚠️ Помилка перевірки {channel_username}: {e}")
+            subscribed_to_all = False
+            break
 
-    return {"subscribed": subscribed_to_any}
+    return {"subscribed": subscribed_to_all}
+
 
 
 async def background_deleter():

@@ -206,7 +206,7 @@ def update_referrals(inviter_id: str, invited_id: str):
 
 bot = Bot(
     token=os.getenv("BOT_TOKEN"),
-    default=DefaultBotProperties(parse_mode=ParseMode.MARKDOWN)
+    default=DefaultBotProperties(parse_mode=ParseMode.HTML)
 )
 dp = Dispatcher(storage=MemoryStorage())
 

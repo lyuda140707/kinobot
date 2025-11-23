@@ -55,14 +55,17 @@ def check_limit(user_id: int, is_pro: bool):
         append_row(sheet, [str(user_id), now.isoformat(), "1", ""])
         return True, None
 
-    last_time = datetime.fromisoformat(row[1])
-    counter = int(row[2])
-    # --- Автопідстраховка, щоб таблиця не ламала код ---
-    # row: [user_id, last_request, counter, banned_until?]
-    last_request = row[1] if len(row) > 1 else None
-    counter = int(row[2]) if len(row) > 2 else 0
-    banned_until = row[3] if len(row) > 3 else None
-    # -----------------------------------------------------
+    # --- Автопідстраховка від кривих рядків ---
+    last_request = row[1] if len(row) > 1 and row[1] else None
+    counter = int(row[2]) if len(row) > 2 and row[2] else 0
+    banned_until = row[3] if len(row) > 3 and row[3] else None
+    # -------------------------------------------
+    
+    # Якщо є last_request — конвертуємо
+    if last_request:
+        last_time = datetime.fromisoformat(last_request)
+    else:
+        last_time = None
 
 
     # Перевірка бана

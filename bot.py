@@ -237,7 +237,7 @@ async def admin_unban(callback):
             break
 
     if row_index:
-        # очищаємо бан
+        # очищаємо бан у таблиці
         sheet.values().update(
             spreadsheetId=spreadsheet_id,
             range=f"АнтиСпам!A{row_index}:D{row_index}",
@@ -245,8 +245,19 @@ async def admin_unban(callback):
             body={"values": [[user_id, "", "0", ""]]}
         ).execute()
 
-        await callback.answer("🔓 Розблоковано!")
-        await callback.message.answer(f"✅ Користувача {user_id} розблоковано.")
+        # 👉 НАДСИЛАЄМО ПОВІДОМЛЕННЯ АДМІНУ
+        await callback.message.answer(f"🔓 Користувача {user_id} розблоковано адміністратором!")
+
+        # 👉 НАДСИЛАЄМО ПОВІДОМЛЕННЯ КОРИСТУВАЧУ
+        try:
+            await bot.send_message(
+                int(user_id),
+                "✨ Ваш доступ відновлено!\n"
+                "Можете знову переглядати фільми ❤️"
+            )
+        except Exception as e:
+            await callback.message.answer(f"⚠️ Не вдалося написати користувачу: {e}")
+
     else:
         await callback.answer("Не знайдено", show_alert=True)
 

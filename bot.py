@@ -211,10 +211,6 @@ bot = Bot(
 dp = Dispatcher(storage=MemoryStorage())
 
 
-from aiogram import F
-from google_api import get_google_service
-import os
-
 @dp.callback_query(F.data.startswith("unban:"))
 async def admin_unban(callback):
     user_id = callback.data.split(":")[1]
@@ -226,10 +222,11 @@ async def admin_unban(callback):
 
     service = get_google_service()
     sheet = service.spreadsheets()
+    spreadsheet_id = os.getenv("SHEET_ID")
 
     # шукаємо рядок юзера
     rows = sheet.values().get(
-        spreadsheetId=os.getenv("SHEET_ID"),
+        spreadsheetId=spreadsheet_id,
         range="АнтиСпам!A2:D1000"
     ).execute().get("values", [])
 
@@ -242,9 +239,16 @@ async def admin_unban(callback):
     if row_index:
         # очищаємо бан
         sheet.values().update(
-            spreadsheetId=os.getenv("SHEET_ID"),
+            spreadsheetId=spreadsheet_id,
             range=f"АнтиСпам!A{row_index}:D{row_index}",
             valueInputOption="RAW",
+            body={"values": [[user_id, "", "0", ""]]}
+        ).execute()
+
+        await callback.answer("🔓 Розблоковано!")
+        await callback.message.answer(f"✅ Користувача {user_id} розблоковано.")
+    else:
+        await callback.answer("Не знайдено", show_alert=True)
 
 
             

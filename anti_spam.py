@@ -83,7 +83,7 @@ def check_limit(user_id: int, is_pro: bool):
             banned_until_dt.isoformat()
         ])
         # 🔔 Надсилаємо лога адміну
-        from bot import safe_send_admin
+        from bot import safe_send_admin, bot as tg_bot
         import os
         
         ADMIN_ID = os.getenv("ADMIN_ID")
@@ -91,13 +91,14 @@ def check_limit(user_id: int, is_pro: bool):
         try:
             import asyncio
             asyncio.create_task(safe_send_admin(
-                None, ADMIN_ID,
+                tg_bot, ADMIN_ID,
                 f"🚫 Користувача {user_id} заблоковано на 1 годину.\n"
                 f"Причина: масове завантаження без PRO.\n"
                 f"До: {banned_until_dt.strftime('%H:%M %d.%m')}"
             ))
-        except:
-            pass
+        except Exception as e:
+            print("Помилка надсилання лога адміну:", e)
+
 
         return False, banned_until_dt
 

@@ -550,6 +550,18 @@ async def send_film(request: Request):
                 status_code=403,
                 content={"success": False, "error": "⛔ Доступ лише для PRO користувачів"}
                 )
+        # 🛡️ АНТИ-СПАМ (бан за викачування)
+        from anti_spam import check_limit
+        ok, ban_until = check_limit(int(user_id), has_active_pro(str(user_id)))
+        if not ok:
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "success": False,
+                    "error": f"⛔ Ви тимчасово заблоковані до {ban_until.strftime('%H:%M %d.%m')} через масові завантаження."
+                }
+            )
+
 
 
         # Готуємо клавіатуру

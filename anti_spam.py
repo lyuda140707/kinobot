@@ -74,10 +74,12 @@ def check_limit(user_id: int, is_pro: bool):
         if now < banned_dt:
             return False, banned_dt
 
-    # обнулення якщо пройшло більше 3 хв
-    if (now - last_time).seconds > 180:
+  
+    # обнулення якщо пройшло більше 3 хв або нема last_time
+    if not last_time or (now - last_time).seconds > 180:
         update_row(sheet, row_number, [str(user_id), now.isoformat(), "1", ""])
         return True, None
+
 
     # якщо менше 3 хв — це потік завантаження
     counter += 1

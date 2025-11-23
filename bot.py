@@ -210,6 +210,44 @@ bot = Bot(
 )
 dp = Dispatcher(storage=MemoryStorage())
 
+
+from aiogram import F
+from google_api import get_google_service
+import os
+
+@dp.callback_query(F.data.startswith("unban:"))
+async def admin_unban(callback):
+    user_id = callback.data.split(":")[1]
+
+    # дозволити лише адмінам
+    if callback.from_user.id not in [8380727351, 7963871119, 8265377605]:
+        await callback.answer("⛔ Недоступно", show_alert=True)
+        return
+
+    service = get_google_service()
+    sheet = service.spreadsheets()
+
+    # шукаємо рядок юзера
+    rows = sheet.values().get(
+        spreadsheetId=os.getenv("SHEET_ID"),
+        range="АнтиСпам!A2:D1000"
+    ).execute().get("values", [])
+
+    row_index = None
+    for idx, row in enumerate(rows, start=2):
+        if len(row) > 0 and row[0] == user_id:
+            row_index = idx
+            break
+
+    if row_index:
+        # очищаємо бан
+        sheet.values().update(
+            spreadsheetId=os.getenv("SHEET_ID"),
+            range=f"АнтиСпам!A{row_index}:D{row_index}",
+            valueInputOption="RAW",
+
+
+            
 webapp_keyboard = InlineKeyboardMarkup(inline_keyboard=[
     [InlineKeyboardButton(
         text="🛋 Відкрити застосунок",

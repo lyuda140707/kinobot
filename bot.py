@@ -327,6 +327,50 @@ async def approve_pro(message: types.Message):
         print(f"✅ Сповіщення надіслано користувачу {user_id}")
     except Exception as e:
         print(f"⚠️ Не вдалося надіслати повідомлення користувачу {user_id}: {e}")
+@dp.message(Command("unban"))
+async def unban_user(message: types.Message):
+    admin_ids = [8380727351, 7963871119, 8265377605]
+    if message.from_user.id not in admin_ids:
+        return
+
+    args = message.text.split()
+    if len(args) != 2 or not args[1].isdigit():
+        await message.reply("❗ Формат: <code>/unban user_id</code>", parse_mode="HTML")
+        return
+
+    user_id = args[1].strip()
+
+    try:
+        service = get_google_service()
+        sheet = service.spreadsheets()
+        spreadsheet_id = os.getenv("SHEET_ID")
+
+        # шукаємо рядок в АнтиСпам
+        rows = sheet.values().get(
+            spreadsheetId=spreadsheet_id,
+            range="АнтиСпам!A2:D1000"
+        ).execute().get("values", [])
+
+        row_index = None
+        for idx, row in enumerate(rows, start=2):
+            if len(row) > 0 and row[0] == user_id:
+                row_index = idx
+                break
+
+        if row_index:
+            sheet.values().update(
+                spreadsheetId=spreadsheet_id,
+                range=f"АнтиСпам!A{row_index}:D{row_index}",
+                valueInputOption="RAW",
+                body={"values": [["", "", "", ""]]}
+            ).execute()
+
+            await message.reply(f"✅ Користувач {user_id} розблокований.")
+        else:
+            await message.reply("⚠️ Користувача немає у списку заблокованих.")
+
+    except Exception as e:
+        await message.reply(f"❌ Помилка: {e}")
 
 from google_api import find_film_by_name
 

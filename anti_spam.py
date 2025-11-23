@@ -57,7 +57,13 @@ def check_limit(user_id: int, is_pro: bool):
 
     last_time = datetime.fromisoformat(row[1])
     counter = int(row[2])
-    banned_until = row[3]
+    # --- Автопідстраховка, щоб таблиця не ламала код ---
+    # row: [user_id, last_request, counter, banned_until?]
+    last_request = row[1] if len(row) > 1 else None
+    counter = int(row[2]) if len(row) > 2 else 0
+    banned_until = row[3] if len(row) > 3 else None
+    # -----------------------------------------------------
+
 
     # Перевірка бана
     if banned_until:

@@ -99,12 +99,25 @@ def check_limit(user_id: int, is_pro: bool):
         
         try:
             import asyncio
+            from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+
+            keyboard = InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [InlineKeyboardButton(
+                        text=f"🔓 Розблокувати {user_id}",
+                        callback_data=f"unban:{user_id}"
+                    )]
+                ]
+            )
+            
             asyncio.create_task(safe_send_admin(
                 tg_bot, ADMIN_ID,
                 f"🚫 Користувача {user_id} заблоковано на 1 годину.\n"
                 f"Причина: масове завантаження без PRO.\n"
-                f"До: {banned_until_dt.strftime('%H:%M %d.%m')}"
+                f"До: {banned_until_dt.strftime('%H:%M %d.%m')}",
+                reply_markup=keyboard
             ))
+
         except Exception as e:
             print("Помилка надсилання лога адміну:", e)
 

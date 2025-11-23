@@ -642,6 +642,16 @@ async def send_film_by_id(request: Request):
     user_id = str(data.get("user_id"))
     message_id = str(data.get("message_id", "")).strip()
     channel_in = str(data.get("channel_id", "")).strip()
+    # 🛡️ Анти-спам: бан за масові скачування
+    from anti_spam import check_limit
+    is_ok, ban_until = check_limit(int(user_id), has_active_pro(user_id))
+    
+    if not is_ok:
+        return {
+            "success": False,
+            "error": f"⛔ Ви тимчасово заблоковані до {ban_until.strftime('%H:%M %d.%m')} (масові завантаження без PRO)"
+        }
+
 
     if not user_id or not message_id:
         return {"success": False, "error": "user_id або message_id відсутні"}

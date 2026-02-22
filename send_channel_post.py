@@ -10,7 +10,7 @@ async def main():
     bot = Bot(token=token)
 
     # 🎬 Канали для постингу
-    channels = ["@KinoTochkaFilms1", "@KinoTochkaUA"]
+    channels = ["@KinoTochkaUA"]
 
     # 🎯 Унікальні посилання на бот для кожного каналу
     links = {

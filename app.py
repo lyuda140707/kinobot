@@ -28,6 +28,7 @@ from supabase_api import get_films
 from supabase_api import SUPABASE_URL, SUPABASE_KEY
 from fastapi.responses import PlainTextResponse
 import requests
+from fastapi import Header
 
 print("🧩 Testing Supabase connection...")
 try:
@@ -1192,10 +1193,10 @@ async def job_clean_requests():
     return {"ok": True, "cleared": "old orders cleaned"}
 
 @app.post("/jobs/delete-old-messages")
-async def job_delete_old_messages():
-    """
-    Одноразово видаляє всі застарілі відеоповідомлення за даними з аркуша 'Видалення'.
-    """
+async def job_delete_old_messages(x_job_token: str = Header(default="")):
+    if x_job_token != os.getenv("JOB_TOKEN", ""):
+        raise HTTPException(status_code=401, detail="unauthorized")
+
     await background_deleter_once()
     return {"ok": True, "deleted": "old messages removed"}
 

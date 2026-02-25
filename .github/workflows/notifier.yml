@@ -1,9 +1,9 @@
 name: Film Auto Notifier
 
 on:
-  schedule:
-    - cron: "0 17 * * *"   # раз на день (17:00 UTC)
   workflow_dispatch:
+  schedule:
+    - cron: "0 12 * * *"
 
 jobs:
   run-bot:

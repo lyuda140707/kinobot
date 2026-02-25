@@ -2,16 +2,12 @@ name: Film Auto Notifier
 
 on:
   schedule:
-    - cron: "0 15 * * *"   # раз на день о 15:00 UTC
-  workflow_dispatch:on:
-  schedule:
-    - cron: "0 15 * * *"   # раз на день о 15:00 UTC
+    - cron: "0 17 * * *"   # раз на день (17:00 UTC)
   workflow_dispatch:
 
 jobs:
   run-bot:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

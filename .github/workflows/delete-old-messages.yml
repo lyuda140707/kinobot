@@ -1,0 +1,20 @@
+name: Delete Old Messages
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"   # кожні 10 хв (UTC)
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call delete-old-messages job
+        env:
+          BASE_URL: ${{ secrets.RELAX_TIME2_URL }}
+          JOB_TOKEN: ${{ secrets.JOB_TOKEN }}
+        run: |
+          curl --fail --show-error --silent \
+            --retry 3 --retry-delay 5 \
+            -X POST "$BASE_URL/jobs/delete-old-messages" \
+            -H "X-Job-Token: $JOB_TOKEN"

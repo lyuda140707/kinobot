@@ -209,6 +209,37 @@ async def lifespan(app: FastAPI):
 
 # ✅ Оголошення FastAPI ДО використання декораторів
 app = FastAPI(lifespan=lifespan)
+import time
+import httpx
+
+_last_admin_ping = 0.0
+
+async def notify_admin(text: str):
+    global _last_admin_ping
+
+    token = os.getenv("BOT_TOKEN", "").strip()
+    chat_id = os.getenv("ADMIN_ID", "").strip()
+
+    if not token or not chat_id:
+        return
+
+    now = time.time()
+    if now - _last_admin_ping < 10:
+        return
+    _last_admin_ping = now
+
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            await client.post(
+                f"https://api.telegram.org/bot{token}/sendMessage",
+                json={
+                    "chat_id": chat_id,
+                    "text": text[:3500],
+                    "disable_web_page_preview": True
+                }
+            )
+    except Exception:
+        pass
 # === 🧩 Подача статичних файлів та сторінки профілю ===
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -792,7 +823,15 @@ async def send_film_by_id(request: Request):
 
     except Exception as e:
         print(f"❌ Помилка надсилання: {e}")
-        return {"success": False, "error": str(e)}
+    
+        await notify_admin(
+            f"❌ send-film-id помилка\n"
+            f"user_id={user_id}\n"
+            f"message_id={message_id}\n"
+            f"{e}"
+        )
+
+    return {"success": False, "error": str(e)}
 # ✅ Новий ендпоінт для віддачі stream_url у player.html
 import httpx
 

@@ -1,0 +1,29 @@
+name: Film Auto Notifier
+
+on:
+  schedule:
+    - cron: "0 * * * *"   # кожну годину
+  workflow_dispatch:       # дозволяє запуск вручну
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install python-telegram-bot==20.7
+
+      - name: Run notifier
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+        run: |
+          python send_channel_post.py

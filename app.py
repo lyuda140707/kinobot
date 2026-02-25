@@ -195,11 +195,11 @@ async def lifespan(app: FastAPI):
     
     # 🧩 2️⃣ Автоматично запускаємо очищення таблиці "Видалення"
     try:
-        from auto_notify_added import background_deleter
-        asyncio.create_task(background_deleter())
-        print("🚀 Фонова задача background_deleter запущена!")
+        # ❌ Вимкнули вічний while True deleter на Render (512MB)
+        # ✅ Видалення тепер запускаємо окремо по cron через GitHub Actions
+        pass
     except Exception as e:
-        print(f"⚠️ Не вдалося запустити background_deleter: {e}")
+        print(f"⚠️ background_deleter вимкнено: {e}")
         
     yield
 

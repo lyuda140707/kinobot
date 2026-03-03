@@ -189,11 +189,10 @@ messages_to_delete = []
 from contextlib import asynccontextmanager
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
-    # ✅ НЕ запускаємо чистку на старті, якщо змінна увімкнена
-    if os.getenv("DISABLE_STARTUP_CLEANUP", "").strip() not in ("1", "true", "yes", "on"):
-        from bot import clean_expired_pro
-        await asyncio.to_thread(clean_expired_pro)
+async def lifespan(app):
+    # ❌ ВИМКНЕНО: чистка PRO на старті (вбиває інстанс по RAM)
+    # from bot import clean_expired_pro
+    # await asyncio.to_thread(clean_expired_pro)
 
     yield
 

@@ -190,18 +190,11 @@ from contextlib import asynccontextmanager
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # 🚀 1️⃣ Запускаємо автоочистку PRO користувачів
-    from bot import clean_expired_pro
-    await asyncio.to_thread(clean_expired_pro)
-    
-    # 🧩 2️⃣ Автоматично запускаємо очищення таблиці "Видалення"
-    try:
-        # ❌ Вимкнули вічний while True deleter на Render (512MB)
-        # ✅ Видалення тепер запускаємо окремо по cron через GitHub Actions
-        pass
-    except Exception as e:
-        print(f"⚠️ background_deleter вимкнено: {e}")
-        
+    # ✅ НЕ запускаємо чистку на старті, якщо змінна увімкнена
+    if os.getenv("DISABLE_STARTUP_CLEANUP", "").strip() not in ("1", "true", "yes", "on"):
+        from bot import clean_expired_pro
+        await asyncio.to_thread(clean_expired_pro)
+
     yield
 
 

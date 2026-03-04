@@ -30,7 +30,7 @@ def get_google_service():
     http = httplib2.Http(timeout=15)
     authed_http = AuthorizedHttp(creds, http=http)
 
-    service = build("sheets", "v4", http=authed_http)
+    service = build("sheets", "v4", http=authed_http, cache_discovery=False)
     return service
 
 

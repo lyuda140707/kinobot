@@ -1,188 +1,154 @@
+import gspread
 import os
 import json
-from datetime import datetime
-from pytz import timezone
-
+from oauth2client.service_account import ServiceAccountCredentials
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 
-_GOOGLE_SERVICE = None
-_SHEETS = None
 
+def get_gsheet_data():
+    creds_json = os.getenv("GOOGLE_SHEETS_CREDENTIALS_JSON")
+    creds_dict = json.loads(creds_json)
+
+    scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+    creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+    client = gspread.authorize(creds)
+
+    sheet_id = os.getenv("SHEET_ID")
+    sheet = client.open_by_key(sheet_id).sheet1
+    return sheet.get_all_records()
+
+_GOOGLE_SERVICE = None
 
 def get_google_service():
     global _GOOGLE_SERVICE
-
     if _GOOGLE_SERVICE is not None:
         return _GOOGLE_SERVICE
 
-    creds_json = os.getenv("GOOGLE_SHEETS_CREDENTIALS_JSON", "").strip()
-    if not creds_json:
-        raise RuntimeError("ENV GOOGLE_SHEETS_CREDENTIALS_JSON не заданий")
+    import httplib2
+    from google_auth_httplib2 import AuthorizedHttp
 
-    creds_dict = json.loads(creds_json)
-
+    creds_dict = json.loads(os.getenv("GOOGLE_SHEETS_CREDENTIALS_JSON"))
     scopes = ["https://www.googleapis.com/auth/spreadsheets"]
     creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
 
-    _GOOGLE_SERVICE = build(
-        "sheets",
-        "v4",
-        credentials=creds,
-        cache_discovery=False
-    )
+    http = httplib2.Http(timeout=15)
+    authed_http = AuthorizedHttp(creds, http=http)
 
+    _GOOGLE_SERVICE = build("sheets", "v4", http=authed_http, cache_discovery=False)
     return _GOOGLE_SERVICE
 
 
-def get_sheets():
-    global _SHEETS
+from datetime import datetime
+from pytz import timezone
 
-    if _SHEETS is None:
-        _SHEETS = get_google_service().spreadsheets()
+import os
 
-    return _SHEETS
+def add_user_if_not_exists(user_id: int, username: str, first_name: str):
+    service = get_google_service()
+    sheet = service.spreadsheets()
+    SHEET_ID = os.getenv("SHEET_ID")
 
-
-def add_user_if_not_exists(user_id: int, username: str = "", first_name: str = ""):
-
-    sheet_id = os.getenv("SHEET_ID", "").strip()
-    if not sheet_id:
-        raise RuntimeError("ENV SHEET_ID не заданий")
-
-    sheets = get_sheets()
-
-    res = sheets.values().get(
-        spreadsheetId=sheet_id,
-        range="Користувачі!A2:A2000"
+    # Отримати існуючі user_id
+    result = sheet.values().get(
+        spreadsheetId=SHEET_ID,
+        range="Користувачі!A2:A1000"
     ).execute()
-
-    existing_ids = {row[0] for row in res.get("values", []) if row and row[0]}
+    existing_ids = [row[0] for row in result.get("values", []) if row]
 
     if str(user_id) in existing_ids:
-        return
+        return  # Користувач уже є
 
+    # Додаємо нового
     kyiv = timezone("Europe/Kyiv")
     now = datetime.now(kyiv).strftime("%Y-%m-%d %H:%M:%S")
 
-    sheets.values().append(
-        spreadsheetId=sheet_id,
+    sheet.values().append(
+        spreadsheetId=SHEET_ID,
         range="Користувачі!A2:D2",
         valueInputOption="USER_ENTERED",
-        insertDataOption="INSERT_ROWS",
         body={"values": [[str(user_id), username or "", first_name or "", now]]}
     ).execute()
 
-
 def find_film_by_name(query: str):
-
-    query = (query or "").strip()
-
-    if not query:
-        return None
-
-    supa = _find_film_supabase(query)
-
-    if supa is not None:
-        return supa
-
-    return _find_film_gsheets(query)
-
-
-def _find_film_supabase(query: str):
-
+    """Пошук фільму у Supabase (з урахуванням channel_id, message_id, file_id)"""
     import urllib.parse
     import requests
 
-    supabase_url = os.getenv("SUPABASE_URL", "").rstrip("/")
-    supabase_key = (
-        os.getenv("SUPABASE_SERVICE_KEY")
-        or os.getenv("SUPABASE_KEY")
-        or os.getenv("SUPABASE_ANON_KEY")
-        or os.getenv("SUPABASE_ANON")
-        or ""
-    ).strip()
+    SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
+    SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY") or os.getenv("SUPABASE_ANON")
 
-    if not supabase_url or not supabase_key:
+    if not SUPABASE_URL or not SUPABASE_ANON_KEY:
+        print("⚠️ SUPABASE_URL або ключ не задані — пошук через Google Sheets")
         return None
 
-    def sb_headers():
-        return {
-            "apikey": supabase_key,
-            "Authorization": f"Bearer {supabase_key}"
-        }
+    def _sb_headers():
+        return {"apikey": SUPABASE_ANON_KEY, "Authorization": f"Bearer {SUPABASE_ANON_KEY}"}
 
     q = urllib.parse.quote(f"*{query}*")
-
-    url = f"{supabase_url}/rest/v1/films?select=*&title=ilike.{q}&limit=50"
+    url = f"{SUPABASE_URL}/rest/v1/films?select=*&title=ilike.{q}&limit=10"
 
     try:
-        r = requests.get(url, headers=sb_headers(), timeout=10)
-
+        r = requests.get(url, headers=_sb_headers(), timeout=10)
         if not r.ok:
-            print(f"❌ Supabase error: {r.status_code} {r.text}")
+            print(f"❌ Помилка Supabase: {r.status_code} {r.text}")
             return None
 
-        films = r.json() or []
-
+        films = r.json()
         if not films:
+            print("⚠️ У Supabase нічого не знайдено")
             return None
 
+        # Якщо є кілька — беремо той, у якого є channel_id
         films_with_channel = [f for f in films if f.get("channel_id")]
-
         found = films_with_channel[0] if films_with_channel else films[0]
-
+        print(f"✅ Знайдено фільм: {found.get('title')} | channel_id={found.get('channel_id')}")
         return found
 
     except Exception as e:
-        print("❌ Supabase request error:", e)
+        print("❌ Помилка запиту до Supabase:", e)
         return None
 
 
-def _find_film_gsheets(film_name: str):
 
-    sheet_id = os.getenv("SHEET_ID", "").strip()
+def find_film_by_name(film_name):
+    service = get_google_service()
+    sheet = service.spreadsheets()
+    SHEET_ID = os.getenv("SHEET_ID")
 
-    if not sheet_id:
-        raise RuntimeError("ENV SHEET_ID не заданий")
-
-    sheets = get_sheets()
-
-    res = sheets.values().get(
-        spreadsheetId=sheet_id,
-        range="Sheet1!A2:A2000"
+    # Завантажуємо всі назви з Sheet1!A2:A1000
+    result = sheet.values().get(
+        spreadsheetId=SHEET_ID,
+        range="Sheet1!A2:A1000"
     ).execute()
-
-    rows = res.get("values", [])
+    rows = result.get("values", [])
 
     found_row_idx = None
-    needle = film_name.lower()
-
-    for i, row in enumerate(rows, start=2):
-
-        if row and row[0] and needle in row[0].lower():
-            found_row_idx = i
+    for idx, row in enumerate(rows):
+        if row and film_name.lower() in row[0].lower():
+            found_row_idx = idx + 2  # +2 бо починаємо з другого рядка
             break
 
-    if not found_row_idx:
-        return None
+    if found_row_idx:
+        film_row = sheet.values().get(
+            spreadsheetId=SHEET_ID,
+            range=f"Sheet1!A{found_row_idx}:L{found_row_idx}"  # до L (12 колонок)
+        ).execute().get("values", [[]])[0]
 
-    film_row = sheets.values().get(
-        spreadsheetId=sheet_id,
-        range=f"Sheet1!A{found_row_idx}:L{found_row_idx}"
-    ).execute().get("values", [[]])[0]
-
-    return {
-        "Назва": film_row[0] if len(film_row) > 0 else "",
-        "Тип": film_row[1] if len(film_row) > 1 else "",
-        "Жанр": film_row[2] if len(film_row) > 2 else "",
-        "Опис": film_row[3] if len(film_row) > 3 else "",
-        "Фото": film_row[4] if len(film_row) > 4 else "",
-        "message_id": film_row[5] if len(film_row) > 5 else "",
-        "Добірка": film_row[6] if len(film_row) > 6 else "",
-        "Країна": film_row[7] if len(film_row) > 7 else "",
-        "Рік": film_row[8] if len(film_row) > 8 else "",
-        "file_id": film_row[9] if len(film_row) > 9 else "",
-        "Доступ": film_row[10] if len(film_row) > 10 else "",
-        "IMDb": film_row[11] if len(film_row) > 11 else "",
-    }
+        # Збираємо словник із колонок
+        return {
+            "Назва": film_row[0] if len(film_row) > 0 else "",
+            "Тип": film_row[1] if len(film_row) > 1 else "",
+            "Жанр": film_row[2] if len(film_row) > 2 else "",
+            "Опис": film_row[3] if len(film_row) > 3 else "",
+            "Фото": film_row[4] if len(film_row) > 4 else "",
+            "message_id": film_row[5] if len(film_row)>5 else "",
+            "Добірка": film_row[6] if len(film_row) > 6 else "",
+            "Країна": film_row[7] if len(film_row) > 7 else "",
+            "Рік": film_row[8] if len(film_row) > 8 else "",
+            "file_id": film_row[9] if len(film_row) > 9 else "", 
+            
+            "Доступ": film_row[10] if len(film_row) > 10 else "",
+            "IMDb": film_row[11] if len(film_row) > 11 else "",
+        }
+    return None

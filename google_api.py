@@ -6,24 +6,20 @@ from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 
 
-def get_gsheet_data():
-    creds_json = os.getenv("GOOGLE_SHEETS_CREDENTIALS_JSON")
-    creds_dict = json.loads(creds_json)
-
-    scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-    creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
-    client = gspread.authorize(creds)
-
-    sheet_id = os.getenv("SHEET_ID")
-    sheet = client.open_by_key(sheet_id).sheet1
-    return sheet.get_all_records()
 
 _GOOGLE_SERVICE = None
+_SHEETS = None
 
 def get_google_service():
     global _GOOGLE_SERVICE
     if _GOOGLE_SERVICE is not None:
         return _GOOGLE_SERVICE
+
+def get_sheets():
+    global _SHEETS
+    if _SHEETS is None:
+        _SHEETS = get_google_service().spreadsheets()
+    return _SHEETS
 
     import httplib2
     from google_auth_httplib2 import AuthorizedHttp

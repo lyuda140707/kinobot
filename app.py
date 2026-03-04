@@ -2,7 +2,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, Request, HTTPException
 from aiogram import types
 from bot import dp, bot
-from google_api import get_gsheet_data, get_google_service
+from google_api import get_google_service, get_sheets
 import os
 import requests
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
@@ -114,7 +114,7 @@ async def clean_old_requests_once():
     from datetime import datetime, timedelta
 
     kyiv = timezone("Europe/Kyiv")
-    sheet = get_google_service().spreadsheets()
+    sheet = get_sheets()
 
     # 1) Забираємо всі рядки
     rows = sheet.values().get(
@@ -308,8 +308,7 @@ async def notify_payment(req: Request):
     source = data.get("source", "unknown")  # від кого прийшов запит (site / webapp)
 
     # ✅ 1. Підключаємо Google Sheets
-    service = get_google_service()
-    sheet = service.spreadsheets()
+    sheet = get_sheets()
     kyiv = timezone("Europe/Kyiv")
     now_kyiv = datetime.now(kyiv).strftime("%Y-%m-%d %H:%M:%S")
 
@@ -372,7 +371,7 @@ async def create_payment(req: Request):
     now_kyiv = datetime.now(kyiv).strftime("%Y-%m-%d %H:%M:%S")
 
     # 🔹 Записуємо у Google Таблицю (для історії)
-    sheet = get_google_service().spreadsheets()
+    sheet = get_sheets()
     sheet.values().append(
         spreadsheetId=os.getenv("SHEET_ID"),
         range="PRO!A2:E2",
@@ -427,8 +426,7 @@ async def request_film(req: Request):
 
         # 🔒 Якщо користувач не має PRO — перевіряємо ліміт
         if not is_pro:
-            service = get_google_service()
-            sheet = service.spreadsheets()
+            sheet = get_sheets()
 
             kyiv = timezone("Europe/Kyiv")
             now = datetime.now(kyiv)
@@ -469,8 +467,7 @@ async def request_film(req: Request):
                 print(f"✅ У користувача {user_id} ще {remaining} безкоштовних запитів")
 
         # ✅ Записуємо замовлення
-        service = get_google_service()
-        sheet = service.spreadsheets()
+        sheet = get_sheets()
         now_str = datetime.now(timezone("Europe/Kyiv")).strftime("%Y-%m-%d %H:%M:%S")
 
         sheet.values().append(
@@ -638,8 +635,7 @@ async def send_film(request: Request):
                 print(f"⚠️ Не вдалося оновити caption: {e}")
 
         # Зберігаємо для видалення
-        service = get_google_service()
-        sheet = service.spreadsheets()
+        sheet = get_sheets()
         sheet.values().append(
             spreadsheetId=os.getenv("SHEET_ID"),
             range="Видалення!A2",
@@ -798,7 +794,7 @@ async def send_film_by_id(request: Request):
         # 🕓 3️⃣ Запис у таблицю видалення
         kyiv = timezone("Europe/Kyiv")
         delete_time = datetime.now(kyiv) + timedelta(hours=24)
-        sheet = get_google_service().spreadsheets()
+        sheet = get_sheets()
         sheet.values().append(
             spreadsheetId=os.getenv("SHEET_ID"),
             range="Видалення!A2",
@@ -897,9 +893,7 @@ async def check_subscription(request: Request):
 
 
 async def background_deleter():
-    service = get_google_service()
-    sheet = service.spreadsheets()
-
+    sheet = get_sheets()
     while True:
         from pytz import utc
         now = datetime.now(utc)
@@ -970,7 +964,7 @@ async def background_deleter_once(limit: int = 80):
     now = datetime.now(utc)
 
     # ✅ Ледаче створення клієнта (без глобального SHEETS)
-    sheet = get_google_service().spreadsheets()
+    sheet = get_sheets()
 
     rows = sheet.values().get(
         spreadsheetId=os.getenv("SHEET_ID"),
@@ -1026,8 +1020,7 @@ async def check_pending_payments_once():
     Одноразово перевіряє PRO!A2:D і обробляє всі записи
     “Очікує підтвердження” старші за 10 хвилин.
     """
-    service = get_google_service()
-    sheet = service.spreadsheets()
+    sheet = get_sheets()
     kyiv = timezone("Europe/Kyiv")
     now = datetime.now(kyiv)
 
@@ -1093,8 +1086,7 @@ async def job_check_payments():
 
 
 async def check_pending_payments():
-    service = get_google_service()
-    sheet = service.spreadsheets()
+    sheet = get_sheets()
 
     kyiv = timezone("Europe/Kyiv")
 
@@ -1180,8 +1172,7 @@ async def check_pro(req: Request):
     if not user_id:
         return JSONResponse(status_code=400, content={"error": "user_id відсутній"})
 
-    service = get_google_service()
-    sheet = service.spreadsheets()
+    sheet = get_sheets()
     res = sheet.values().get(
         spreadsheetId=os.getenv("SHEET_ID"),
         range="PRO!A2:D1000"
@@ -1274,8 +1265,7 @@ async def rate_film(data: RateRequest):
         if not SPREADSHEET_ID:
             return JSONResponse(status_code=500, content={"success": False, "error": "SHEET_ID не визначено"})
 
-        service = get_google_service()
-        sheet = service.spreadsheets()
+        sheet = get_sheets()
         values = sheet.values().get(
             spreadsheetId=SPREADSHEET_ID,
             range="Sheet1!A2:Z1000"
@@ -1342,8 +1332,7 @@ MEDIA_CHANNEL_ID = int(os.getenv("MEDIA_CHANNEL_ID"))
 
 
 async def notify_pro_expiring():
-    service = get_google_service()
-    sheet = service.spreadsheets()
+    sheet = get_sheets()
     kyiv = timezone("Europe/Kyiv")
 
     while True:

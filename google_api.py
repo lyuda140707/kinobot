@@ -1,137 +1,190 @@
-import gspread
 import os
 import json
-from oauth2client.service_account import ServiceAccountCredentials
+from datetime import datetime
+from pytz import timezone
+
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 
+# Якщо використовуєш gspread десь ще — залишай імпорт.
+# Тут він не потрібен, бо ми працюємо через googleapiclient.
+# import gspread
 
 
+# ✅ Кешуємо клієнт, щоб НЕ жрало RAM і не створювалось 100 разів
 _GOOGLE_SERVICE = None
 _SHEETS = None
 
+
 def get_google_service():
+    """
+    Повертає один (кешований) Google Sheets API service.
+    Працює через ENV: GOOGLE_SHEETS_CREDENTIALS_JSON (service account json),
+    та scopes для Sheets API.
+    """
     global _GOOGLE_SERVICE
     if _GOOGLE_SERVICE is not None:
         return _GOOGLE_SERVICE
 
+    creds_json = os.getenv("GOOGLE_SHEETS_CREDENTIALS_JSON", "").strip()
+    if not creds_json:
+        raise RuntimeError("ENV GOOGLE_SHEETS_CREDENTIALS_JSON не заданий")
+
+    creds_dict = json.loads(creds_json)
+
+    scopes = ["https://www.googleapis.com/auth/spreadsheets"]
+    creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+
+    # ✅ cache_discovery=False — важливо для Render (менше проблем і RAM)
+    _GOOGLE_SERVICE = build("sheets", "v4", credentials=creds, cache_discovery=False)
+    return _GOOGLE_SERVICE
+
+
 def get_sheets():
+    """
+    Кешований доступ до service.spreadsheets()
+    """
     global _SHEETS
     if _SHEETS is None:
         _SHEETS = get_google_service().spreadsheets()
     return _SHEETS
 
-    import httplib2
-    from google_auth_httplib2 import AuthorizedHttp
 
-    creds_dict = json.loads(os.getenv("GOOGLE_SHEETS_CREDENTIALS_JSON"))
-    scopes = ["https://www.googleapis.com/auth/spreadsheets"]
-    creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+def add_user_if_not_exists(user_id: int, username: str = "", first_name: str = ""):
+    """
+    Додає користувача у лист 'Користувачі' якщо його ще немає:
+    A: user_id, B: username, C: first_name, D: created_at (Kyiv)
+    """
+    sheet_id = os.getenv("SHEET_ID", "").strip()
+    if not sheet_id:
+        raise RuntimeError("ENV SHEET_ID не заданий")
 
-    http = httplib2.Http(timeout=15)
-    authed_http = AuthorizedHttp(creds, http=http)
-
-    _GOOGLE_SERVICE = build("sheets", "v4", http=authed_http, cache_discovery=False)
-    return _GOOGLE_SERVICE
-
-
-from datetime import datetime
-from pytz import timezone
-
-import os
-
-def add_user_if_not_exists(user_id: int, username: str, first_name: str):
-    service = get_google_service()
-    sheet = service.spreadsheets()
-    SHEET_ID = os.getenv("SHEET_ID")
+    sheets = get_sheets()
 
     # Отримати існуючі user_id
-    result = sheet.values().get(
-        spreadsheetId=SHEET_ID,
-        range="Користувачі!A2:A1000"
+    res = sheets.values().get(
+        spreadsheetId=sheet_id,
+        range="Користувачі!A2:A2000"
     ).execute()
-    existing_ids = [row[0] for row in result.get("values", []) if row]
+
+    existing_ids = {row[0] for row in res.get("values", []) if row and row[0]}
 
     if str(user_id) in existing_ids:
-        return  # Користувач уже є
+        return
 
-    # Додаємо нового
     kyiv = timezone("Europe/Kyiv")
     now = datetime.now(kyiv).strftime("%Y-%m-%d %H:%M:%S")
 
-    sheet.values().append(
-        spreadsheetId=SHEET_ID,
+    sheets.values().append(
+        spreadsheetId=sheet_id,
         range="Користувачі!A2:D2",
         valueInputOption="USER_ENTERED",
+        insertDataOption="INSERT_ROWS",
         body={"values": [[str(user_id), username or "", first_name or "", now]]}
     ).execute()
 
+
+# -------------------------------
+# ✅ Пошук фільму:
+# 1) Спочатку Supabase (якщо є ENV)
+# 2) Якщо Supabase не налаштований — fallback до Google Sheets
+# -------------------------------
+
 def find_film_by_name(query: str):
-    """Пошук фільму у Supabase (з урахуванням channel_id, message_id, file_id)"""
+    """
+    Повертає знайдений фільм.
+    Пріоритет: Supabase -> Google Sheets.
+    """
+    query = (query or "").strip()
+    if not query:
+        return None
+
+    supa = _find_film_supabase(query)
+    if supa is not None:
+        return supa
+
+    return _find_film_gsheets(query)
+
+
+def _find_film_supabase(query: str):
+    """Пошук у Supabase по title ilike *query*."""
     import urllib.parse
     import requests
 
-    SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
-    SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY") or os.getenv("SUPABASE_ANON")
+    supabase_url = os.getenv("SUPABASE_URL", "").rstrip("/")
+    supabase_key = (
+        os.getenv("SUPABASE_SERVICE_KEY")
+        or os.getenv("SUPABASE_KEY")
+        or os.getenv("SUPABASE_ANON_KEY")
+        or os.getenv("SUPABASE_ANON")
+        or ""
+    ).strip()
 
-    if not SUPABASE_URL or not SUPABASE_ANON_KEY:
-        print("⚠️ SUPABASE_URL або ключ не задані — пошук через Google Sheets")
+    if not supabase_url or not supabase_key:
+        # Supabase не налаштований — повертаємо None і підемо в Google Sheets
         return None
 
-    def _sb_headers():
-        return {"apikey": SUPABASE_ANON_KEY, "Authorization": f"Bearer {SUPABASE_ANON_KEY}"}
+    def sb_headers():
+        return {"apikey": supabase_key, "Authorization": f"Bearer {supabase_key}"}
 
     q = urllib.parse.quote(f"*{query}*")
-    url = f"{SUPABASE_URL}/rest/v1/films?select=*&title=ilike.{q}&limit=10"
+    url = f"{supabase_url}/rest/v1/films?select=*&title=ilike.{q}&limit=50"
 
     try:
-        r = requests.get(url, headers=_sb_headers(), timeout=10)
+        r = requests.get(url, headers=sb_headers(), timeout=10)
         if not r.ok:
-            print(f"❌ Помилка Supabase: {r.status_code} {r.text}")
+            print(f"❌ Supabase error: {r.status_code} {r.text}")
             return None
 
-        films = r.json()
+        films = r.json() or []
         if not films:
-            print("⚠️ У Supabase нічого не знайдено")
             return None
 
-        # Якщо є кілька — беремо той, у якого є channel_id
+        # Якщо є кілька — беремо той, у якого є channel_id, інакше перший
         films_with_channel = [f for f in films if f.get("channel_id")]
         found = films_with_channel[0] if films_with_channel else films[0]
-        print(f"✅ Знайдено фільм: {found.get('title')} | channel_id={found.get('channel_id')}")
         return found
 
     except Exception as e:
-        print("❌ Помилка запиту до Supabase:", e)
+        print("❌ Supabase request error:", e)
         return None
 
 
+def _find_film_gsheets(film_name: str):
+    """Fallback: пошук у Google Sheets Sheet1 по колонці A (назва)."""
+    sheet_id = os.getenv("SHEET_ID", "").strip()
+    if not sheet_id:
+        raise RuntimeError("ENV SHEET_ID не заданий")
 
-def find_film_by_name(film_name):
-    service = get_google_service()
-    sheet = service.spreadsheets()
-    SHEET_ID = os.getenv("SHEET_ID")
+    sheets = get_sheets()
 
-    # Завантажуємо всі назви з Sheet1!A2:A1000
-    result = sheet.values().get(
-        spreadsheetId=SHEET_ID,
-        range="Sheet1!A2:A1000"
+    res = sheets.values().get(
+        spreadsheetId=sheet_id,
+        range="Sheet1!A2:A2000"
     ).execute()
-    rows = result.get("values", [])
+
+    rows = res.get("values", [])
 
     found_row_idx = None
-    for idx, row in enumerate(rows):
-        if row and film_name.lower() in row[0].lower():
-            found_row_idx = idx + 2  # +2 бо починаємо з другого рядка
+    needle = film_name.lower()
+
+    for i, row in enumerate(rows, start=2):
+        if row and row[0] and needle in row[0].lower():
+            found_row_idx = i
             break
 
-    if found_row_idx:
-        film_row = sheet.values().get(
-            spreadsheetId=SHEET_ID,
-            range=f"Sheet1!A{found_row_idx}:L{found_row_idx}"  # до L (12 колонок)
-        ).execute().get("values", [[]])[0]
+    if not found_row_idx:
+        return None
 
-        # Збираємо словник із колонок
+    film_row = sheets.values().get(
+        spreadsheetId=sheet_id,
+        range=f"Sheet1!A{found_row_idx}:L{found_row_idx}"
+    ).execute().get("values", [[]])[0]
+
+    def safe(i: int) -> str:
+        return film_row[i] if len(film_row) > i else ""
+
+   
         return {
             "Назва": film_row[0] if len(film_row) > 0 else "",
             "Тип": film_row[1] if len(film_row) > 1 else "",

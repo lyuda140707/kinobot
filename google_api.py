@@ -18,7 +18,13 @@ def get_gsheet_data():
     sheet = client.open_by_key(sheet_id).sheet1
     return sheet.get_all_records()
 
+_GOOGLE_SERVICE = None
+
 def get_google_service():
+    global _GOOGLE_SERVICE
+    if _GOOGLE_SERVICE is not None:
+        return _GOOGLE_SERVICE
+
     import httplib2
     from google_auth_httplib2 import AuthorizedHttp
 
@@ -26,17 +32,16 @@ def get_google_service():
     scopes = ["https://www.googleapis.com/auth/spreadsheets"]
     creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
 
-    # 🕒 додаємо таймаут у 15 секунд
     http = httplib2.Http(timeout=15)
     authed_http = AuthorizedHttp(creds, http=http)
 
-    service = build("sheets", "v4", http=authed_http, cache_discovery=False)
-    return service
+    _GOOGLE_SERVICE = build("sheets", "v4", http=authed_http, cache_discovery=False)
+    return _GOOGLE_SERVICE
 
 
 from datetime import datetime
 from pytz import timezone
-from google_api import get_google_service
+
 import os
 
 def add_user_if_not_exists(user_id: int, username: str, first_name: str):

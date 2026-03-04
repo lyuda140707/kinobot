@@ -45,10 +45,7 @@ try:
 except Exception as e:
     print(f"❌ Немає доступу до Supabase: {e}")
 
-# singleton Google Sheets client
-from google_api import get_google_service
-SERVICE = get_google_service()
-SHEETS = SERVICE.spreadsheets()
+
 
 # ==== Supabase REST helper ====
 SUPABASE_URL = os.getenv("SUPABASE_URL", "").rstrip("/")
@@ -968,40 +965,61 @@ async def background_deleter():
                     
 
         
-async def background_deleter_once():
+async def background_deleter_once(limit: int = 80):
     from pytz import utc
     now = datetime.now(utc)
-    sheet = SHEETS
+
+    # ✅ Ледаче створення клієнта (без глобального SHEETS)
+    sheet = get_google_service().spreadsheets()
 
     rows = sheet.values().get(
         spreadsheetId=os.getenv("SHEET_ID"),
         range="Видалення!A2:C1000"
     ).execute().get("values", [])
 
+    expired = []  # (row_num, user_id, message_id)
+
     for idx, row in enumerate(rows, start=2):
         if len(row) < 3:
             continue
-        user_id, message_id, delete_at_str = row
-        if not (user_id.isdigit() and message_id.isdigit()):
+
+        user_id, message_id, delete_at_str = row[0], row[1], row[2]
+
+        if not (str(user_id).isdigit() and str(message_id).isdigit()):
             continue
+
         try:
             delete_at = dateutil.parser.isoparse(delete_at_str)
-        except:
+        except Exception:
             continue
 
-        if datetime.now(utc) >= delete_at:
-            try:
-                await bot.delete_message(chat_id=int(user_id), message_id=int(message_id))
-            except:
-                pass
-            sheet.values().update(
-                spreadsheetId=os.getenv("SHEET_ID"),
-                range=f"Видалення!A{idx}:C{idx}",
-                valueInputOption="RAW",
-                body={"values":[["","",""]]}
-            ).execute()
+        if now >= delete_at:
+            expired.append((idx, int(user_id), int(message_id)))
+            if len(expired) >= limit:
+                break
 
-# … ваш background_deleter_once тут …
+    # 1) видаляємо повідомлення (по одному — норм)
+    for row_num, user_id, message_id in expired:
+        try:
+            await bot.delete_message(chat_id=user_id, message_id=message_id)
+        except Exception:
+            pass
+
+    # 2) чистимо рядки одним batchUpdate (а не 80 update в циклі)
+    if expired:
+        data = []
+        for row_num, _, _ in expired:
+            data.append({
+                "range": f"Видалення!A{row_num}:C{row_num}",
+                "values": [["", "", ""]]
+            })
+
+        sheet.values().batchUpdate(
+            spreadsheetId=os.getenv("SHEET_ID"),
+            body={"valueInputOption": "RAW", "data": data}
+        ).execute()
+
+    return {"deleted": len(expired)}
 
 async def check_pending_payments_once():
     """
@@ -1228,7 +1246,7 @@ async def job_delete_old_messages(x_job_token: str = Header(default="")):
     if x_job_token != os.getenv("JOB_TOKEN", ""):
         raise HTTPException(status_code=401, detail="unauthorized")
 
-    await background_deleter_once()
+    await background_deleter_once(limit=80)
     return {"ok": True, "deleted": "old messages removed"}
 
 

@@ -5,6 +5,10 @@ on:
     - cron: "0 1 * * *"   # щодня о 03:00 по Києву (зараз)
   workflow_dispatch:
 
+concurrency:
+  group: delete-old-messages
+  cancel-in-progress: true
+
 jobs:
   run:
     runs-on: ubuntu-latest

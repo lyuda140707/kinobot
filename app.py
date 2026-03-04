@@ -114,7 +114,7 @@ async def clean_old_requests_once():
     from datetime import datetime, timedelta
 
     kyiv = timezone("Europe/Kyiv")
-    sheet = SHEETS
+    sheet = get_google_service().spreadsheets()
 
     # 1) Забираємо всі рядки
     rows = sheet.values().get(
